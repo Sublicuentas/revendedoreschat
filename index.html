@@ -498,9 +498,13 @@ h1,h2,h3,.disp{font-family:var(--ff)}
         <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         <input id="inPass" type="password" placeholder="Clave" autocomplete="current-password">
       </div>
+      <div class="field hide" id="fieldPin">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+        <input id="inPin" type="text" inputmode="numeric" placeholder="Código de configuración (PIN)" autocomplete="one-time-code" maxlength="6">
+      </div>
       <button class="login-btn" id="loginBtn" onclick="doLogin()">Acceder</button>
       <div class="login-err" id="loginErr"></div>
-      <div class="login-foot">La primera vez, la clave que escribás queda guardada como la tuya.</div>
+      <div class="login-foot" id="loginFoot">La primera vez, necesitás también el PIN de configuración que te dio el admin.</div>
     </div>
   </div>
 </div>
@@ -744,14 +748,26 @@ setInterval(actualizarFechaHora,60000);
 /* login */
 /* Texto del botón de login (cambiá acá las 2 palabras si querés otra) */
 const LOGIN_CTA={go:'Acceder', load:'Accediendo…'};
+let pinModo=false;
+function mostrarCampoPin(mostrar){
+  pinModo=mostrar;
+  fieldPin.classList.toggle('hide',!mostrar);
+  loginFoot.textContent=mostrar
+    ? 'Primera vez: poné el PIN que te dio el admin y elegí la clave que vas a usar de ahora en más.'
+    : 'La primera vez, necesitás también el PIN de configuración que te dio el admin.';
+  if(mostrar){ try{inPin.focus()}catch(_){} }
+}
 async function doLogin(){
-  const usuario=inUser.value.trim(), password=inPass.value.trim();
+  const usuario=inUser.value.trim(), password=inPass.value.trim(), pin=(inPin?.value||'').trim();
   loginErr.textContent='';
   if(!usuario||!password){loginErr.textContent='Escribí tu usuario y tu clave.';return}
+  if(pinModo && !pin){loginErr.textContent='Poné también el PIN de configuración.';return}
   if(CONFIG.apiBase.includes('TU-BOT')){loginErr.textContent='Falta poner la URL de la API (CONFIG.apiBase).';return}
   loginBtn.disabled=true; loginBtn.textContent=LOGIN_CTA.load;
   try{
-    const res=await API.call('/rev/login',{method:'POST',body:JSON.stringify({usuario,password})});
+    const body={usuario,password};
+    if(pin) body.pin=pin;
+    const res=await API.call('/rev/login',{method:'POST',body:JSON.stringify(body)});
     API.setToken(res.token);
     if(res.admin){
       isAdmin=true; adminToken=res.token;
@@ -763,7 +779,19 @@ async function doLogin(){
     st('set','rev_data',JSON.stringify(rev)); st('del','rev_admin');
     enterApp();
   }catch(e){
-    const map={credenciales:'Usuario o clave incorrectos.',inactivo:'Tu cuenta está inactiva.',faltan_datos:'Faltan datos.'};
+    if(e.error==='pin_requerido'){
+      mostrarCampoPin(true);
+      loginErr.textContent='Es tu primera vez: escribí también el PIN de configuración.';
+      return;
+    }
+    const map={
+      credenciales:'Usuario o clave incorrectos.',
+      inactivo:'Tu cuenta está inactiva.',
+      faltan_datos:'Faltan datos.',
+      pin_invalido:'El PIN de configuración no es correcto.',
+      cuenta_no_configurada:'Tu cuenta todavía no tiene PIN de configuración. Pedile uno al admin (/resetpin).',
+      demasiados_intentos:'Demasiados intentos. Probá de nuevo en unos minutos.',
+    };
     loginErr.textContent=map[e.error]||'No pude conectar. Revisá la URL de la API.';
   }finally{loginBtn.disabled=false;loginBtn.textContent=LOGIN_CTA.go}
 }
@@ -899,8 +927,9 @@ function compraCard(c){
 }
 
 const PANEL_URL='https://sublicuentas.com';
-function onboardMsg(nombre,user){
-  return `¡Hola ${nombre}! 👋 Ya podés entrar a tu panel de Sublicuentas:\n\n🔗 ${PANEL_URL}\n👤 Usuario: ${user}\n🔑 Clave: la primera vez que entrés, la clave que escribás queda guardada como la tuya. Usá una que recuerdes.\n\nCualquier duda, escribime. 🤝`;
+function onboardMsg(nombre,user,pin){
+  const pinLinea=pin?`🔐 PIN de configuración (solo la primera vez): ${pin}\n`:'';
+  return `¡Hola ${nombre}! 👋 Ya podés entrar a tu panel de Sublicuentas:\n\n🔗 ${PANEL_URL}\n👤 Usuario: ${user}\n${pinLinea}🔑 Clave: la primera vez que entrés, además del PIN, escribí la clave que querés usar de ahora en más — esa queda guardada como la tuya.\n\nCualquier duda, escribime. 🤝`;
 }
 function usrCard(r){
   const ini=(r.nombre[0]||'?').toUpperCase();
@@ -917,7 +946,12 @@ function usrCard(r){
   </div>`;
 }
 function copyUser(u,btn){navigator.clipboard?.writeText(u);const o=btn.textContent;btn.textContent='¡Copiado!';setTimeout(()=>btn.textContent=o,1200)}
-function waOnboard(nombre,user){window.open('https://wa.me/?text='+encodeURIComponent(onboardMsg(nombre,user)),'_blank')}
+function waOnboard(nombre,user){
+  // El PIN lo generó el bot (comando /addvendedor o /resetpin) y solo se
+  // muestra ahí una vez — este panel no lo guarda ni lo puede recuperar.
+  const pin=(window.prompt(`PIN de configuración de ${nombre}\n\n(te lo dio el bot al correr /addvendedor o /resetpin — dejalo vacío si ya lo usó)`,'')||'').trim();
+  window.open('https://wa.me/?text='+encodeURIComponent(onboardMsg(nombre,user,pin)),'_blank');
+}
 function copyAllUsers(btn){
   const t=adminRevs.map(r=>`${r.nombre}: ${r.nombre_norm}`).join('\n');
   navigator.clipboard?.writeText(t);
