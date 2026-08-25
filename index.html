@@ -464,6 +464,24 @@ h1,h2,h3,.disp{font-family:var(--ff)}
 .buy-product-title small{font-family:var(--fn);font-weight:950;color:#119b55;font-size:13px;white-space:nowrap}.buy-product-help{color:var(--muted);font-family:var(--fn);font-weight:900;font-size:12.5px;margin:5px 0 10px;line-height:1.25}
 
 </style>
+<style>
+/* FASE 1 · INTERFAZ SOCIOS 2026 */
+:root{--partner-red:#e2231a;--partner-dark:#12121c;--partner-purple:#7c4dff;--partner-violet:#a77bff;--partner-cyan:#00b2ee;--partner-bg:#f5f5fb}
+body{background:var(--partner-bg)}
+#app{max-width:1180px;padding-bottom:112px}
+.partner-hero{position:relative;overflow:hidden;min-height:220px;margin:4px 0 18px;padding:26px;border-radius:30px;background:linear-gradient(135deg,#5a2fd1 0%,#8d5cff 48%,#e2231a 115%);color:#fff;box-shadow:0 22px 50px rgba(91,51,190,.22)}
+.partner-hero:before,.partner-hero:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.10)}
+.partner-hero:before{width:230px;height:230px;right:-55px;top:-95px}.partner-hero:after{width:120px;height:120px;left:43%;bottom:-75px}
+.partner-copy{position:relative;z-index:2;max-width:62%}.partner-kicker{font-size:12px;font-weight:950;letter-spacing:1.4px;text-transform:uppercase;opacity:.78}.partner-copy h2{font-family:var(--ff);font-size:30px;line-height:1.05;margin:8px 0}.partner-copy p{font-weight:750;line-height:1.45;opacity:.88;margin:0 0 18px}.partner-main-action{border:0;border-radius:15px;padding:12px 17px;background:#fff;color:#5c35cf;font-weight:950;box-shadow:0 10px 24px rgba(32,15,83,.17)}
+.partner-mascot{position:absolute;z-index:1;right:-10px;bottom:-38px;width:230px;height:230px;object-fit:contain;filter:drop-shadow(0 18px 18px rgba(25,8,60,.25))}
+.phase-heading{display:flex;align-items:end;justify-content:space-between;margin:22px 3px 12px}.phase-heading h2{font-family:var(--ff);font-size:20px;margin:0}.phase-heading span{font-size:12px;font-weight:850;color:var(--muted)}
+.partner-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.partner-action{border:0;text-align:left;padding:16px;border-radius:21px;background:#fff;box-shadow:0 10px 28px rgba(49,39,92,.08)}.partner-action i{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;font-style:normal;font-size:21px;margin-bottom:13px}.partner-action b{display:block;color:var(--txt);font-size:14px}.partner-action small{display:block;color:var(--muted);font-weight:750;margin-top:4px;line-height:1.3}.partner-action:nth-child(1) i{background:#eee6ff}.partner-action:nth-child(2) i{background:#e2f8ff}.partner-action:nth-child(3) i{background:#fff0de}.partner-action:nth-child(4) i{background:#e7faef}
+.profile-hero{position:relative;overflow:hidden;text-align:center;padding:28px 20px 24px;border-radius:30px;background:linear-gradient(145deg,#6e3ee4,#a877ff);color:#fff;box-shadow:0 20px 45px rgba(98,57,205,.2)}.profile-robot{width:150px;height:150px;object-fit:contain;filter:drop-shadow(0 14px 12px rgba(36,13,91,.23))}.profile-hero h2{font-family:var(--ff);font-size:27px;margin:-2px 0 3px}.profile-hero p{margin:0;opacity:.82;font-weight:800}.profile-level{display:inline-flex;margin-top:13px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:8px 13px;font-size:12px;font-weight:900}.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:15px 0}.profile-stat{background:#fff;border-radius:20px;padding:17px 10px;text-align:center;box-shadow:0 9px 25px rgba(49,39,92,.07)}.profile-stat b{display:block;font-family:var(--ff);font-size:23px;color:#633bd1}.profile-stat span{font-size:11px;font-weight:850;color:var(--muted)}
+.quick-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(18,18,28,.48);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center}.quick-overlay.show{display:flex}.quick-sheet{width:min(540px,100%);padding:12px 18px 28px;border-radius:28px 28px 0 0;background:#fff;box-shadow:0 -20px 50px rgba(0,0,0,.2)}.quick-sheet .grab{margin:2px auto 18px}.quick-sheet h3{font-family:var(--ff);font-size:21px;margin:0 0 14px}.quick-sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quick-sheet-grid button{border:0;border-radius:17px;padding:17px 12px;background:#f4f1fc;color:var(--txt);font-weight:900;text-align:left}
+.nav .nav-btn.main-plus{transform:translateY(-14px)}.nav .nav-btn.main-plus .nav-ico{display:grid;place-items:center;width:58px;height:58px;border-radius:22px;background:linear-gradient(145deg,#8d5cff,#e2231a);color:#fff;font-size:30px;box-shadow:0 12px 24px rgba(106,61,217,.34)}
+@media(min-width:900px){body{padding-left:238px}.nav{left:0;top:0;bottom:0;width:220px;height:auto;display:flex!important;flex-direction:column;justify-content:flex-start;padding:28px 14px;background:#fff;border-radius:0;border-right:1px solid #eceaf5;box-shadow:8px 0 28px rgba(42,30,79,.06)}.nav:before{content:"SUBLICUENTAS\A PANEL DE SOCIOS";white-space:pre;color:#e2231a;font-family:var(--ff);font-weight:950;line-height:1.25;padding:10px 12px 28px}.nav .nav-btn{width:100%;min-height:58px;flex:none;display:flex;flex-direction:row;justify-content:flex-start;gap:13px;padding:10px 14px;border-radius:17px}.nav .nav-btn.on{background:#f0eaff;color:#693dde}.nav .nav-btn.main-plus{order:2;transform:none}.nav .nav-btn.main-plus .nav-ico{width:32px;height:32px;border-radius:11px;font-size:20px}.topbar{border-radius:0 0 24px 24px}.partner-hero{min-height:270px;padding:42px}.partner-copy h2{font-size:42px}.partner-mascot{width:330px;height:330px;right:22px;bottom:-55px}.profile-layout{display:grid;grid-template-columns:360px 1fr;gap:18px}.profile-stats{margin:0;grid-template-columns:1fr 1fr 1fr;align-content:start}.quick-overlay{align-items:center}.quick-sheet{border-radius:28px}}
+@media(max-width:620px){.partner-hero{min-height:238px;padding:23px 20px}.partner-copy{max-width:68%}.partner-copy h2{font-size:27px}.partner-copy p{font-size:12px}.partner-mascot{width:185px;height:185px;right:-34px;bottom:-26px}.partner-actions{grid-template-columns:1fr 1fr}.profile-robot{width:132px;height:132px}.profile-stats{gap:8px}.profile-stat{padding:14px 5px}.nav{padding-bottom:max(7px,env(safe-area-inset-bottom))}}
+</style>
 </head>
 <body>
 
@@ -527,14 +545,22 @@ h1,h2,h3,.disp{font-family:var(--ff)}
   <div id="content"><div class="spin"></div></div>
 </div>
 
-<nav class="nav nav6 hide" id="nav">
+<nav class="nav hide" id="nav">
   <button class="nav-btn on" data-v="inicio" onclick="go('inicio')"><span class="nav-ico">🏠</span><span>Inicio</span></button>
-  <button class="nav-btn" data-v="compras" onclick="go('compras')"><span class="nav-ico">🛒</span><span>Compras</span></button>
   <button class="nav-btn" data-v="clientes" onclick="go('clientes')"><span class="nav-ico">👥</span><span>Clientes</span></button>
-  <button class="nav-btn" data-v="renovar" onclick="go('renovar')"><span class="nav-ico">🔄</span><span>Renovación</span></button>
+  <button class="nav-btn main-plus" type="button" onclick="openPartnerQuick()"><span class="nav-ico">＋</span><span>Acciones</span></button>
   <button class="nav-btn" data-v="precios" onclick="go('precios')"><span class="nav-ico">📋</span><span>Catálogo</span></button>
-  <button class="nav-btn" data-v="aula" onclick="go('aula')"><span class="nav-ico">🤖</span><span>Subli Aula</span></button>
+  <button class="nav-btn" data-v="perfil" onclick="go('perfil')"><span class="nav-ico">👤</span><span>Perfil</span></button>
 </nav>
+
+<div class="quick-overlay" id="partnerQuick" onclick="if(event.target===this)closePartnerQuick()">
+  <div class="quick-sheet"><div class="grab"></div><h3>¿Qué desea hacer?</h3><div class="quick-sheet-grid">
+    <button onclick="closePartnerQuick();go('compras')">🛒 Nueva compra</button>
+    <button onclick="closePartnerQuick();go('renovar')">🔄 Renovar cliente</button>
+    <button onclick="closePartnerQuick();go('clientes')">👥 Buscar cliente</button>
+    <button onclick="closePartnerQuick();go('aula')">✨ Abrir Subli IA</button>
+  </div></div>
+</div>
 
 <!-- COBRO MODAL -->
 <div class="cobro-overlay" id="cobroOverlay" onclick="if(event.target===this)closeCobro()">
@@ -1056,7 +1082,7 @@ const content=document.getElementById('content');
 async function go(v){current=v;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   window.scrollTo(0,0);
-  const views={inicio:vInicio,compras:vCompras,clientes:vClientes,renovar:vRenovar,precios:vPrecios,buzon:vSugerencias,aula:vAula};
+  const views={inicio:vInicio,compras:vCompras,clientes:vClientes,renovar:vRenovar,precios:vPrecios,buzon:vSugerencias,aula:vAula,perfil:vPerfil};
   if(v==='precios'){
     content.innerHTML='<div class="spin"></div><div style="text-align:center;color:var(--muted);font-weight:800">Actualizando catálogo…</div>';
     await loadPrecios();
@@ -1065,6 +1091,8 @@ async function go(v){current=v;
   (views[v]||vInicio)();
   actualizarBadgeBuzon();
 }
+function openPartnerQuick(){document.getElementById('partnerQuick')?.classList.add('show')}
+function closePartnerQuick(){document.getElementById('partnerQuick')?.classList.remove('show')}
 
 /* INICIO */
 function vInicio(){
@@ -1081,6 +1109,22 @@ function vInicio(){
   const tituloHoy=hoy.length?`${hoy.length} ${hoy.length===1?'cuenta vence':'cuentas vencen'} hoy`:'Hoy no tenés vencimientos';
   const detalleHoy=`${hoy.length} hoy · ${semana.length} esta semana · ${vencidos.length} vencidas · ${money(carteraHoy)}`;
   content.innerHTML=`
+  <section class="partner-hero">
+    <div class="partner-copy">
+      <div class="partner-kicker">Panel de socios</div>
+      <h2>Hola, ${revName()} 👋</h2>
+      <p>Venda, renueve y controle su negocio desde un solo lugar.</p>
+      <button class="partner-main-action" onclick="openPartnerQuick()">＋ Nueva operación</button>
+    </div>
+    <img class="partner-mascot" src="assets/robot-socios.png" alt="Mascota Sublicuentas">
+  </section>
+  <div class="phase-heading"><h2>Accesos rápidos</h2><span>${cliVigentes} clientes activos</span></div>
+  <div class="partner-actions">
+    <button class="partner-action" onclick="go('compras')"><i>🛒</i><b>Nueva compra</b><small>Solicite un servicio</small></button>
+    <button class="partner-action" onclick="go('clientes')"><i>👥</i><b>Mis clientes</b><small>Busque y gestione</small></button>
+    <button class="partner-action" onclick="go('renovar')"><i>🔄</i><b>Renovar</b><small>Cobros y fechas</small></button>
+    <button class="partner-action" onclick="go('aula')"><i>✨</i><b>Subli IA</b><small>Venda con asistencia</small></button>
+  </div>
   ${avisos.length?`<div class="aviso-card"><div class="ah">📣 AVISOS</div>${avisos.slice(0,3).map(a=>`<div class="aviso-item"><div class="at">${a.texto}</div><div class="am">${a.autor} · hace ${tiempoDesde(a.ts)}</div></div>`).join('')}</div>`:''}
   ${vencidos.length?`<div class="cut-alert"><b>🚨 ${vencidos.length} cliente${vencidos.length===1?'':'s'} pasado${vencidos.length===1?'':'s'} del día de pago</b><span>Revise corte o renovación. Entre a Renovación para cobrar, renovar fecha o subir comprobante.</span></div>`:''}
   <div class="today-card">
@@ -1117,6 +1161,19 @@ function vInicio(){
     ${prox.length?`<div class="renew">${prox.map(renRow).join('')}</div>`:
       `<div class="empty" style="padding:24px"><div class="ico">📭</div>Sin fechas registradas.</div>`}
   </div>`;
+}
+function vPerfil(){
+  const fs=flat(),vigentes=fs.filter(s=>esVigente(s.est)),vencidos=fs.filter(s=>s.est.n<0);
+  const cartera=vigentes.reduce((a,s)=>a+(s.precio||0),0);
+  const nivel=vigentes.length>=50?'Socio Élite':vigentes.length>=25?'Socio Oro':vigentes.length>=10?'Socio Plata':'Socio Inicial';
+  content.innerHTML=`<div class="scr-title">Mi perfil</div><div class="profile-layout">
+    <section class="profile-hero"><img class="profile-robot" src="assets/robot-socios.png" alt="Mascota Sublicuentas"><h2>${revName()}</h2><p>Socio comercial de Sublicuentas</p><div class="profile-level">🏆 ${nivel}</div></section>
+    <div><div class="profile-stats"><div class="profile-stat"><b>${clientes.length}</b><span>Clientes</span></div><div class="profile-stat"><b>${vigentes.length}</b><span>Servicios activos</span></div><div class="profile-stat"><b>${money(cartera)}</b><span>Cartera vigente</span></div></div>
+      <div class="card"><div class="card-h"><h2>Estado de su negocio</h2></div><div class="renew">
+        <div class="renew-item"><div class="av">✅</div><div class="meta"><div class="nm">Servicios al día</div><div class="pl">Accesos vigentes de sus clientes</div></div><b>${vigentes.length}</b></div>
+        <div class="renew-item"><div class="av">⏰</div><div class="meta"><div class="nm">Pendientes de renovación</div><div class="pl">Requieren seguimiento</div></div><b>${vencidos.length}</b></div>
+      </div></div><div class="quick-grid" style="margin-top:14px"><button class="quick-tile" onclick="go('aula')"><span class="qi">🎓</span><b>Subli Aula</b><small>Cursos y asistente IA</small></button><button class="quick-tile" onclick="go('buzon')"><span class="qi">📬</span><b>Buzón</b><small>Avisos y sugerencias</small></button><button class="quick-tile" onclick="logout()"><span class="qi">🚪</span><b>Cerrar sesión</b><small>Salir de este dispositivo</small></button></div>
+    </div></div>`;
 }
 function renRow(s){
   const ini=(nombreCli(s.cliente)[0]||'?').toUpperCase();
