@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>Panel Socios · Sublicuentas</title>
+
+<!-- ════════ CONFIG · AJUSTÁ SOLO ESTO ════════ -->
+<script>
+const CONFIG = {
+  // URL de tu API (index_08_api.js en Render). SIN slash final.
+  apiBase: "https://sublicuentas-panel-api.onrender.com",
+  // URL de la Academia (pestaña Aula). Vacío = botón aparte.
+  academiaUrl: "",
+  // Ruta backend para Ask/Aula con Gemini. Mantener la llave de Gemini SOLO en la API, no aquí.
+  aiPath: "/rev/ask",
+  aiFallbackPaths: ["/rev/ask","/ask","/gemini"],
+  // Campos dentro de cada servicio (ya calzados con tu base)
+  campos: {
+    servicio:   ["plataforma","servicio","nombre","cuenta"],
+    vencimiento:["fechaRenovacion","vencimiento","vence","fechaFin"],
+    correo:     ["correo","email"],
+    pin:        ["pin","clave"],
+    precio:     ["precio"]
+  },
+  // Mensaje de cobro SIN VALOR. Vars: {cliente} {servicio} {vencimiento} {dias}
+  cobroTemplate:
+`Hola {cliente} 👋
+
+Le recordamos que su servicio de *{servicio}* vence el *{vencimiento}*.
+
+Para no perder el acceso, recuerde renovar a tiempo. ¡Quedo atento! 🙌`,
+  avisoDias: 5,
+  verPrecioEnCliente: true,
+  // Intro de video al abrir. Poné la URL de tu .mp4 (o dejá "" para usar la animación de marca).
+  introVideo: "",
+  // Duración (ms) de la intro de marca cuando NO hay video. Tope 5000.
+  introDuracion: 4600
+};
+const LOGO = "assets/robot-socios.png";
+const ROBOT_IMG = "assets/robot-socios.png";
+const WORD_IMG = "assets/word.webp";
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --txt:#0F2D52; --txt2:#3a567a; --muted:#6E8299;
+  --accent:#FF3F6E; --accent-d:#D92954; --accentSoft:rgba(255,63,110,.1);
+  --hero1:#e8313f; --hero2:#c41e2a;
+  --good:#1fbf86; --goodSoft:rgba(31,191,134,.14);
+  --warn:#e8a317; --warnSoft:rgba(232,163,23,.14);
+  --exp:#ff5466; --expSoft:rgba(255,80,80,.12);
+  --card:#fff; --field:#f4f8fc; --line:rgba(120,140,170,.16);
+  --r:28px; --r-lg:36px; --r-sm:18px; --nav-h:78px;
+  --sh:0 12px 0 #DDEAF5, 0 22px 40px rgba(29,90,150,.09);
+  --sh-sm:0 8px 0 #E4EFF8, 0 14px 26px rgba(29,90,150,.08);
+  --ff:'Fredoka','Nunito',system-ui,sans-serif;
+  --fn:'Nunito',system-ui,sans-serif;
+  --fb:'Inter',system-ui,sans-serif;
+}
+
+/* ===== INTRO ===== */
+.intro{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;
+  background:#000;opacity:1;transition:opacity .5s ease}
+.intro.out{opacity:0;pointer-events:none}
+.intro-bg{position:absolute;inset:0;
+  background:
+    radial-gradient(70% 60% at 78% 60%, rgba(229,30,40,.34), transparent 60%),
+    radial-gradient(60% 50% at 10% 18%, rgba(229,30,40,.16), transparent 60%),
+    #050505}
+.intro-bg::after{content:"";position:absolute;inset:0;opacity:.5;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size:14px 14px;-webkit-mask:linear-gradient(115deg,#000,transparent 55%);mask:linear-gradient(115deg,#000,transparent 55%)}
+.intro-lasers{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.intro-lasers i{position:absolute;top:-30%;height:160%;width:2px;transform:rotate(28deg);
+  background:linear-gradient(180deg,transparent,rgba(255,40,55,.85),transparent);filter:blur(.5px);
+  opacity:0;animation:laserIn .9s ease forwards}
+.intro-lasers i:nth-child(1){left:6%;animation-delay:.05s}
+.intro-lasers i:nth-child(2){left:11%;height:120%;top:-10%;opacity:0;animation-delay:.18s;box-shadow:0 0 16px rgba(255,40,55,.7)}
+.intro-lasers i:nth-child(3){left:88%;animation-delay:.12s}
+@keyframes laserIn{0%{opacity:0;transform:rotate(28deg) translateY(40px)}60%{opacity:.9}100%{opacity:.55;transform:rotate(28deg)}}
+
+.intro-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+
+.intro-brand{position:relative;text-align:center;padding:0 18px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-height:100dvh}
+.intro-robot{width:min(72vw,320px);margin-bottom:-6px;filter:drop-shadow(0 18px 50px rgba(229,30,40,.45));
+  animation:robotIn 1s cubic-bezier(.16,1,.3,1) both, robotFloat 3.6s 1s ease-in-out infinite}
+.intro-robot img{width:100%;display:block;
+  -webkit-mask:linear-gradient(180deg,#000 78%,transparent);mask:linear-gradient(180deg,#000 78%,transparent)}
+.intro-word{width:min(64vw,300px);margin-top:14px;animation:wordIn .7s .85s cubic-bezier(.2,.9,.25,1) both}
+.intro-word img{width:100%;display:block;filter:drop-shadow(0 6px 18px rgba(229,30,40,.35))}
+.intro-tag{margin:16px 0 max(40px,calc(env(safe-area-inset-bottom) + 30px));position:relative;width:min(86vw,440px)}
+.intro-tag-line{display:block;height:2px;width:100%;margin:0 auto 12px;border-radius:99px;transform:scaleX(0);transform-origin:center;
+  background:linear-gradient(90deg,transparent,#ff2233 35%,#ff6a78 50%,#ff2233 65%,transparent);
+  box-shadow:0 0 14px rgba(255,40,55,.7);animation:lineGrow .6s 1.25s cubic-bezier(.7,0,.3,1) forwards}
+.intro-tag p{font-family:var(--fn);font-weight:900;letter-spacing:.22em;font-size:clamp(11px,3.1vw,15px);
+  color:#eef2f7;opacity:0;animation:tagIn .6s 1.45s ease forwards}
+.intro-tag p b{color:#ff2f3e}
+
+.intro-skip{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));right:20px;z-index:2;
+  font-family:var(--fn);font-weight:800;font-size:13px;color:#dfe8f2;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:9px 16px;border-radius:99px;backdrop-filter:blur(6px);
+  opacity:0;animation:tagIn .5s .6s ease forwards}
+.intro-skip:active{transform:translateY(1px)}
+
+@keyframes robotIn{0%{opacity:0;transform:translateY(70px) scale(.92)}100%{opacity:1;transform:none}}
+@keyframes robotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes wordIn{0%{opacity:0;transform:translateY(16px) scale(.96)}100%{opacity:1;transform:none}}
+@keyframes lineGrow{to{transform:scaleX(1)}}
+@keyframes tagIn{to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.intro-robot,.intro-word,.intro-tag-line,.intro-tag p,.intro-lasers i,.intro-skip{animation-duration:.01ms!important;opacity:1!important;transform:none!important}}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+html,body{
+  background:
+    radial-gradient(560px 320px at -12% -8%, rgba(255,236,95,.72), transparent 62%),
+    radial-gradient(560px 320px at 112% -8%, rgba(46,199,255,.46), transparent 64%),
+    linear-gradient(180deg,#FFFFFF 0%,#EEF7FF 56%,#F8FBFF 100%) fixed;
+  color:var(--txt); font-family:var(--fb); -webkit-font-smoothing:antialiased;
+  min-height:100dvh; overflow-x:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input{font-family:inherit}
+.hide{display:none!important}
+h1,h2,h3,.disp{font-family:var(--ff)}
+
+.wrap{width:100%;max-width:520px;margin:0 auto;padding:14px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px)}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;gap:13px;padding:4px 2px 14px}
+.av-brand{width:62px;height:62px;border-radius:22px;overflow:hidden;flex:none;background:#10284B;
+  box-shadow:0 10px 0 #DDEAF5,0 18px 30px rgba(25,75,130,.14)}
+.av-brand img{width:190%;height:190%;object-fit:cover;object-position:50% 15%;transform:translateY(-2px)}
+.tb-txt{flex:1;min-width:0}
+.tb-txt h1{font-size:31px;letter-spacing:-.4px;line-height:1}
+.tb-txt .greet{display:block;font-size:14px;color:var(--muted);font-weight:800;font-family:var(--fn);margin-top:4px}
+.tb-txt .fecha-hora{display:block;font-size:12.5px;color:#7890AA;font-weight:800;font-family:var(--fn);margin-top:2px}
+.icon-btn{width:54px;height:54px;border-radius:20px;background:#fff;display:grid;place-items:center;
+  flex:none;box-shadow:var(--sh-sm);transition:.15s}
+.icon-btn:active{transform:translateY(2px)}
+.icon-btn svg{width:22px;height:22px;stroke:var(--txt);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.screen{display:none;animation:fade .3s ease both}
+.screen.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.scr-title{font-size:32px;letter-spacing:-.6px;margin:6px 2px 16px}
+
+/* HERO */
+.hero{border-radius:30px;padding:20px;margin-bottom:14px;color:#fff;position:relative;overflow:hidden;min-height:136px;
+  background:linear-gradient(135deg,var(--hero1),var(--hero2));box-shadow:0 14px 0 #f3c9cd,0 26px 44px rgba(200,30,42,.18)}
+.hero .hl{font-family:var(--fn);font-weight:900;letter-spacing:.18em;font-size:12px;opacity:.9}
+.hero .hv{font-family:var(--ff);font-weight:700;font-size:clamp(40px,11vw,50px);line-height:1;margin-top:10px;letter-spacing:-1.5px}
+.hero .hs{font-size:13.5px;opacity:.9;margin-top:10px;font-weight:600}
+
+/* STATS */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{border-radius:24px;padding:15px 12px;background:#fff;box-shadow:var(--sh-sm)}
+.stat .si{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;margin-bottom:11px}
+.stat .si svg{width:18px;height:18px;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.stat .sv{font-family:var(--ff);font-weight:700;font-size:24px;line-height:1}
+.stat .sl{font-size:11.5px;color:var(--muted);font-weight:700;font-family:var(--fn);margin-top:5px}
+.si.exp{background:var(--expSoft);color:var(--exp)} .si.warn{background:var(--warnSoft);color:var(--warn)} .si.good{background:var(--goodSoft);color:var(--good)}
+.si3{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;margin-bottom:10px;font-size:24px;line-height:1;
+  box-shadow:0 6px 0 rgba(0,0,0,.12), inset 0 2px 3px rgba(255,255,255,.65), inset 0 -4px 6px rgba(0,0,0,.10);
+  transition:transform .12s ease}
+.stat:active .si3{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.12), inset 0 2px 3px rgba(255,255,255,.6)}
+.si3.exp{background:linear-gradient(160deg,#FFE2E2,#FFB4B4)}
+.si3.warn{background:linear-gradient(160deg,#FFF0CC,#FFD874)}
+.si3.good{background:linear-gradient(160deg,#D6F5DF,#9BE8B4)}
+
+/* CARD */
+.card{border-radius:var(--r);padding:18px;margin-bottom:14px;background:#fff;box-shadow:var(--sh)}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-h h2{font-size:19px;letter-spacing:-.2px}
+.card-h a{font-size:13px;color:var(--accent);font-weight:800;font-family:var(--fn)}
+
+/* RENEW / SERVICE ROWS */
+.renew{display:flex;flex-direction:column;gap:9px}
+.renew-item{display:flex;align-items:center;gap:12px;padding:13px;border-radius:20px;background:var(--field)}
+.renew-item .av{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-family:var(--ff);
+  font-weight:700;font-size:16px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-d));flex:none}
+.renew-item .meta{flex:1;min-width:0}
+.renew-item .nm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.renew-item .pl{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:1px}
+.pill{display:inline-block;padding:5px 11px;border-radius:11px;font-size:11.5px;font-weight:800;font-family:var(--fn);white-space:nowrap}
+.pill.ok{color:var(--good);background:var(--goodSoft)}
+.pill.due{color:var(--accent);background:var(--accentSoft)}
+.pill.soon{color:var(--warn);background:var(--warnSoft)}
+.pill.exp{color:var(--exp);background:var(--expSoft)}
+.pill.mut{color:var(--muted);background:var(--field)}
+
+/* CLIENT CARD */
+.cli-card{border-radius:var(--r);padding:16px;margin-bottom:12px;background:#fff;box-shadow:var(--sh)}
+.cli-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cli-name{font-family:var(--ff);font-weight:700;font-size:18px;letter-spacing:-.2px}
+.cli-tel{font-size:13px;color:var(--muted);font-weight:600;margin-top:1px}
+.svc-list{margin-top:13px;display:flex;flex-direction:column;gap:9px}
+.svc{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--field);border-radius:18px;padding:12px 13px}
+.svc .dot-s{width:9px;height:9px;border-radius:50%;flex:none}
+.dot-s.ok{background:var(--good)} .dot-s.soon{background:var(--warn)} .dot-s.due,.dot-s.exp{background:var(--exp)} .dot-s.mut{background:var(--muted)}
+.svc .nm{font-weight:700;font-size:14px}
+.svc .mt{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+.cli-actions{display:flex;gap:9px;margin-top:13px}
+.act{flex:1;text-align:center;padding:12px;border-radius:16px;font-family:var(--fn);font-weight:800;font-size:13.5px;transition:.15s}
+.act:active{transform:translateY(1px)}
+.act.primary{background:var(--accent);color:#fff;box-shadow:0 6px 0 var(--accent-d)}
+.act.ghost{background:var(--field);color:var(--txt)}
+
+/* SEARCH + SEG */
+.search{display:flex;align-items:center;gap:10px;background:#fff;border-radius:20px;padding:14px 16px;margin-bottom:13px;box-shadow:var(--sh-sm)}
+.search svg{width:19px;height:19px;stroke:var(--muted);fill:none;stroke-width:2;flex:none}
+.search input{flex:1;background:none;border:none;outline:none;color:var(--txt);font-size:15px;font-weight:600}
+.search input::placeholder{color:var(--muted)}
+.seg{display:flex;gap:8px;margin-bottom:14px}
+.seg button{flex:1;padding:12px;border-radius:16px;background:#fff;color:var(--muted);font-family:var(--fn);font-weight:800;font-size:13px;box-shadow:var(--sh-sm);transition:.15s}
+.seg button.on{background:var(--accent);color:#fff;box-shadow:0 6px 0 var(--accent-d)}
+.variant-seg,.service-seg{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;margin-left:-2px;margin-right:-2px;padding-left:2px;padding-right:2px}
+.variant-seg::-webkit-scrollbar,.service-seg::-webkit-scrollbar{display:none}
+.variant-seg button,.service-seg button{flex:0 0 auto;white-space:nowrap;padding:11px 16px}
+
+/* PRECIOS */
+.price{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--line)}
+.price.has-det{cursor:pointer}
+.det-caret{font-size:11px;color:var(--accent);transition:transform .2s;display:inline-block}
+.price.open .det-caret{transform:rotate(180deg)}
+.price-det{max-height:0;overflow:hidden;transition:max-height .25s ease,padding .25s ease;font-family:var(--fn);font-weight:700;font-size:13.5px;color:var(--txt);line-height:1.9;white-space:pre-line;border-bottom:1px solid var(--line)}
+.pol-item{border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.pol-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px;cursor:pointer;font-family:var(--fn);font-weight:900;font-size:14.5px;color:var(--txt)}
+.pol-head .det-caret{font-size:12px}
+.pol-item.open .det-caret{transform:rotate(180deg)}
+.pol-body{max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;font-family:var(--fn);font-weight:600;font-size:13px;color:var(--muted);line-height:1.75;white-space:pre-line;padding:0 14px}
+.pol-item.open .pol-body{padding:0 14px 14px}
+.price-det.show{max-height:600px;padding:12px 0 16px}
+.price:last-child{border:none}
+.price .pn{font-weight:700;font-size:15px}
+.price .psub{font-size:12px;color:var(--muted);font-weight:600;margin-top:1px}
+.price .pv{font-family:var(--ff);font-weight:700;font-size:16px;color:var(--good)}
+
+/* AULA */
+.aula-wrap{border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);height:calc(100dvh - 240px);min-height:420px;background:#fff}
+.aula-wrap iframe{width:100%;height:100%;border:0}
+
+/* EMPTY / SPIN */
+.empty{text-align:center;padding:44px 24px;color:var(--muted);font-weight:600}
+.empty .ico{font-size:42px;margin-bottom:12px}
+.empty b{display:block;color:var(--txt);font-family:var(--ff);font-size:18px;margin-bottom:6px}
+.spin{width:34px;height:34px;border:3px solid #dfeaf5;border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;margin:70px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* NAV */
+.nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(520px,100%);height:var(--nav-h);z-index:20;
+  display:flex;justify-content:space-around;align-items:center;
+  background:rgba(255,255,255,.86);backdrop-filter:blur(18px);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);
+  font-family:var(--fn);font-weight:900;font-size:10px;padding:8px 1px;position:relative;transition:.15s;line-height:1.05;text-align:center}
+.nav-btn svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn.on{color:var(--accent)}
+.nav-btn.on::before{content:"";position:absolute;top:0;width:30px;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+
+/* LOGIN */
+#login{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;
+  padding:30px;overflow-y:auto;background:#e6ebf1}
+#login:before{content:"";position:fixed;inset:0;pointer-events:none;
+  background-image:radial-gradient(rgba(15,35,82,.13) 1.7px,transparent 1.8px);background-size:16px 16px;opacity:.7}
+.login-stage{position:relative;z-index:1;width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center}
+.login-peek{position:absolute;top:42px;left:50%;width:min(45vw,168px);z-index:1;animation:floaty 3.6s ease-in-out infinite}
+.login-peek img{width:100%;display:block;
+  filter:drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 9px 0 rgba(15,35,82,.16))}
+@keyframes floaty{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-9px)}}
+.login-bubble{position:absolute;z-index:4;top:0;left:50%;background:#fff;border:3px solid #14233f;
+  border-radius:16px;padding:7px 14px;font-family:var(--ff);font-weight:700;font-size:15.5px;color:#14233f;
+  box-shadow:3px 3px 0 #14233f;white-space:nowrap;animation:floaty2 3.6s ease-in-out infinite}
+.login-bubble:after,.login-bubble:before{content:"";position:absolute;bottom:-13px;left:50%;margin-left:-7px;border:7px solid transparent;border-top-color:#14233f}
+.login-bubble:after{bottom:-9px;border-top-color:#fff}
+@keyframes floaty2{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-9px)}}
+.login-card{position:relative;z-index:2;width:100%;margin-top:calc(min(45vw,168px) * .64);background:#fff;border:3px solid #14233f;
+  border-radius:28px;padding:26px 22px;box-shadow:7px 7px 0 #14233f}
+.login-card h2{font-size:30px;text-align:center;letter-spacing:-.4px;color:#14233f}
+.login-card p{font-size:13.5px;color:var(--muted);text-align:center;font-weight:800;font-family:var(--fn);margin:5px 0 20px}
+.field{display:flex;align-items:center;gap:11px;background:#fff;border:2.5px solid #14233f;
+  border-radius:14px;padding:13px 14px;margin-bottom:12px;transition:.15s}
+.field:focus-within{border-color:var(--accent)}
+.field svg{width:19px;height:19px;stroke:#14233f;fill:none;stroke-width:2.3;flex:none}
+.field input{flex:1;background:none;border:none;outline:none;color:var(--txt);font-size:15px;font-weight:700}
+.field input::placeholder{color:#9aacc4}
+.login-btn{width:100%;margin-top:4px;padding:15px;border-radius:14px;background:linear-gradient(180deg,#F0382B,#D5180F);color:#fff;
+  font-family:var(--ff);font-weight:700;font-size:17px;letter-spacing:.3px;border:2.5px solid #14233f;
+  box-shadow:5px 5px 0 #14233f;transition:transform .08s,box-shadow .08s}
+.login-btn:active{transform:translate(2px,2px);box-shadow:3px 3px 0 #14233f}
+.login-btn:disabled{opacity:.7}
+.login-err{color:var(--accent-d);font-size:13px;text-align:center;font-weight:800;margin-top:14px;min-height:18px}
+.login-foot{font-size:11.5px;color:#7d8ba0;text-align:center;font-weight:800;margin-top:16px;line-height:1.5}
+
+/* ADMIN (modo dios) */
+.imp-bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:#10284B;color:#fff;border-radius:18px;padding:11px 14px;margin-bottom:14px;box-shadow:var(--sh-sm)}
+.imp-bar .lbl{font-size:13px;font-weight:800;font-family:var(--fn);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-bar .lbl b{font-family:var(--ff);font-weight:700}
+.imp-bar button{flex:none;background:#fff;color:#10284B;font-family:var(--fn);font-weight:800;font-size:12.5px;padding:8px 13px;border-radius:12px}
+.rev-card{display:flex;align-items:center;gap:12px;border-radius:22px;padding:14px;margin-bottom:11px;background:#fff;box-shadow:var(--sh-sm);transition:.15s}
+.rev-card:active{transform:translateY(2px)}
+.rev-card .rav{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;font-family:var(--ff);font-weight:700;font-size:18px;color:#fff;flex:none;background:#10284B}
+.rev-card .rav.off{background:#aab4c4}
+.rev-card .ri{flex:1;min-width:0}
+.rev-card .rn{font-family:var(--ff);font-weight:700;font-size:16px;letter-spacing:-.2px}
+.rev-card .rs{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.rev-card .rs .x{color:var(--exp)} .rev-card .rs .w{color:var(--warn)}
+.rev-card .go{flex:none;width:34px;height:34px;border-radius:11px;background:var(--field);display:grid;place-items:center}
+.rev-card .go svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.rev-off-tag{font-size:10.5px;font-weight:800;font-family:var(--fn);color:var(--muted);background:var(--field);padding:3px 8px;border-radius:8px}
+.adm-seg{display:flex;gap:8px;margin-bottom:13px}
+.adm-seg button{flex:1;border:2px solid #e7edf4;background:#fff;border-radius:14px;padding:11px 6px;font-family:var(--fn);font-weight:900;font-size:13px;color:var(--muted);cursor:pointer;transition:.15s}
+.adm-seg button.on{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent-d)}
+.copyall{width:100%;border:none;cursor:pointer;background:var(--field);color:var(--txt);font-family:var(--fn);font-weight:900;font-size:13px;border-radius:14px;padding:12px;margin-bottom:12px}
+.usr-card{background:#fff;border-radius:20px;padding:14px;margin-bottom:11px;box-shadow:var(--sh-sm)}
+.usr-top{display:flex;align-items:center;gap:12px}
+.usr-top .rav{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-family:var(--ff);font-weight:700;font-size:17px;color:#fff;flex:none;background:#10284B}
+.usr-top .rav.off{background:#aab4c4}
+.usr-nm{font-family:var(--ff);font-weight:700;font-size:16px;letter-spacing:-.2px;flex:1;min-width:0}
+.usr-user{display:flex;align-items:center;gap:9px;background:var(--field);border-radius:12px;padding:9px 12px;margin-top:11px}
+.usr-user .k{font-size:11px;font-weight:900;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;flex:none}
+.usr-user .v{font-family:var(--ff);font-weight:700;font-size:15.5px;color:var(--txt);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.usr-btns{display:flex;gap:8px;margin-top:10px}
+.usr-btns button{flex:1;border:none;cursor:pointer;border-radius:12px;padding:11px;font-family:var(--fn);font-weight:900;font-size:13px;transition:transform .08s}
+.usr-btns button:active{transform:translateY(2px)}
+.usr-btns .cp{background:var(--field);color:var(--txt)}
+.usr-btns .wa{background:#25D366;color:#fff}
+
+/* COBRO MODAL */
+.cobro-overlay{position:fixed;inset:0;z-index:95;background:rgba(15,45,82,.4);backdrop-filter:blur(4px);
+  display:none;align-items:flex-end;justify-content:center}
+.cobro-overlay.show{display:flex}
+.cobro-sheet{width:100%;max-width:520px;background:#fff;border-radius:30px 30px 0 0;
+  padding:8px 20px calc(22px + env(safe-area-inset-bottom));animation:up .25s ease;
+  max-height:calc(100vh - 18px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+@keyframes up{from{transform:translateY(40px);opacity:.6}}
+.grab{width:42px;height:5px;background:#dde7f1;border-radius:5px;margin:8px auto 16px}
+.cobro-sheet h3{font-size:21px}
+.cobro-sub{font-size:13px;color:var(--muted);font-weight:700;font-family:var(--fn);margin:2px 0 16px}
+.cobro-text{width:100%;background:var(--field);border:none;border-radius:18px;padding:15px;color:var(--txt);
+  font-size:14.5px;line-height:1.55;font-family:inherit;font-weight:500;resize:vertical;min-height:130px;margin-bottom:14px;outline:none}
+.cobro-actions{display:flex;gap:10px}
+.cobro-actions .act{padding:15px}
+@media(min-width:600px){.cobro-overlay{align-items:center}.cobro-sheet{border-radius:30px;margin:0 16px}}
+.comp-drop{border:2px dashed #cdd9e8;border-radius:18px;background:var(--field);min-height:150px;display:grid;place-items:center;cursor:pointer;overflow:hidden;margin-bottom:12px}
+.comp-ph{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);font-family:var(--fn);font-weight:800;font-size:13.5px}
+.comp-ph .ic{font-size:34px}
+.comp-drop img{width:100%;max-height:300px;object-fit:contain;display:block}
+.comp-in{width:100%;background:var(--field);border:none;border-radius:14px;padding:13px 15px;font-family:var(--fn);font-weight:700;font-size:15px;color:var(--txt);outline:none;margin-bottom:11px;box-sizing:border-box}
+.comp-actions{display:flex;gap:10px;margin-top:2px}
+.comp-actions .act{padding:15px}
+.comp-renew-box{border:2px solid #e7edf4;background:#F8FBFF;border-radius:18px;padding:12px;margin:2px 0 12px}
+.comp-renew-title{font-family:var(--fn);font-weight:950;color:var(--txt);font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.comp-renew-box .comp-in{margin-bottom:9px;background:#fff;border:1px solid #edf1f7}
+.mini-seg{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:8px}.mini-seg button{border:0;border-radius:12px;background:#fff;color:var(--txt);font-family:var(--fn);font-weight:950;font-size:12px;padding:9px 4px;box-shadow:0 3px 0 #dbe5f0}.mini-seg button:active{transform:translateY(2px);box-shadow:0 1px 0 #dbe5f0}.comp-note{font-family:var(--fn);font-weight:800;color:var(--muted);font-size:12.5px;line-height:1.35}.cut-alert{border-radius:24px;padding:15px;margin-bottom:13px;background:linear-gradient(135deg,#FFE9E9,#FFF6F3);border:2px solid #FFD0D0;box-shadow:0 8px 0 #F2CACA}.cut-alert b{display:block;color:#B4232C;font-family:var(--ff);font-size:17px}.cut-alert span{display:block;color:#9b4f4f;font-family:var(--fn);font-weight:850;font-size:12.8px;margin-top:4px;line-height:1.35}.svc-right{display:flex;align-items:center;gap:8px;flex:none}.svc-mini{border:0;border-radius:12px;background:#fff;color:var(--accent);font-family:var(--fn);font-weight:950;font-size:12px;padding:8px 9px;box-shadow:0 3px 0 #e4edf7}.adm-dash{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}.adm-mini{background:#fff;border-radius:18px;padding:12px;box-shadow:var(--sh-sm);font-family:var(--fn)}.adm-mini b{display:block;font-family:var(--ff);font-size:23px;color:var(--txt);line-height:1}.adm-mini span{display:block;color:var(--muted);font-weight:850;font-size:11.5px;margin-top:4px;line-height:1.25}.adm-comp-card{background:#fff;border-radius:22px;padding:13px;margin-bottom:11px;box-shadow:var(--sh-sm);display:grid;grid-template-columns:82px 1fr;gap:12px;align-items:start}.adm-img{width:82px;height:82px;border-radius:16px;background:var(--field);object-fit:cover;display:grid;place-items:center;color:var(--muted);font-size:26px;text-decoration:none;overflow:hidden}.adm-img img{width:100%;height:100%;object-fit:cover}.adm-comp-title{font-family:var(--ff);font-weight:700;font-size:15.5px;color:var(--txt);line-height:1.15}.adm-comp-meta{font-family:var(--fn);font-weight:800;font-size:12.2px;color:var(--muted);line-height:1.35;margin-top:4px}.adm-comp-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.adm-tag{border-radius:999px;background:var(--field);padding:5px 8px;font-family:var(--fn);font-weight:900;font-size:11.5px;color:var(--txt2)}.adm-tag.good{background:#EAFBF1;color:#11834a}.adm-tag.money{background:#FFF7D9;color:#8a6500}@media(max-width:380px){.adm-dash{grid-template-columns:1fr}.adm-comp-card{grid-template-columns:70px 1fr}.adm-img{width:70px;height:70px}.mini-seg{grid-template-columns:repeat(3,1fr)}}
+
+
+/* ═════ SUBLICHAT UI UPDATE · menú revendedor ═════ */
+:root{--nav-h:108px}
+.today-card{position:relative;overflow:hidden;border-radius:28px;padding:18px 86px 18px 20px;margin-bottom:13px;background:linear-gradient(135deg,#FFF7B8,#FFE66B);box-shadow:0 10px 0 #EBCB45,0 18px 34px rgba(180,145,24,.14);color:var(--txt)}
+.today-card .bell{position:absolute;left:18px;top:50%;transform:translateY(-50%);font-size:30px;filter:drop-shadow(0 8px 8px rgba(100,80,0,.18))}
+.today-card .txt{padding-left:44px}
+.today-card h2{font-family:var(--ff);font-weight:700;font-size:clamp(21px,5.8vw,28px);line-height:1.05;letter-spacing:-.55px;max-width:320px}
+.today-card p{font-size:13.2px;color:var(--muted);font-weight:800;font-family:var(--fn);line-height:1.25;margin-top:5px}
+.today-card .see{position:absolute;right:18px;top:50%;transform:translateY(-50%);background:var(--accent);color:#fff;border-radius:18px;padding:10px 14px;font-family:var(--ff);font-weight:700;font-size:15px;box-shadow:0 6px 0 var(--accent-d)}
+.wallet-card{border-radius:28px;padding:18px 20px;margin-bottom:13px;color:#fff;position:relative;overflow:hidden;min-height:108px;background:linear-gradient(135deg,#22BDF5,#0986D7);box-shadow:0 10px 0 #087DCA,0 18px 34px rgba(0,130,210,.16)}
+.wallet-card:after{content:"";position:absolute;right:-22px;bottom:-28px;width:170px;height:170px;border-radius:40px;background:rgba(255,255,255,.14);transform:rotate(-8deg)}
+.wallet-card .hl{font-family:var(--fn);font-weight:900;letter-spacing:.18em;font-size:12px;opacity:.9;text-transform:uppercase}
+.wallet-card .hv{font-family:var(--ff);font-weight:700;font-size:clamp(31px,8vw,42px);line-height:1;margin-top:8px;letter-spacing:-1.2px;position:relative;z-index:1}
+.wallet-card .hs{font-size:12.5px;opacity:.92;margin-top:7px;font-weight:800;font-family:var(--fn);position:relative;z-index:1}
+.motiva-card{display:flex;align-items:center;gap:12px;border-radius:24px;padding:14px 16px;margin-bottom:13px;background:rgba(255,255,255,.92);box-shadow:var(--sh-sm)}
+.motiva-card .spark{font-size:28px;line-height:1;flex:none}
+.motiva-card p{font-family:var(--ff);font-weight:700;color:var(--txt);font-size:clamp(17px,4.7vw,22px);line-height:1.12;letter-spacing:-.25px}
+.aviso-card{border-radius:24px;padding:14px 16px;margin-bottom:13px;background:linear-gradient(135deg,#A48CF5,#7B5CF0);box-shadow:0 9px 0 #6B4BE0,0 16px 30px rgba(110,70,230,.18);color:#fff}
+.aviso-card .ah{display:flex;align-items:center;gap:8px;font-family:var(--fn);font-weight:900;letter-spacing:.06em;font-size:12.5px;text-transform:uppercase;opacity:.92;margin-bottom:8px}
+.aviso-item{background:rgba(255,255,255,.14);border-radius:16px;padding:10px 12px;margin-bottom:7px}
+.aviso-item:last-child{margin-bottom:0}
+.aviso-item .at{font-family:var(--ff);font-weight:700;font-size:15px;line-height:1.28;letter-spacing:-.2px}
+.aviso-item .am{font-family:var(--fn);font-weight:700;font-size:11.5px;opacity:.78;margin-top:4px}
+.menu-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:18px}
+.menu-card{width:100%;display:flex;align-items:center;gap:16px;text-align:left;border-radius:29px;padding:19px 18px;background:#fff;box-shadow:var(--sh-sm);transition:.15s;overflow:hidden;position:relative;color:var(--txt)}
+.menu-card:active{transform:translateY(2px)}
+.menu-card .mi{width:58px;height:58px;border-radius:20px;display:grid;place-items:center;flex:none;background:rgba(255,255,255,.52);font-size:30px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.65)}
+.menu-card .mt{flex:1;min-width:0;position:relative;z-index:1}
+.menu-card b{display:block;font-family:var(--ff);font-size:24px;line-height:1;letter-spacing:-.45px}
+.menu-card small{display:block;margin-top:5px;color:rgba(15,45,82,.68);font-family:var(--fn);font-weight:900;font-size:13.5px;line-height:1.2}
+.menu-card em{font-style:normal;font-family:var(--ff);font-weight:700;font-size:36px;opacity:.45;position:relative;z-index:1}
+.menu-card.green{background:linear-gradient(135deg,#62EDB9,#20D491);box-shadow:0 12px 0 #37BE8D,0 22px 38px rgba(25,180,125,.15)}
+.menu-card.yellow{background:linear-gradient(135deg,#FFF16A,#FFC94E);box-shadow:0 12px 0 #E4B135,0 22px 38px rgba(210,160,30,.15)}
+.menu-card.blue{background:linear-gradient(135deg,#BCEAFF,#57C8FF);box-shadow:0 12px 0 #3AA9E2,0 22px 38px rgba(40,150,210,.14)}
+.menu-card.navy{background:linear-gradient(135deg,#163D72,#0F2D52);color:#fff;box-shadow:0 12px 0 #0B2443,0 22px 38px rgba(15,45,82,.18)}
+.menu-card.navy small{color:rgba(255,255,255,.72)}
+
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:13px}
+.quick-tile{border-radius:22px;padding:14px 12px;background:#fff;box-shadow:var(--sh-sm);text-align:left;min-height:86px;transition:.15s;color:var(--txt)}
+.quick-tile:active{transform:translateY(2px)}
+.quick-tile .qi{font-size:25px;display:block;margin-bottom:7px}.quick-tile b{font-family:var(--ff);font-size:17px;line-height:1.05;display:block}.quick-tile small{font-family:var(--fn);font-size:11.7px;color:var(--muted);font-weight:900;display:block;margin-top:3px;line-height:1.15}
+.finance-card{border-radius:28px;padding:18px;background:#fff;box-shadow:var(--sh);margin-bottom:14px}.finance-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.finance-head h2{font-size:21px;letter-spacing:-.3px}.finance-head span{font-family:var(--fn);font-weight:900;font-size:12px;color:var(--muted)}.finance-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}.finance-mini{background:#F4F8FC;border-radius:20px;padding:13px}.finance-mini b{font-family:var(--ff);font-size:22px;display:block;line-height:1}.finance-mini span{font-family:var(--fn);font-size:11.5px;color:var(--muted);font-weight:900;display:block;margin-top:4px}.finance-mini.good{background:var(--goodSoft)}.finance-mini.good b{color:var(--good)}.finance-mini.exp{background:var(--expSoft)}.finance-mini.exp b{color:var(--exp)}.bar-row{margin-top:10px}.bar-row .lab{display:flex;justify-content:space-between;font-family:var(--fn);font-size:12px;font-weight:900;color:var(--txt2);margin-bottom:5px}.bar{height:10px;border-radius:999px;background:#EAF2FA;overflow:hidden}.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#22BDF5,#1FBF86)}
+.ask-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ask-tools button{border-radius:14px;padding:8px 10px;background:#fff;font-family:var(--fn);font-size:12px;font-weight:900;color:var(--accent);box-shadow:0 4px 0 #E3EDF6}
+.aula-grid,.ask-grid{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.aula-item,.ask-item{border-radius:22px;background:var(--field);padding:16px;display:flex;align-items:flex-start;gap:12px}
+.aula-item .ai,.ask-item .ai{width:42px;height:42px;border-radius:15px;background:#fff;display:grid;place-items:center;flex:none;font-size:23px;box-shadow:0 5px 0 #E3EDF6}
+.aula-item b,.ask-item b{display:block;font-family:var(--ff);font-size:17px;letter-spacing:-.2px;color:var(--txt)}
+.aula-item p,.ask-item p{font-size:13.2px;color:var(--muted);font-weight:700;line-height:1.35;margin-top:3px}
+.ask-copy{margin-top:10px;background:#fff;color:var(--accent);border-radius:13px;padding:9px 12px;font-family:var(--fn);font-weight:900;font-size:12.5px;box-shadow:0 4px 0 #E9F1F8}
+.nav{height:calc(var(--nav-h) - 12px);bottom:12px;width:min(486px,calc(100% - 34px));border-radius:34px;z-index:50;justify-content:space-around;align-items:center;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border:1px solid rgba(210,225,240,.75);box-shadow:0 10px 0 rgba(214,229,242,.85),0 22px 40px rgba(20,75,130,.16);padding:10px 10px calc(10px + env(safe-area-inset-bottom))}
+.nav-btn{height:74px;gap:5px;font-size:11.5px;font-weight:900;color:var(--muted);padding:0;justify-content:center;position:relative}
+.nav-ico{width:48px;height:48px;border-radius:18px;display:grid;place-items:center;font-size:26px;line-height:1;transition:.15s;background:transparent}
+.nav-btn.on{color:#1b8ec9}
+.nav-btn.on .nav-ico{background:linear-gradient(135deg,#29C4F7,#0C91DB);box-shadow:0 8px 0 rgba(5,117,185,.24);transform:translateY(-2px)}
+.nav-btn.on::before{display:none}
+.nav-btn span:last-child{line-height:1;white-space:nowrap}
+.nav-badge{position:absolute;top:9px;right:calc(50% - 28px);min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--accent);color:#fff;font-family:var(--fn);font-weight:900;font-size:10.5px;display:none;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.22)}
+.nav-badge.show{display:flex;animation:badgePop .3s cubic-bezier(.2,1.4,.3,1)}
+@keyframes badgePop{0%{transform:scale(0)}100%{transform:scale(1)}}
+.buzon-int{font-family:var(--fn);font-weight:700;color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.4}
+.buzon-list{display:flex;flex-direction:column;gap:9px}
+.buzon-msg{display:flex;gap:11px;background:#F4F8FC;border-radius:18px;padding:12px 13px;animation:bmIn .35s ease both}
+@keyframes bmIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.buzon-msg .bm-ic{font-size:19px;flex-shrink:0;margin-top:1px}
+.buzon-msg .bm-txt{font-family:var(--ff);font-weight:700;font-size:14.5px;color:var(--txt);line-height:1.35;word-break:break-word}
+.buzon-msg .bm-meta{font-family:var(--fn);font-weight:800;font-size:11.5px;color:var(--muted);margin-top:5px}
+.sug-dest{display:flex;gap:8px;margin-bottom:11px}
+.sug-dest button{flex:1;border:2px solid #e7e7ef;background:#fff;border-radius:14px;padding:10px 6px;font-family:var(--fn);font-weight:900;font-size:13px;color:var(--muted);cursor:pointer;transition:.15s}
+.sug-dest button.on{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent-d)}
+@media(max-width:390px){.today-card{padding-right:88px}.today-card .see{right:18px}.menu-card b{font-size:21px}.nav{width:calc(100% - 18px)}.nav-btn{font-size:10.5px}.nav-ico{width:43px;height:43px;font-size:23px}}
+
+
+
+/* AJUSTES SUBLI · 15 Jun */
+.av-brand,.login-robot{background:linear-gradient(135deg,#ffffff,#eef7ff)!important;box-shadow:0 10px 0 #DDEAF5,0 18px 30px rgba(25,75,130,.14)}
+.av-brand img{width:125%!important;height:125%!important;object-fit:contain!important;object-position:center!important;transform:translate(-10%,-8%)!important;filter:drop-shadow(0 7px 8px rgba(5,18,35,.18))}
+.login-robot{width:min(38vw,132px)!important;aspect-ratio:1/1;display:grid;place-items:center;padding:0;overflow:hidden}
+.login-robot img{width:128%!important;height:128%!important;object-fit:contain!important;object-position:center!important;transform:translate(-10%,-6%)!important;filter:drop-shadow(0 8px 12px rgba(5,18,35,.22))}
+.today-card{border-radius:27px!important;padding:18px 82px 18px 18px!important;margin-bottom:13px!important;box-shadow:0 9px 0 #EBCB45,0 16px 28px rgba(180,145,24,.14)!important;min-height:112px!important}
+.today-card .bell{left:17px!important;font-size:29px!important}.today-card .txt{padding-left:41px!important}.today-card h2{font-size:clamp(20px,5.3vw,28px)!important;line-height:1.08!important;max-width:260px!important}.today-card p{font-size:12.8px!important;line-height:1.35!important;margin-top:6px!important}.today-card .see{right:17px!important;padding:11px 14px!important;border-radius:17px!important;font-size:14px!important;box-shadow:0 6px 0 var(--accent-d)!important}
+.wallet-card{border-radius:27px!important;padding:18px!important;margin-bottom:13px!important;min-height:112px!important;box-shadow:0 9px 0 #087DCA,0 17px 30px rgba(0,130,210,.14)!important}.wallet-card:after{width:128px!important;height:128px!important}.wallet-card .hl{font-size:10.5px!important;letter-spacing:.16em!important}.wallet-card .hv{font-size:clamp(31px,8vw,41px)!important;margin-top:8px!important}.wallet-card .hs{font-size:12.5px!important;margin-top:7px!important}.motiva-card{padding:15px 17px!important;border-radius:24px!important}.motiva-card p{font-size:clamp(17px,4.6vw,22px)!important}.motiva-card .spark{font-size:29px!important}
+.ai-panel{border-radius:28px;background:#fff;box-shadow:var(--sh);padding:18px;margin-bottom:16px}.ai-panel>b{display:block;font-family:var(--ff);font-size:20px;color:var(--txt);letter-spacing:-.3px}.ai-panel p{font-family:var(--fn);font-weight:800;color:var(--muted);font-size:13.4px;line-height:1.4;margin:5px 0 12px}.ai-panel textarea,.ai-result textarea{width:100%;min-height:96px;border:0;outline:0;border-radius:18px;background:var(--field);padding:14px;color:var(--txt);font-size:14px;line-height:1.45;font-weight:650;resize:vertical;margin-bottom:12px}.ai-result{margin-top:12px}.ai-result textarea{min-height:150px;background:#F8FBFF;border:1px solid var(--line)}.chip-row{display:flex;gap:8px;overflow:auto;padding-bottom:8px;margin-bottom:10px}.chip-row button{white-space:nowrap;border-radius:999px;background:var(--field);color:var(--txt);font-family:var(--fn);font-weight:900;font-size:12.5px;padding:9px 12px}.muted-mini{display:block;color:var(--muted);font-weight:800;font-size:13px}.reward-card{border-radius:28px;padding:18px;margin-bottom:16px;background:linear-gradient(135deg,#FFF7E6,#FFEFC2);border:2px dashed #E8B23A;box-shadow:0 10px 0 #E8D28E,0 20px 34px rgba(180,135,20,.12)}.reward-top{display:flex;align-items:center;gap:8px;color:#8a5a00}.reward-top span{font-size:28px}.reward-top b{font-family:var(--ff);font-size:19px}.reward-card h3{font-family:var(--ff);font-size:18px;line-height:1.22;margin:8px 0;color:#7c5100}.reward-card p,.reward-card small{font-family:var(--fn);font-weight:800;color:#8a6b25;font-size:12.8px;line-height:1.35}.goalbar{height:12px;border-radius:999px;background:rgba(138,90,0,.14);overflow:hidden;margin:12px 0 7px}.goalbar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#FF3F6E,#22BDF5)}.lesson-card p{color:var(--muted);font-weight:800;font-family:var(--fn);line-height:1.45}.lesson-card ol{margin:12px 0 14px 20px}.lesson-card li{margin:7px 0;font-weight:700;color:var(--txt2);line-height:1.35}.cobro-actions{flex-wrap:wrap}.cobro-actions .act{min-width:31%}@media(min-width:700px){.wrap{max-width:430px}.today-card h2{font-size:26px!important}.wallet-card .hv{font-size:38px!important}}
+
+
+/* ===== Compras nuevas ===== */
+.adm-dash{grid-template-columns:repeat(4,1fr)}@media(max-width:430px){.adm-dash{grid-template-columns:repeat(2,1fr)}}
+.nav.nav6 .nav-btn{font-size:9.7px}.nav.nav6 .nav-ico{width:39px;height:39px;font-size:21px;border-radius:15px}.nav.nav6 .nav-badge{right:calc(50% - 24px)}
+.buy-head{background:linear-gradient(135deg,#111827,#293B63);color:#fff;border-radius:28px;padding:18px;margin-bottom:14px;box-shadow:0 10px 0 rgba(17,24,39,.18)}
+.buy-head b{display:block;font-family:var(--ff);font-size:24px;line-height:1}.buy-head span{display:block;font-family:var(--fn);font-weight:850;font-size:13px;opacity:.82;margin-top:6px;line-height:1.35}
+.buy-picker-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border-radius:24px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--sh-sm);border:2px solid #e8eef6;text-align:left}.buy-picked{display:flex;align-items:center;gap:12px;min-width:0}.buy-emoji{width:50px;height:50px;border-radius:18px;display:grid;place-items:center;background:var(--field);font-size:27px;flex:none}.buy-name{font-family:var(--ff);font-size:20px;color:var(--txt);line-height:1.05;white-space:normal}.buy-type{font-family:var(--fn);font-weight:850;color:var(--muted);font-size:12px;margin-top:3px}.buy-arrow{font-size:20px;font-weight:950;color:var(--muted);flex:none}.buy-list{max-height:390px;overflow-y:auto;background:#fff;border:2px solid #e8eef6;border-radius:24px;padding:10px;margin-bottom:14px;box-shadow:0 8px 0 #e8eef6}.buy-group{font-family:var(--fn);font-weight:950;color:#7890AA;font-size:12px;letter-spacing:.04em;margin:8px 7px 6px;text-transform:uppercase}.buy-option{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#F6FAFF;border:2px solid transparent;border-radius:18px;padding:12px;margin-bottom:8px;text-align:left;box-shadow:0 4px 0 #e2edf7;font-family:var(--fn);font-weight:950;color:var(--txt)}.buy-option .bo-main{display:flex;align-items:center;gap:10px;min-width:0}.buy-option .bo-emoji{width:42px;height:42px;border-radius:15px;background:#fff;display:grid;place-items:center;font-size:23px;flex:none}.buy-option b{display:block;font-size:15px;line-height:1.1}.buy-option small{display:block;color:var(--muted);font-size:11.5px;margin-top:3px;font-weight:850}.buy-option .bo-price{font-size:12px;color:var(--good);font-weight:950;white-space:nowrap}.buy-option.on{border-color:var(--accent);background:#FFF5F7;box-shadow:0 4px 0 #ffd2d2;color:#b4232c}
+.buy-selected{display:none}.buy-help strong{color:var(--txt)}
+.destino-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0 12px}.destino-seg button{border:2px solid #e7edf4;background:#fff;color:var(--txt2);border-radius:15px;padding:12px 8px;font-family:var(--fn);font-weight:950;box-shadow:0 4px 0 #e3ebf5}.destino-seg button.on{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent-d)}
+.buy-help{font-family:var(--fn);font-weight:850;color:var(--muted);font-size:12.8px;line-height:1.4;margin:-2px 2px 11px}.buy-grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.buy-grid2 .comp-in{margin-bottom:11px}.buy-submit{width:100%;margin-top:2px}.buy-note{background:#F8FBFF;border:2px solid #e7edf4;border-radius:18px;padding:11px 12px;font-family:var(--fn);font-weight:850;color:var(--txt2);font-size:12.7px;line-height:1.4;margin-bottom:11px}.buy-note b{font-family:var(--ff);color:var(--txt)}
+.buy-dispositivo{margin:-3px 0 11px}.buy-disp-label{display:block;font-family:var(--fn);font-weight:850;color:var(--muted);font-size:12px;margin:0 2px 7px}.dispositivo-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.disp-opt{background:#F6FAFF;border:2px solid transparent;border-radius:14px;padding:10px 8px;text-align:center;font-family:var(--fn);font-weight:850;color:var(--txt);font-size:13px;box-shadow:0 3px 0 #e2edf7}.disp-opt.on{border-color:var(--accent);background:#FFF5F7;box-shadow:0 3px 0 #ffd2d2;color:#b4232c}
+.adm-purchase-card{background:#fff;border-radius:22px;padding:13px;margin-bottom:11px;box-shadow:var(--sh-sm);display:grid;grid-template-columns:82px 1fr;gap:12px;align-items:start}.adm-purchase-title{font-family:var(--ff);font-weight:700;font-size:15.5px;color:var(--txt);line-height:1.15}.adm-purchase-meta{font-family:var(--fn);font-weight:800;font-size:12.2px;color:var(--muted);line-height:1.38;margin-top:4px}.adm-tag.dest{background:#EEF2FF;color:#3730A3}.adm-tag.pending{background:#FFF7D9;color:#8a6500}@media(max-width:380px){.buy-grid2{grid-template-columns:1fr}.adm-purchase-card{grid-template-columns:70px 1fr}}
+
+
+.buy-combo-tip{background:#FFF7E8;border:2px solid #FFE1A8;color:#7B5A13;border-radius:16px;padding:10px 12px;margin:0 0 10px;font-family:var(--fn);font-weight:900;font-size:12.5px;line-height:1.3}
+.buy-total-box{background:#F4F8FF;border:2px solid #E5EEF9;border-radius:18px;padding:12px;margin-bottom:12px;font-family:var(--fn);font-weight:900;color:var(--txt);line-height:1.35;display:grid;gap:3px}
+.buy-total-box b{font-family:var(--ff);font-size:17px}.buy-total-box span{color:var(--muted);font-size:13px}
+.buy-product-box{background:#fff;border:2px solid #EDF2F8;border-radius:18px;padding:12px;margin:12px 0;box-shadow:0 8px 18px rgba(10,35,70,.04)}
+.buy-product-title{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--txt);font-family:var(--ff);font-weight:950;font-size:16px;line-height:1.2}
+.buy-product-title small{font-family:var(--fn);font-weight:950;color:#119b55;font-size:13px;white-space:nowrap}.buy-product-help{color:var(--muted);font-family:var(--fn);font-weight:900;font-size:12.5px;margin:5px 0 10px;line-height:1.25}
+
+</style>
+<style>
+/* FASE 1 · INTERFAZ SOCIOS 2026 */
+:root{--partner-red:#e2231a;--partner-dark:#12121c;--partner-purple:#7c4dff;--partner-violet:#a77bff;--partner-cyan:#00b2ee;--partner-bg:#f5f5fb}
+body{background:var(--partner-bg)}
+#app{max-width:1180px;padding-bottom:112px}
+.partner-hero{position:relative;overflow:hidden;min-height:220px;margin:4px 0 18px;padding:26px;border-radius:30px;background:linear-gradient(135deg,#5a2fd1 0%,#8d5cff 48%,#e2231a 115%);color:#fff;box-shadow:0 22px 50px rgba(91,51,190,.22)}
+.partner-hero:before,.partner-hero:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.10)}
+.partner-hero:before{width:230px;height:230px;right:-55px;top:-95px}.partner-hero:after{width:120px;height:120px;left:43%;bottom:-75px}
+.partner-copy{position:relative;z-index:2;max-width:62%}.partner-kicker{font-size:12px;font-weight:950;letter-spacing:1.4px;text-transform:uppercase;opacity:.78}.partner-copy h2{font-family:var(--ff);font-size:30px;line-height:1.05;margin:8px 0}.partner-copy p{font-weight:750;line-height:1.45;opacity:.88;margin:0 0 18px}.partner-main-action{border:0;border-radius:15px;padding:12px 17px;background:#fff;color:#5c35cf;font-weight:950;box-shadow:0 10px 24px rgba(32,15,83,.17)}
+.partner-mascot{position:absolute;z-index:1;right:-10px;bottom:-38px;width:230px;height:230px;object-fit:contain;filter:drop-shadow(0 18px 18px rgba(25,8,60,.25))}
+.phase-heading{display:flex;align-items:end;justify-content:space-between;margin:22px 3px 12px}.phase-heading h2{font-family:var(--ff);font-size:20px;margin:0}.phase-heading span{font-size:12px;font-weight:850;color:var(--muted)}
+.partner-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.partner-action{border:0;text-align:left;padding:16px;border-radius:21px;background:#fff;box-shadow:0 10px 28px rgba(49,39,92,.08)}.partner-action i{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;font-style:normal;font-size:21px;margin-bottom:13px}.partner-action b{display:block;color:var(--txt);font-size:14px}.partner-action small{display:block;color:var(--muted);font-weight:750;margin-top:4px;line-height:1.3}.partner-action:nth-child(1) i{background:#eee6ff}.partner-action:nth-child(2) i{background:#e2f8ff}.partner-action:nth-child(3) i{background:#fff0de}.partner-action:nth-child(4) i{background:#e7faef}
+.profile-hero{position:relative;overflow:hidden;text-align:center;padding:28px 20px 24px;border-radius:30px;background:linear-gradient(145deg,#6e3ee4,#a877ff);color:#fff;box-shadow:0 20px 45px rgba(98,57,205,.2)}.profile-robot{width:150px;height:150px;object-fit:contain;filter:drop-shadow(0 14px 12px rgba(36,13,91,.23))}.profile-hero h2{font-family:var(--ff);font-size:27px;margin:-2px 0 3px}.profile-hero p{margin:0;opacity:.82;font-weight:800}.profile-level{display:inline-flex;margin-top:13px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:8px 13px;font-size:12px;font-weight:900}.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:15px 0}.profile-stat{background:#fff;border-radius:20px;padding:17px 10px;text-align:center;box-shadow:0 9px 25px rgba(49,39,92,.07)}.profile-stat b{display:block;font-family:var(--ff);font-size:23px;color:#633bd1}.profile-stat span{font-size:11px;font-weight:850;color:var(--muted)}
+.quick-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(18,18,28,.48);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center}.quick-overlay.show{display:flex}.quick-sheet{width:min(540px,100%);padding:12px 18px 28px;border-radius:28px 28px 0 0;background:#fff;box-shadow:0 -20px 50px rgba(0,0,0,.2)}.quick-sheet .grab{margin:2px auto 18px}.quick-sheet h3{font-family:var(--ff);font-size:21px;margin:0 0 14px}.quick-sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quick-sheet-grid button{border:0;border-radius:17px;padding:17px 12px;background:#f4f1fc;color:var(--txt);font-weight:900;text-align:left}
+.nav .nav-btn.main-plus{transform:translateY(-14px)}.nav .nav-btn.main-plus .nav-ico{display:grid;place-items:center;width:58px;height:58px;border-radius:22px;background:linear-gradient(145deg,#8d5cff,#e2231a);color:#fff;font-size:30px;box-shadow:0 12px 24px rgba(106,61,217,.34)}
+@media(min-width:900px){body{padding-left:238px}.nav{left:0;top:0;bottom:0;width:220px;height:auto;display:flex!important;flex-direction:column;justify-content:flex-start;padding:28px 14px;background:#fff;border-radius:0;border-right:1px solid #eceaf5;box-shadow:8px 0 28px rgba(42,30,79,.06)}.nav:before{content:"SUBLICUENTAS\A PANEL DE SOCIOS";white-space:pre;color:#e2231a;font-family:var(--ff);font-weight:950;line-height:1.25;padding:10px 12px 28px}.nav .nav-btn{width:100%;min-height:58px;flex:none;display:flex;flex-direction:row;justify-content:flex-start;gap:13px;padding:10px 14px;border-radius:17px}.nav .nav-btn.on{background:#f0eaff;color:#693dde}.nav .nav-btn.main-plus{order:2;transform:none}.nav .nav-btn.main-plus .nav-ico{width:32px;height:32px;border-radius:11px;font-size:20px}.topbar{border-radius:0 0 24px 24px}.partner-hero{min-height:270px;padding:42px}.partner-copy h2{font-size:42px}.partner-mascot{width:330px;height:330px;right:22px;bottom:-55px}.profile-layout{display:grid;grid-template-columns:360px 1fr;gap:18px}.profile-stats{margin:0;grid-template-columns:1fr 1fr 1fr;align-content:start}.quick-overlay{align-items:center}.quick-sheet{border-radius:28px}}
+/* FASE 2 · NAV 3D, INTRO Y OPERACIONES */
+.desktop-nav-extra{display:none!important}
+.nav .nav-ico{position:relative;background:linear-gradient(145deg,#fff,#eceaf4);border:1px solid rgba(255,255,255,.9);box-shadow:0 6px 0 #d8d5e4,0 11px 18px rgba(45,36,83,.14);transform:translateY(-3px);text-shadow:0 2px 1px rgba(255,255,255,.55);transition:.18s cubic-bezier(.2,.8,.2,1)}
+.nav .nav-btn:nth-child(1) .nav-ico{background:linear-gradient(145deg,#58d5ff,#159adb);box-shadow:0 6px 0 #087fbd,0 12px 19px rgba(12,145,210,.28)}
+.nav .nav-btn:nth-child(2) .nav-ico{background:linear-gradient(145deg,#b995ff,#7c4dff);box-shadow:0 6px 0 #6035cf,0 12px 19px rgba(104,62,212,.27)}
+.nav .nav-btn:nth-child(4) .nav-ico{background:linear-gradient(145deg,#ffd56b,#ff9f2e);box-shadow:0 6px 0 #db7d13,0 12px 19px rgba(225,133,24,.25)}
+.nav .nav-btn:nth-child(5) .nav-ico{background:linear-gradient(145deg,#62e8bb,#1dbb84);box-shadow:0 6px 0 #129267,0 12px 19px rgba(21,170,117,.25)}
+.nav .nav-btn.on .nav-ico{transform:translateY(-6px) scale(1.04);filter:saturate(1.08);outline:3px solid rgba(124,77,255,.13)}
+.nav .nav-btn:active .nav-ico{transform:translateY(1px);box-shadow:0 2px 0 #c6c1d4,0 4px 8px rgba(45,36,83,.12)}
+.nav .nav-btn.main-plus .nav-ico{border:1px solid rgba(255,255,255,.45);box-shadow:0 8px 0 #872a77,0 16px 25px rgba(137,36,112,.32)}
+.intro{background:radial-gradient(circle at 50% 28%,#3b1d72 0,#161321 52%,#09090d 100%)}.intro-bg{background:radial-gradient(circle at 50% 30%,rgba(141,92,255,.38),transparent 46%),linear-gradient(145deg,rgba(226,35,26,.18),transparent 48%)}
+.intro-brand{display:flex;flex-direction:column;align-items:center;justify-content:center}.intro-robot{width:min(76vw,420px)!important;height:min(58vh,460px)!important;background:none!important;box-shadow:none!important;overflow:visible!important}.intro-robot img{width:100%!important;height:100%!important;object-fit:contain!important;filter:drop-shadow(0 28px 28px rgba(0,0,0,.38))!important}.intro-word{display:none!important}.intro-new-title{text-align:center;margin-top:-22px;position:relative;z-index:3}.intro-new-title b{display:block;color:#fff;font-family:var(--ff);font-size:clamp(34px,9vw,58px);letter-spacing:-1.5px;text-shadow:0 5px 0 rgba(0,0,0,.25)}.intro-new-title span{display:inline-flex;margin-top:6px;padding:8px 15px;border-radius:999px;background:linear-gradient(135deg,#8d5cff,#e2231a);color:#fff;font-weight:950;font-size:13px;letter-spacing:.8px;text-transform:uppercase;box-shadow:0 7px 0 rgba(98,34,105,.55)}.intro-tag{margin-top:18px!important}.intro-tag p{color:rgba(255,255,255,.8)!important}
+.operations-hero{position:relative;overflow:hidden;border-radius:28px;padding:24px 128px 24px 22px;margin-bottom:15px;color:#fff;background:linear-gradient(135deg,#6336d5,#9a66ff);box-shadow:0 10px 0 #4d28b6,0 20px 34px rgba(85,47,190,.2)}.operations-hero.clients{background:linear-gradient(135deg,#087fbf,#23b9ee);box-shadow:0 10px 0 #076eaa,0 20px 34px rgba(10,132,190,.2)}.operations-hero.renew{background:linear-gradient(135deg,#e58b1c,#ffc451);box-shadow:0 10px 0 #c8750b,0 20px 34px rgba(206,122,18,.2)}.operations-hero h2{font-family:var(--ff);font-size:28px;line-height:1;margin:0 0 8px}.operations-hero p{font-size:12.5px;font-weight:800;line-height:1.4;opacity:.84;margin:0}.operations-hero img{position:absolute;width:128px;height:128px;right:4px;bottom:-23px;object-fit:contain;filter:drop-shadow(0 12px 12px rgba(29,12,73,.24))}
+.finance-card,.cli-card,.buy-picker-btn,.buy-head,.seg,.search{border:1px solid rgba(231,227,243,.88)}.finance-card,.cli-card{box-shadow:0 8px 0 #e5e1ef,0 16px 28px rgba(55,42,98,.08)}.cli-card{border-radius:24px!important}.svc{background:#f7f5fc!important;border-radius:17px!important;margin-top:7px}.svc-mini{background:linear-gradient(145deg,#a676ff,#7446e8)!important;color:#fff!important;box-shadow:0 4px 0 #5630bf!important;border:0!important}.seg{padding:5px!important;background:#fff!important;border-radius:19px!important;box-shadow:0 6px 0 #e1ddea!important}.seg button.on{background:linear-gradient(145deg,#9664ff,#6a3bd9)!important;box-shadow:0 4px 0 #4f29b4!important}.search{background:#fff!important;border-radius:19px!important;box-shadow:0 6px 0 #e1ddea!important}.buy-head{display:none}.buy-picker-btn{box-shadow:0 7px 0 #ded9ea,0 14px 25px rgba(55,42,98,.08)!important}.buy-submit{background:linear-gradient(145deg,#9361ff,#6739d4)!important;box-shadow:0 6px 0 #4e27b3!important}
+.catalog-fresh{display:inline-flex;align-items:center;gap:6px;margin:-6px 2px 14px;padding:7px 11px;border-radius:999px;background:#e8fbf3;color:#138758;font-size:11px;font-weight:950}.catalog-fresh:before{content:"";width:8px;height:8px;border-radius:50%;background:#20c77a;box-shadow:0 0 0 4px rgba(32,199,122,.13)}
+.rank-card{background:#fff;border-radius:25px;padding:14px;box-shadow:0 8px 0 #e3deee,0 17px 28px rgba(55,42,98,.08);margin-bottom:13px}.rank-row{display:grid;grid-template-columns:34px 48px 1fr auto;gap:10px;align-items:center;padding:11px 5px;border-bottom:1px solid #eeeaf6}.rank-row:last-child{border:0}.rank-row.me{margin:5px -4px;border:0;border-radius:17px;background:linear-gradient(135deg,#f0e8ff,#fff0ef)}.rank-pos{font-family:var(--ff);font-weight:950;color:#8a7ba6;text-align:center}.rank-avatar{width:46px;height:46px;border-radius:16px;object-fit:cover;background:linear-gradient(145deg,#a87dff,#6e3ee4);border:3px solid #fff;box-shadow:0 5px 0 #d8d0e7}.rank-name b{display:block;font-family:var(--ff);font-size:14px}.rank-name span{display:block;color:var(--muted);font-size:10.5px;font-weight:850;margin-top:3px}.rank-score{text-align:right}.rank-score b{display:block;color:#673bd4;font-family:var(--ff);font-size:15px}.rank-score span{font-size:10px;font-weight:850;color:var(--muted)}
+.badge-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}.sales-badge{min-height:94px;border-radius:18px;padding:10px 5px;text-align:center;background:#f5f2fa;filter:grayscale(1);opacity:.52}.sales-badge.on{background:linear-gradient(145deg,#fff,#f1e9ff);filter:none;opacity:1;box-shadow:0 5px 0 #ddd3ed}.sales-badge i{display:block;font-style:normal;font-size:28px}.sales-badge b{display:block;font-size:10.5px;line-height:1.1;margin-top:6px}.level-track{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:13px 0}.level-chip{border-radius:15px;padding:10px 5px;text-align:center;background:#f4f1f8;color:#7e718f;font-size:10px;font-weight:950}.level-chip.on{color:#fff;background:linear-gradient(145deg,#9a68ff,#6638d5);box-shadow:0 5px 0 #4e28ad}.profile-photo-wrap{position:relative;display:inline-block}.profile-photo{width:132px;height:132px;border-radius:36px;object-fit:cover;background:#fff;border:5px solid rgba(255,255,255,.85);box-shadow:0 9px 0 rgba(71,37,145,.45)}.profile-photo-edit{position:absolute;right:-5px;bottom:4px;width:42px;height:42px;border:0;border-radius:15px;background:linear-gradient(145deg,#ffbc47,#f27e18);color:#fff;font-size:19px;box-shadow:0 5px 0 #c8610c}.topbar .av-brand img{width:100%!important;height:100%!important;transform:none!important;object-fit:cover!important}.topbar .av-brand{overflow:hidden!important}
+@media(min-width:900px){.desktop-nav-extra{display:flex!important}.nav .nav-btn.main-plus{order:initial}.nav .nav-btn{min-height:54px}.nav .nav-ico,.nav .nav-btn.main-plus .nav-ico{width:35px;height:35px;border-radius:12px;font-size:20px;transform:none;box-shadow:0 4px 0 #d3cfdf,0 8px 14px rgba(45,36,83,.12)}.nav .nav-btn.on .nav-ico{transform:translateY(-2px)}.operations-grid{display:grid;grid-template-columns:1.02fr 1.45fr;gap:16px;align-items:start}.operations-hero{min-height:150px}.intro-robot{width:390px!important;height:430px!important}}
+@media(max-width:620px){.partner-hero{min-height:238px;padding:23px 20px}.partner-copy{max-width:68%}.partner-copy h2{font-size:27px}.partner-copy p{font-size:12px}.partner-mascot{width:185px;height:185px;right:-34px;bottom:-26px}.partner-actions{grid-template-columns:1fr 1fr}.profile-robot{width:132px;height:132px}.profile-stats{gap:8px}.profile-stat{padding:14px 5px}.nav{padding-bottom:max(7px,env(safe-area-inset-bottom))}.operations-hero{padding:22px 112px 22px 19px}.operations-hero h2{font-size:25px}.operations-hero img{width:115px;height:115px}.intro-robot{width:86vw!important}}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro" class="intro" onclick="closeIntro()">
+  <div class="intro-bg"></div>
+  <div class="intro-lasers"><i></i><i></i><i></i></div>
+  <video id="introVid" class="intro-vid hide" muted autoplay playsinline preload="auto"></video>
+  <div id="introBrand" class="intro-brand">
+    <div class="intro-robot"><img src="" id="introRobot" alt="Subli"></div>
+    <div class="intro-word"><img src="" id="introWord" alt="Sublicuentas"></div>
+    <div class="intro-new-title"><b>Sublicuentas</b><span>Panel de socios</span></div>
+    <div class="intro-tag">
+      <span class="intro-tag-line"></span>
+      <p>CONECTAMOS EMOCIONES, <b>CREAMOS EXPERIENCIAS</b></p>
+    </div>
+  </div>
+  
+</div>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-stage">
+    <div class="login-peek"><img src="" id="loginLogo" alt="Subli"></div>
+    <div class="login-bubble" id="loginBubble">¡Hola! 👋</div>
+    <div class="login-card">
+      <h2>Bienvenido</h2>
+      <p>Entrá con tu usuario y tu clave</p>
+      <div class="field">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <input id="inUser" placeholder="Usuario" autocomplete="username" autocapitalize="none">
+      </div>
+      <div class="field">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <input id="inPass" type="password" placeholder="Clave" autocomplete="current-password">
+      </div>
+      <div class="field hide" id="fieldPin">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+        <input id="inPin" type="text" inputmode="numeric" placeholder="Código de configuración (PIN)" autocomplete="one-time-code" maxlength="6">
+      </div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">Acceder</button>
+      <div class="login-err" id="loginErr"></div>
+      <div class="login-foot" id="loginFoot">La primera vez, necesitás también el PIN de configuración que te dio el admin.</div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="wrap hide">
+  <div class="topbar">
+    <div class="av-brand"><img src="" id="brandLogo" alt="Subli"></div>
+    <div class="tb-txt">
+      <h1>Sublicuentas</h1>
+      <span class="greet" id="greet">Panel de socios</span>
+      <span class="fecha-hora" id="fechaHora"></span>
+    </div>
+    <button class="icon-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
+    <button class="icon-btn" onclick="logout()" aria-label="Salir">
+      <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12"/></svg>
+    </button>
+  </div>
+  <div id="impBar" class="hide"></div>
+  <div id="content"><div class="spin"></div></div>
+</div>
+
+<nav class="nav hide" id="nav">
+  <button class="nav-btn on" data-v="inicio" onclick="go('inicio')"><span class="nav-ico">🏠</span><span>Inicio</span></button>
+  <button class="nav-btn" data-v="clientes" onclick="go('clientes')"><span class="nav-ico">👥</span><span>Clientes</span></button>
+  <button class="nav-btn main-plus" type="button" onclick="openPartnerQuick()"><span class="nav-ico">＋</span><span>Acciones</span></button>
+  <button class="nav-btn" data-v="precios" onclick="go('precios')"><span class="nav-ico">📋</span><span>Catálogo</span></button>
+  <button class="nav-btn" data-v="perfil" onclick="go('perfil')"><span class="nav-ico">👤</span><span>Perfil</span></button>
+  <button class="nav-btn desktop-nav-extra" data-v="compras" onclick="go('compras')"><span class="nav-ico">🛒</span><span>Compras</span></button>
+  <button class="nav-btn desktop-nav-extra" data-v="renovar" onclick="go('renovar')"><span class="nav-ico">🔄</span><span>Renovación</span></button>
+  <button class="nav-btn desktop-nav-extra" data-v="aula" onclick="go('aula')"><span class="nav-ico">✨</span><span>Subli Aula</span></button>
+  <button class="nav-btn desktop-nav-extra" data-v="buzon" onclick="go('buzon')"><span class="nav-ico">📬</span><span>Buzón</span></button>
+</nav>
+
+<div class="quick-overlay" id="partnerQuick" onclick="if(event.target===this)closePartnerQuick()">
+  <div class="quick-sheet"><div class="grab"></div><h3>¿Qué desea hacer?</h3><div class="quick-sheet-grid">
+    <button onclick="closePartnerQuick();go('compras')">🛒 Nueva compra</button>
+    <button onclick="closePartnerQuick();go('renovar')">🔄 Renovar cliente</button>
+    <button onclick="closePartnerQuick();go('clientes')">👥 Buscar cliente</button>
+    <button onclick="closePartnerQuick();go('aula')">✨ Abrir Subli IA</button>
+    <button onclick="closePartnerQuick();go('precios')">📋 Ver catálogo</button>
+    <button onclick="closePartnerQuick();go('buzon')">📬 Abrir buzón</button>
+  </div></div>
+</div>
+
+<!-- COBRO MODAL -->
+<div class="cobro-overlay" id="cobroOverlay" onclick="if(event.target===this)closeCobro()">
+  <div class="cobro-sheet">
+    <div class="grab"></div>
+    <h3>Mensaje de cobro</h3>
+    <div class="cobro-sub" id="cobroSub"></div>
+    <div id="cobroSeg"></div>
+    <textarea class="cobro-text" id="cobroText"></textarea>
+    <div class="cobro-actions">
+      <button class="act ghost" onclick="otraVariante(event)">🎲 Otra</button>
+      <button class="act ghost" onclick="generateCobroIA(event)">✨ IA</button>
+      <button class="act ghost" onclick="copyCobro(event)">Copiar</button>
+      <button class="act primary" id="cobroWa" onclick="sendWa()">WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div class="cobro-overlay" id="compOverlay" onclick="if(event.target===this)closeComprobante()">
+  <div class="cobro-sheet">
+    <div class="grab"></div>
+    <h3>Subir comprobante</h3>
+    <div class="cobro-sub" id="compSub"></div>
+    <input type="file" id="compFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickComprobante(this)">
+    <div class="comp-drop" id="compDrop" onclick="document.getElementById('compFile').click()">
+      <div class="comp-ph" id="compPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small style="display:block;margin-top:4px;color:#7890AA;font-weight:900">Seleccione la captura guardada, no cámara.</small></div>
+      <img id="compPrev" style="display:none" alt="">
+    </div>
+    <input class="comp-in" id="compQuien" placeholder="¿Quién renovó? (ej. el cliente, yo…)">
+    <textarea class="cobro-text" id="compCom" style="min-height:90px" placeholder="Comentario (método de pago, detalle, lo que sea)"></textarea>
+    <input class="comp-in" id="compMonto" type="number" inputmode="decimal" placeholder="Monto (opcional)">
+    <div class="comp-renew-box">
+      <div class="comp-renew-title">🔄 Renovar fecha del cliente aquí mismo</div>
+      <input class="comp-in" id="compNuevaFecha" type="date" placeholder="Nueva fecha de vencimiento">
+      <div class="mini-seg">
+        <button onclick="setCompMeses(1);return false">+1m</button>
+        <button onclick="setCompMeses(2);return false">+2m</button>
+        <button onclick="setCompMeses(3);return false">+3m</button>
+        <button onclick="setCompMeses(6);return false">+6m</button>
+        <button onclick="clearCompFecha();return false">Solo foto</button>
+      </div>
+      <div class="comp-note" id="compFechaInfo">Puede guardar solo la foto o elegir nueva fecha para renovar de una vez.</div>
+    </div>
+    <div class="comp-actions">
+      <button class="act ghost" onclick="closeComprobante()">Cancelar</button>
+      <button class="act primary" id="compBtn" onclick="enviarComprobante()">Guardar</button>
+    </div>
+    <div id="compMsg" style="text-align:center;font-weight:800;font-size:13px;margin-top:10px;min-height:16px;font-family:var(--fn)"></div>
+  </div>
+</div>
+
+<script>
+let rev=null, clientes=[], cobroTel='', current='inicio';
+let isAdmin=false, adminToken=null, adminRevs=[], adminComps=[], adminCompras=[], impersonating=false;
+
+/* API */
+const API={
+  base:CONFIG.apiBase.replace(/\/$/,''),
+  token:st('get','rev_token'),
+  setToken(t){this.token=t;st('set','rev_token',t)},
+  clear(){this.token=null;st('del','rev_token');st('del','rev_data')},
+  async call(path,opts={}){
+    const r=await fetch(this.base+path,{...opts,headers:{'Content-Type':'application/json',
+      ...(this.token?{Authorization:'Bearer '+this.token}:{}),...(opts.headers||{})}});
+    if(r.status===401){this.clear();throw{code:'auth'}}
+    if(!r.ok){let e={};try{e=await r.json()}catch(_){};throw e}
+    return r.json();
+  }
+};
+// Despertar el backend apenas carga la página: en el plan gratis de Render
+// el servicio se duerme si nadie lo usa, y el primer request (el login)
+// puede tardar 30-50s en despertar. Este ping corre en paralelo con la
+// intro (que igual tarda unos segundos), así el server ya está despierto
+// para cuando el usuario realmente toca "Acceder".
+try{ fetch(API.base+'/health',{cache:'no-store'}).catch(()=>{}); }catch(e){}
+function st(op,k,v){try{if(op==='get')return localStorage.getItem(k);if(op==='set')localStorage.setItem(k,v);if(op==='del')localStorage.removeItem(k)}catch(e){return null}}
+
+/* helpers */
+function pick(o,keys){for(const k of keys){if(o&&o[k]!=null&&o[k]!=='')return o[k]}return null}
+function norm(s){return(s||'').toString().trim().toLowerCase()}
+function parseFecha(v){
+  if(v==null)return null;
+  if(typeof v==='object'){if(v.seconds)return new Date(v.seconds*1000);if(v._seconds)return new Date(v._seconds*1000);if(v.toDate)return v.toDate()}
+  if(typeof v==='number')return new Date(v<1e12?v*1000:v);
+  const s=v.toString().trim();
+  let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){let[,d,mo,y]=m;y=y.length===2?'20'+y:y;return new Date(+y,+mo-1,+d)}
+  const d=new Date(s);return isNaN(d)?null:d;
+}
+function fmtFecha(d){return d?d.toLocaleDateString('es-HN',{day:'2-digit',month:'short',year:'numeric'}):'—'}
+function dias(d){if(!d)return null;const h=new Date();h.setHours(0,0,0,0);return Math.round((d-h)/86400000)}
+function estado(d){const n=dias(d);
+  if(n===null)return{c:'mut',t:'Sin fecha',n:9999};
+  if(n<0)return{c:'exp',t:`Corte hace ${Math.abs(n)}d`,n};
+  if(n===0)return{c:'due',t:'Pago hoy',n};
+  if(n<=CONFIG.avisoDias)return{c:'soon',t:`En ${n}d`,n};
+  return{c:'ok',t:`En ${n}d`,n};
+}
+function nombreCli(c){return c.nombrePerfil||c.nombre||c.nombre_norm||'Cliente'}
+function revName(r=rev){
+  if(!r)return 'socio';
+  const raw=(r.nombre||r.nombre_norm||'').toString().trim();
+  const user=(r.usuario||r.user||r.username||r.alias||'').toString().trim();
+  const bad=['sublicuentas','sublichat','admin','administrador'];
+  if(raw && !bad.includes(norm(raw)))return raw;
+  if(user && !bad.includes(norm(user)))return user;
+  return raw||user||'socio';
+}
+const enc=s=>(s||'').toString().replace(/"/g,'&quot;');
+
+const MOTIVACION=[
+  'Cada no te acerca a un sí. Seguí tocando puertas.',
+  'La venta de hoy empieza con el primer mensaje bien enviado.',
+  'Un cliente bien atendido se convierte en recomendación.',
+  'No venda barato: venda confianza, rapidez y solución.',
+  'Su disciplina cobra aunque usted todavía no vea el resultado.',
+  'Hoy no se improvisa: hoy se ordena, se cobra y se renueva.',
+  'El seguimiento vende más que la suerte.',
+  'La constancia gana donde el talento se distrae.',
+  'Cada renovación es una relación que usted cuidó.',
+  'Primero orden, luego ventas; primero servicio, luego crecimiento.',
+  'Una respuesta rápida vale más que una promoción gigante.',
+  'El cliente vuelve donde le resuelven sin complicarlo.',
+  'No persiga ventas: construya confianza y las ventas llegan.',
+  'La diferencia está en cobrar a tiempo y atender con respeto.',
+  'Hoy puede ser el día que un referido le abre diez puertas.',
+  'El negocio crece cuando usted mide, corrige y vuelve a intentar.',
+  'Vender es servir con estrategia.',
+  'No compita solo por precio; compita por experiencia.',
+  'Un mensaje claro evita reclamos y aumenta renovaciones.',
+  'La marca se construye en cada chat.',
+  'La mejor publicidad es un cliente satisfecho hablando por usted.',
+  'No espere motivación: ejecute y la motivación aparece.',
+  'El que organiza su cartera, domina sus ingresos.',
+  'Hoy toca sembrar confianza para cosechar renovaciones.',
+  'La rapidez vende, pero la claridad fideliza.',
+  'No deje clientes fríos: un seguimiento amable reactiva ventas.',
+  'El negocio no se detiene; se ajusta y avanza.',
+  'La venta pequeña de hoy puede traer el cliente grande de mañana.',
+  'Usted no solo vende cuentas: vende comodidad.',
+  'Una cartera sana empieza con vencimientos bajo control.',
+  'El buen vendedor no insiste: acompaña con inteligencia.',
+  'La energía correcta en el mensaje cambia la respuesta del cliente.',
+  'Donde otros abandonan, usted hace seguimiento.',
+  'No subestime el poder de un buen “buenos días”.',
+  'El cliente compra seguridad antes que precio.',
+  'Hoy no es para quejarse; es para mover la cartera.',
+  'Si cuida el detalle, cuida la ganancia.',
+  'Menos excusas, más mensajes enviados.',
+  'La confianza se gana cumpliendo lo prometido.',
+  'Un negocio serio se nota desde el primer texto.',
+  'La paciencia también es parte de la estrategia.',
+  'Vender más empieza por atender mejor.',
+  'Quien controla sus renovaciones controla su flujo.',
+  'El mejor cierre es una solución simple.',
+  'Haga que comprarle sea fácil, rápido y seguro.',
+  'Hoy ordena su panel; mañana ordena sus ganancias.',
+  'El seguimiento no molesta cuando aporta valor.',
+  'La actitud abre la puerta, el servicio la mantiene abierta.',
+  'No espere clientes perfectos; cree procesos claros.',
+  'La constancia convierte contactos en cartera.',
+  'Un cliente que entiende, paga con menos objeciones.',
+  'La marca que responde rápido se queda en la mente.',
+  'La venta se cierra mejor cuando el mensaje es directo.',
+  'Revise, cobre, renueve: tres pasos para crecer.',
+  'La excelencia diaria hace que el precio pese menos.',
+  'El cliente no siempre recuerda el precio, pero sí cómo lo atendieron.',
+  'Haga de cada renovación una oportunidad para vender más.',
+  'El enfoque de hoy paga la tranquilidad de mañana.',
+  'No venda por necesidad: venda con estrategia.',
+  'El orden es el socio silencioso de todo vendedor.'
+];
+function motivacionDelDia(){
+  const n=new Date();
+  const y=n.getFullYear();
+  const start=new Date(y,0,0);
+  const day=Math.floor((n-start)/86400000);
+  return MOTIVACION[(day+(y*17))%MOTIVACION.length];
+}
+function num(v){
+  if(v==null||v==='')return 0;
+  if(typeof v==='number')return Number.isFinite(v)?v:0;
+  let s=v.toString().replace(/[^\d,.-]/g,'').trim();
+  if(!s)return 0;
+  const c=s.lastIndexOf(','), d=s.lastIndexOf('.');
+  if(c>-1&&d>-1){s=c>d?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'')}
+  else if(c>-1){const dec=s.length-c-1;s=dec===2?s.replace(',','.'):s.replace(/,/g,'')}
+  else if(d>-1){const dec=s.length-d-1;if(dec!==2)s=s.replace(/\./g,'')}
+  const n=parseFloat(s);return Number.isFinite(n)?n:0;
+}
+function precioServicio(s){return num(pick(s,CONFIG.campos.precio))}
+function money(n){return 'Lps. '+Math.round(n||0).toLocaleString('es-HN')}
+function esVigente(e){return e.n>=0&&e.n<9999}
+function clienteTieneVigente(c){return (Array.isArray(c.servicios)?c.servicios:[]).some(s=>esVigente(estado(parseFecha(pick(s,CONFIG.campos.vencimiento)))))}
+/* Vigente = tiene al menos un servicio en fecha. No vigente = todo lo demás (vencidos, sin fecha o sin servicio). */
+function esClienteVigente(c){return clienteTieneVigente(c)}
+function esClienteNoVigente(c){return !clienteTieneVigente(c)}
+function estadoCliente(c){
+  return esClienteVigente(c)?{c:'ok',t:'Vigente'}:{c:'exp',t:'No vigente'};
+}
+
+function flat(){const out=[];
+  clientes.forEach(c=>(Array.isArray(c.servicios)?c.servicios:[]).forEach((s,ix)=>{
+    const f=parseFecha(pick(s,CONFIG.campos.vencimiento));
+    out.push({cliente:c,servicioIndex:ix,nombre:pick(s,CONFIG.campos.servicio)||'Servicio',fecha:f,est:estado(f),precio:precioServicio(s)});
+  }));
+  return out.sort((a,b)=>a.est.n-b.est.n);
+}
+
+function actualizarFechaHora(){
+  const el=document.getElementById('fechaHora');
+  if(!el)return;
+  const n=new Date();
+  el.textContent=n.toLocaleDateString('es-HN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+' · '+n.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(actualizarFechaHora,60000);
+
+/* login */
+/* Texto del botón de login (cambiá acá las 2 palabras si querés otra) */
+const LOGIN_CTA={go:'Acceder', load:'Accediendo…'};
+let pinModo=false;
+function mostrarCampoPin(mostrar){
+  pinModo=mostrar;
+  fieldPin.classList.toggle('hide',!mostrar);
+  loginFoot.textContent=mostrar
+    ? 'Primera vez: poné el PIN que te dio el admin y elegí la clave que vas a usar de ahora en más.'
+    : 'La primera vez, necesitás también el PIN de configuración que te dio el admin.';
+  if(mostrar){ try{inPin.focus()}catch(_){} }
+}
+async function doLogin(){
+  const usuario=inUser.value.trim(), password=inPass.value.trim(), pin=(inPin?.value||'').trim();
+  loginErr.textContent='';
+  if(!usuario||!password){loginErr.textContent='Escribí tu usuario y tu clave.';return}
+  if(pinModo && !pin){loginErr.textContent='Poné también el PIN de configuración.';return}
+  if(CONFIG.apiBase.includes('TU-BOT')){loginErr.textContent='Falta poner la URL de la API (CONFIG.apiBase).';return}
+  loginBtn.disabled=true; loginBtn.textContent=LOGIN_CTA.load;
+  try{
+    const body={usuario,password};
+    if(pin) body.pin=pin;
+    const res=await API.call('/rev/login',{method:'POST',body:JSON.stringify(body)});
+    API.setToken(res.token);
+    if(res.admin){
+      isAdmin=true; adminToken=res.token;
+      st('set','rev_admin','1'); st('del','rev_data');
+      enterAdmin();
+      return;
+    }
+    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||usuario};
+    st('set','rev_data',JSON.stringify(rev)); st('del','rev_admin');
+    enterApp();
+  }catch(e){
+    if(e.error==='pin_requerido'){
+      mostrarCampoPin(true);
+      loginErr.textContent='Es tu primera vez: escribí también el PIN de configuración.';
+      return;
+    }
+    const map={
+      credenciales:'Usuario o clave incorrectos.',
+      inactivo:'Tu cuenta está inactiva.',
+      faltan_datos:'Faltan datos.',
+      pin_invalido:'El PIN de configuración no es correcto.',
+      cuenta_no_configurada:'Tu cuenta todavía no tiene PIN de configuración. Pedile uno al admin (/resetpin).',
+      demasiados_intentos:'Demasiados intentos. Probá de nuevo en unos minutos.',
+    };
+    loginErr.textContent=map[e.error]||'No pude conectar. Revisá la URL de la API.';
+  }finally{loginBtn.disabled=false;loginBtn.textContent=LOGIN_CTA.go}
+}
+function enterApp(){
+  login.classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  document.getElementById('nav').classList.remove('hide');
+  greet.textContent='Hola, '+revName();
+  actualizarFechaHora();
+  toggleImpBar();
+  loadClientes();
+  loadAvisos();
+  loadPrecios();
+  loadGamificacion();
+  clearInterval(window.__subliInboxTimer);
+  window.__subliInboxTimer=setInterval(()=>{loadAvisos();loadGamificacion()},60000);
+}
+/* Trae el catálogo real (lo administra Sublichat). Si falla, se queda
+   con el PRECIOS de respaldo definido arriba — el socio nunca se queda
+   sin ver precios, aunque estén desactualizados. */
+async function loadPrecios(){
+  try{
+    const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
+    if(Array.isArray(data)) PRECIOS=data;
+    return true;
+  }catch(e){ /* se queda con el respaldo */ }
+  return false;
+}
+function toggleImpBar(){
+  const b=document.getElementById('impBar');
+  if(impersonating){
+    b.className='imp-bar';
+    b.innerHTML=`<div class="lbl">👁 Viendo como <b>${revName()}</b></div><button onclick="volverAdmin()">Volver</button>`;
+  } else { b.className='hide'; b.innerHTML=''; }
+}
+function logout(){API.clear();st('del','rev_admin');location.reload()}
+
+/* ── ADMIN (modo dios, solo lectura) ── */
+let admF='', admCompF='', admCompraF='', admMode='socios';
+async function enterAdmin(){
+  impersonating=false;
+  login.classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  document.getElementById('nav').classList.add('hide');
+  document.getElementById('impBar').className='hide';
+  greet.textContent='Modo administrador';
+  actualizarFechaHora();
+  content.innerHTML='<div class="spin"></div>';
+  try{
+    const [revs,comps,compras]=await Promise.all([
+      API.call('/rev/admin/revendedores',{headers:{Authorization:'Bearer '+adminToken}}),
+      API.call('/rev/admin/comprobantes?limit=160',{headers:{Authorization:'Bearer '+adminToken}}).catch(()=>[]),
+      API.call('/rev/admin/compras?limit=160',{headers:{Authorization:'Bearer '+adminToken}}).catch(()=>[])
+    ]);
+    adminRevs=revs; adminComps=comps; adminCompras=compras; renderAdmin();
+  }
+  catch(e){ if(e.code==='auth'){location.reload();return}
+    content.innerHTML=`<div class="card"><div class="empty"><div class="ico">⚠️</div><b>No pude cargar el Panel Dios</b>Revisá la API.</div></div>`; }
+}
+function renderAdmin(){
+  const totCli=adminRevs.reduce((a,r)=>a+(r.clientes||0),0);
+  const totVenc=adminRevs.reduce((a,r)=>a+(r.vencidos||0),0);
+  const activos=adminRevs.filter(r=>r.activo).length;
+  const compsFoto=adminComps.filter(c=>c.imagenUrl).length;
+  const comprasFoto=adminCompras.filter(c=>c.imagenUrl).length;
+  content.innerHTML=`
+  <div class="hero">
+    <div class="hl">PANEL DIOS</div>
+    <div class="hv">${adminRevs.length}</div>
+    <div class="hs">${activos} socios activos · ${totCli} clientes · ${totVenc} cortes/vencidos · ${adminComps.length} comprobantes · ${adminCompras.length} compras</div>
+  </div>
+  <div class="adm-dash">
+    <div class="adm-mini"><b>${totCli}</b><span>Clientes en red</span></div>
+    <div class="adm-mini"><b>${totVenc}</b><span>Alertas de corte</span></div>
+    <div class="adm-mini"><b>${compsFoto}</b><span>Fotos de renovación</span></div>
+    <div class="adm-mini"><b>${adminCompras.length}</b><span>Compras nuevas</span></div>
+  </div>
+  <div class="adm-seg">
+    <button class="${admMode==='socios'?'on':''}" onclick="setAdmMode('socios')">👁 Ver socio</button>
+    <button class="${admMode==='comprobantes'?'on':''}" onclick="setAdmMode('comprobantes')">🧾 Comprobantes</button>
+    <button class="${admMode==='compras'?'on':''}" onclick="setAdmMode('compras')">🛒 Compras</button>
+    <button class="${admMode==='usuarios'?'on':''}" onclick="setAdmMode('usuarios')">👤 Usuarios</button>
+  </div>
+  ${admMode==='usuarios'?`<button class="copyall" onclick="copyAllUsers(this)">📋 Copiar lista (nombre + usuario)</button>`:''}
+  <div class="search">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+    ${admMode==='comprobantes'
+      ? `<input id="admCompSearch" placeholder="Buscar comprobante por socio, cliente o servicio" value="${admCompF.replace(/"/g,'&quot;')}" oninput="admCompF=this.value;renderAdmComps()">`
+      : admMode==='compras'
+        ? `<input id="admCompraSearch" placeholder="Buscar compra por socio, servicio, cliente o destino" value="${admCompraF.replace(/"/g,'&quot;')}" oninput="admCompraF=this.value;renderAdmCompras()">`
+        : `<input id="admSearch" placeholder="Buscar socio" value="${admF.replace(/"/g,'&quot;')}" oninput="admF=this.value;renderAdmList()">`}
+  </div>
+  ${admMode==='comprobantes'?'<div id="admCompList"></div>':admMode==='compras'?'<div id="admCompraList"></div>':'<div id="admList"></div>'}`;
+  if(admMode==='comprobantes')renderAdmComps(); else if(admMode==='compras')renderAdmCompras(); else renderAdmList();
+}
+function setAdmMode(m){admMode=m;renderAdmin()}
+function renderAdmList(){
+  const f=norm(admF);
+  const list=adminRevs.filter(r=>!f||norm(r.nombre).includes(f)||norm(r.nombre_norm).includes(f));
+  const el=document.getElementById('admList'); if(!el)return;
+  if(!list.length){el.innerHTML=`<div class="card"><div class="empty"><div class="ico">🔍</div>Sin resultados.</div></div>`;return}
+  el.innerHTML=(admMode==='usuarios'?list.map(usrCard):list.map(revCard)).join('');
+}
+function fmtTs(ts){try{return new Date(ts||Date.now()).toLocaleString('es-HN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return '—'}}
+function renderAdmComps(){
+  const f=norm(admCompF);
+  const list=adminComps.filter(c=>!f||norm(c.socio).includes(f)||norm(c.socio_norm).includes(f)||norm(c.cliente).includes(f)||norm(c.servicio).includes(f));
+  const el=document.getElementById('admCompList'); if(!el)return;
+  if(!list.length){el.innerHTML=`<div class="card"><div class="empty"><div class="ico">🧾</div><b>Sin comprobantes</b>No hay resultados con ese filtro.</div></div>`;return}
+  el.innerHTML=list.map(compCard).join('');
+}
+function compCard(c){
+  const img=c.imagenUrl?`<a class="adm-img" href="${c.imagenUrl}" target="_blank"><img src="${c.imagenUrl}" alt="comprobante"></a>`:`<div class="adm-img">🧾</div>`;
+  const fecha=c.nuevaFecha?`<span class="adm-tag good">Nueva fecha ${c.nuevaFecha}</span>`:'';
+  const monto=c.monto?`<span class="adm-tag money">${money(c.monto)}</span>`:'';
+  return `<div class="adm-comp-card">
+    ${img}
+    <div>
+      <div class="adm-comp-title">${c.cliente||'Cliente sin nombre'}</div>
+      <div class="adm-comp-meta">👤 ${c.socio||'Socio'} · 📦 ${c.servicio||'Servicio'}<br>🕒 ${fmtTs(c.ts)}${c.quien?` · 🔁 ${c.quien}`:''}</div>
+      ${c.comentario?`<div class="adm-comp-meta">📝 ${c.comentario}</div>`:''}
+      <div class="adm-comp-tags">${monto}${fecha}${c.imagenUrl?'<span class="adm-tag">Foto</span>':'<span class="adm-tag">Sin foto</span>'}${c.renovado?'<span class="adm-tag good">Renovado</span>':''}</div>
+    </div>
+  </div>`;
+}
+
+function renderAdmCompras(){
+  const f=norm(admCompraF);
+  const list=adminCompras.filter(c=>!f||norm(c.socio).includes(f)||norm(c.socio_norm).includes(f)||norm(c.cliente).includes(f)||norm(c.perfil).includes(f)||norm(c.servicio).includes(f)||norm(c.destinoLabel).includes(f));
+  const el=document.getElementById('admCompraList'); if(!el)return;
+  if(!list.length){el.innerHTML=`<div class="card"><div class="empty"><div class="ico">🛒</div><b>Sin compras</b>No hay resultados con ese filtro.</div></div>`;return}
+  el.innerHTML=list.map(compraCard).join('');
+}
+function compraCard(c){
+  const img=c.imagenUrl?`<a class="adm-img" href="${c.imagenUrl}" target="_blank"><img src="${c.imagenUrl}" alt="comprobante compra"></a>`:`<div class="adm-img">🛒</div>`;
+  const monto=c.monto?`<span class="adm-tag money">${money(c.monto)}</span>`:'';
+  const extra=[c.catalogCategory?`🗂️ ${c.catalogCategory}`:'',c.catalogSub?`📌 ${c.catalogSub}`:'',c.perfil?`👥 Perfil: ${c.perfil}`:'',c.correo?`✉️ ${c.correo}`:'',c.detalleServicio?`🧾 Detalle: ${c.detalleServicio}`:'',c.acceso?`🔐 ${c.acceso}`:'',c.serial?`🔑 ${c.serial}`:'',c.key?`🧩 ${c.key}`:''].filter(Boolean).join('<br>');
+  return `<div class="adm-purchase-card">
+    ${img}
+    <div>
+      <div class="adm-purchase-title">${c.servicio||'Compra sin servicio'}</div>
+      <div class="adm-purchase-meta">👤 ${c.socio||'Socio'} · 📣 ${c.destinoLabel||'Sublicuentas'}<br>🕒 ${fmtTs(c.ts)}${c.cliente?`<br>🙍 Cliente: ${c.cliente}`:''}</div>
+      ${extra?`<div class="adm-purchase-meta">${extra}</div>`:''}
+      ${c.comentario?`<div class="adm-purchase-meta">📝 ${c.comentario}</div>`:''}
+      <div class="adm-comp-tags">${monto}<span class="adm-tag dest">${c.destinoLabel||'Sublicuentas'}</span>${c.imagenUrl?'<span class="adm-tag">Foto</span>':'<span class="adm-tag">Sin foto</span>'}<span class="adm-tag pending">${c.estado||'pendiente'}</span></div>
+    </div>
+  </div>`;
+}
+
+const PANEL_URL='https://sublicuentas.com';
+function onboardMsg(nombre,user,pin){
+  const pinLinea=pin?`🔐 PIN de configuración (solo la primera vez): ${pin}\n`:'';
+  return `¡Hola ${nombre}! 👋 Ya podés entrar a tu panel de Sublicuentas:\n\n🔗 ${PANEL_URL}\n👤 Usuario: ${user}\n${pinLinea}🔑 Clave: la primera vez que entrés, además del PIN, escribí la clave que querés usar de ahora en más — esa queda guardada como la tuya.\n\nCualquier duda, escribime. 🤝`;
+}
+function usrCard(r){
+  const ini=(r.nombre[0]||'?').toUpperCase();
+  return `<div class="usr-card">
+    <div class="usr-top">
+      <div class="rav ${r.activo?'':'off'}">${ini}</div>
+      <div class="usr-nm">${r.nombre}${r.activo?'':' <span class="rev-off-tag">inactivo</span>'}</div>
+    </div>
+    <div class="usr-user"><span class="k">Usuario</span><span class="v">${r.nombre_norm}</span></div>
+    <div class="usr-btns">
+      <button class="cp" onclick='copyUser(${JSON.stringify(r.nombre_norm)},this)'>Copiar usuario</button>
+      <button class="wa" onclick='waOnboard(${JSON.stringify(r.nombre)},${JSON.stringify(r.nombre_norm)})'>WhatsApp</button>
+    </div>
+  </div>`;
+}
+function copyUser(u,btn){navigator.clipboard?.writeText(u);const o=btn.textContent;btn.textContent='¡Copiado!';setTimeout(()=>btn.textContent=o,1200)}
+function waOnboard(nombre,user){
+  // El PIN lo generó el bot (comando /addvendedor o /resetpin) y solo se
+  // muestra ahí una vez — este panel no lo guarda ni lo puede recuperar.
+  const pin=(window.prompt(`PIN de configuración de ${nombre}\n\n(te lo dio el bot al correr /addvendedor o /resetpin — dejalo vacío si ya lo usó)`,'')||'').trim();
+  window.open('https://wa.me/?text='+encodeURIComponent(onboardMsg(nombre,user,pin)),'_blank');
+}
+function copyAllUsers(btn){
+  const t=adminRevs.map(r=>`${r.nombre}: ${r.nombre_norm}`).join('\n');
+  navigator.clipboard?.writeText(t);
+  const o=btn.textContent;btn.textContent='¡Copiado!';setTimeout(()=>btn.textContent=o,1300);
+}
+function revCard(r){
+  const ini=(r.nombre[0]||'?').toUpperCase();
+  const parts=[`${r.clientes} ${r.clientes===1?'cliente':'clientes'}`];
+  if(r.vencidos)parts.push(`<span class="x">${r.vencidos} vencidos</span>`);
+  if(r.porVencer)parts.push(`<span class="w">${r.porVencer} por vencer</span>`);
+  return `<div class="rev-card" onclick='verComo(${JSON.stringify(r.id)},${JSON.stringify(r.nombre_norm)},${JSON.stringify(r.nombre)})'>
+    <div class="rav ${r.activo?'':'off'}">${ini}</div>
+    <div class="ri"><div class="rn">${r.nombre}${r.activo?'':' <span class="rev-off-tag">inactivo</span>'}</div>
+      <div class="rs">${parts.join('<span style="opacity:.4">·</span>')}</div></div>
+    <div class="go"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+  </div>`;
+}
+async function verComo(id,nombre_norm,nombre){
+  try{
+    const res=await API.call('/rev/admin/impersonate',{method:'POST',body:JSON.stringify({id,nombre_norm}),headers:{Authorization:'Bearer '+adminToken}});
+    API.token=res.token;                 // token del socio solo en memoria
+    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||res.nombre_norm};
+    impersonating=true;
+    document.getElementById('nav').classList.remove('hide');
+    greet.textContent='Hola, '+revName();
+    toggleImpBar();
+    loadClientes();
+    loadAvisos();
+  }catch(e){
+    let msg;
+    if(e&&e.code==='auth') msg='Sesión de admin vencida. Cerrá sesión y volvé a entrar.';
+    else if(e&&e.error==='no_existe') msg='No se encontró a "'+nombre+'" en la base. El servidor (Render) probablemente NO está actualizado. Revisá server_api.js.';
+    else if(e&&e.error==='no_admin') msg='Tu token no es de admin (no_admin).';
+    else if(e&&e.error) msg='Error del servidor: '+e.error;
+    else if(e instanceof TypeError) msg='El servidor no respondió (puede estar despertando). Esperá ~1 min y reintentá.';
+    else msg='No pude entrar como '+nombre+(e&&e.message?(' — '+e.message):'');
+    alert(msg);
+  }
+}
+function volverAdmin(){
+  API.token=adminToken;
+  impersonating=false; rev=null;
+  enterAdmin();
+}
+
+async function loadClientes(){
+  try{clientes=await API.call('/rev/clientes');go('inicio')}
+  catch(e){
+    if(e.code==='auth'){location.reload();return}
+    content.innerHTML=`<div class="card"><div class="empty"><div class="ico">⚠️</div><b>No pude cargar tus clientes</b>Revisá que la API esté arriba.</div></div>`;
+  }
+}
+let avisos=[],gamificacion={perfil:null,ranking:[],insignias:[],catalogoActualizadoAt:0};
+async function loadGamificacion(){try{gamificacion=await API.call('/rev/gamificacion?_='+Date.now(),{cache:'no-store'});applySocioAvatar();return gamificacion}catch(e){return gamificacion}}
+function applySocioAvatar(){const img=document.getElementById('brandLogo');if(img)img.src=gamificacion?.perfil?.avatar||ROBOT_IMG}
+async function loadAvisos(){
+  try{ avisos=await API.call('/rev/avisos');
+    if(current==='inicio') vInicio();
+    else if(current==='buzon') vSugerencias();
+  }catch(e){ avisos=[]; }
+  actualizarBadgeBuzon();
+}
+/* ── Buzón: control de leídos/no leídos ── */
+function maxAvisoTs(){return avisos.reduce((m,a)=>Math.max(m,a.ts||0),0)}
+function avisosNoLeidos(){const seen=+(st('get','buzon_seen')||0);return avisos.filter(a=>(a.ts||0)>seen).length}
+function marcarBuzonLeido(){const m=maxAvisoTs();if(m)st('set','buzon_seen',String(m))}
+function actualizarBadgeBuzon(){
+  const el=document.getElementById('buzonBadge');if(!el)return;
+  const n=current==='buzon'?0:avisosNoLeidos();
+  if(n>0){el.textContent=n>9?'9+':n;el.classList.add('show')}
+  else el.classList.remove('show');
+}
+function tiempoDesde(ts){
+  const d=Date.now()-ts;
+  const min=Math.floor(d/60000);
+  if(min<1)return'recién';
+  if(min<60)return min+'m';
+  const h=Math.floor(min/60);
+  if(h<24)return h+'h';
+  return Math.floor(h/24)+'d';
+}
+
+/* nav */
+const content=document.getElementById('content');
+async function go(v){current=v;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  window.scrollTo(0,0);
+  const views={inicio:vInicio,compras:vCompras,clientes:vClientes,renovar:vRenovar,precios:vPrecios,buzon:vSugerencias,aula:vAula,perfil:vPerfil};
+  if(v==='precios'){
+    content.innerHTML='<div class="spin"></div><div style="text-align:center;color:var(--muted);font-weight:800">Actualizando catálogo…</div>';
+    await loadPrecios();
+    if(current!=='precios')return;
+  }
+  (views[v]||vInicio)();
+  actualizarBadgeBuzon();
+}
+function openPartnerQuick(){document.getElementById('partnerQuick')?.classList.add('show')}
+function closePartnerQuick(){document.getElementById('partnerQuick')?.classList.remove('show')}
+
+/* INICIO */
+function vInicio(){
+  const fs=flat();
+  const hoy=fs.filter(s=>s.est.n===0);
+  const semana=fs.filter(s=>s.est.n>=0&&s.est.n<=7);
+  const vencidos=fs.filter(s=>s.est.n<0);
+  const ok=fs.filter(s=>s.est.c==='ok').length;
+  const vigentes=fs.filter(s=>esVigente(s.est));
+  const cliVigentes=clientes.filter(clienteTieneVigente).length;
+  const carteraVigente=vigentes.reduce((a,s)=>a+(s.precio||0),0);
+  const carteraHoy=hoy.reduce((a,s)=>a+(s.precio||0),0);
+  const prox=fs.filter(s=>s.est.n<9999).slice(0,4);
+  const tituloHoy=hoy.length?`${hoy.length} ${hoy.length===1?'cuenta vence':'cuentas vencen'} hoy`:'Hoy no tenés vencimientos';
+  const detalleHoy=`${hoy.length} hoy · ${semana.length} esta semana · ${vencidos.length} vencidas · ${money(carteraHoy)}`;
+  content.innerHTML=`
+  <section class="partner-hero">
+    <div class="partner-copy">
+      <div class="partner-kicker">Panel de socios</div>
+      <h2>Hola, ${revName()} 👋</h2>
+      <p>Venda, renueve y controle su negocio desde un solo lugar.</p>
+      <button class="partner-main-action" onclick="openPartnerQuick()">＋ Nueva operación</button>
+    </div>
+    <img class="partner-mascot" src="assets/robot-socios.png" alt="Mascota Sublicuentas">
+  </section>
+  ${avisos.length?`<div class="aviso-card"><div class="ah">📣 AVISOS</div>${avisos.slice(0,3).map(a=>`<div class="aviso-item"><div class="at">${a.texto}</div><div class="am">${a.autor} · hace ${tiempoDesde(a.ts)}</div></div>`).join('')}</div>`:''}
+  ${vencidos.length?`<div class="cut-alert"><b>🚨 ${vencidos.length} cliente${vencidos.length===1?'':'s'} pasado${vencidos.length===1?'':'s'} del día de pago</b><span>Revise corte o renovación. Entre a Renovación para cobrar, renovar fecha o subir comprobante.</span></div>`:''}
+  <div class="today-card">
+    <div class="bell">🔔</div>
+    <div class="txt"><h2>${tituloHoy}</h2><p>${detalleHoy}</p></div>
+    <button class="see" onclick="go('renovar')">Ver</button>
+  </div>
+
+  <div class="wallet-card">
+    <div class="hl">CARTERA VIGENTE</div>
+    <div class="hv">${money(carteraVigente)}</div>
+    <div class="hs">${cliVigentes} clientes vigentes · ${vigentes.length} servicios activos</div>
+  </div>
+
+  <div class="grid3">
+    <div class="stat"><div class="si3 exp">⛔</div><div class="sv">${vencidos.length}</div><div class="sl">Vencidos</div></div>
+    <div class="stat"><div class="si3 warn">⏰</div><div class="sv">${semana.length}</div><div class="sl">Esta semana</div></div>
+    <div class="stat"><div class="si3 good">✅</div><div class="sv">${ok}</div><div class="sl">Al día</div></div>
+  </div>
+
+  <div class="motiva-card"><div class="spark">✨</div><p>${motivacionDelDia()}</p></div>
+
+  <div class="card">
+    <div class="card-h"><h2>Próximas renovaciones</h2><a onclick="go('renovar')">Ver todas</a></div>
+    ${prox.length?`<div class="renew">${prox.map(renRow).join('')}</div>`:
+      `<div class="empty" style="padding:24px"><div class="ico">📭</div>Sin fechas registradas.</div>`}
+  </div>`;
+}
+async function vPerfil(){
+  content.innerHTML='<div class="spin"></div>';await loadGamificacion();if(current!=='perfil')return;
+  const me=gamificacion.perfil||{ventas:0,score:0,nivel:'Sin nivel',racha:0,cursos:0,posicion:'—',avatar:''},avatar=me.avatar||ROBOT_IMG;
+  const rows=(gamificacion.ranking||[]).map(x=>`<div class="rank-row ${x.nombre_norm===me.nombre_norm?'me':''}"><div class="rank-pos">${x.posicion<=3?['🥇','🥈','🥉'][x.posicion-1]:'#'+x.posicion}</div><img class="rank-avatar" src="${x.avatar||ROBOT_IMG}" alt=""><div class="rank-name"><b>${x.nombre}</b><span>${x.nivel} · ${x.ventas} ventas</span></div><div class="rank-score"><b>${x.score}</b><span>score</span></div></div>`).join('');
+  content.innerHTML=`<div class="scr-title">Ranking de socios</div><div class="profile-layout"><section class="profile-hero"><div class="profile-photo-wrap"><img class="profile-photo" src="${avatar}" alt="Foto de ${revName()}"><button class="profile-photo-edit" onclick="document.getElementById('socioPhoto').click()">📷</button><input id="socioPhoto" type="file" accept="image/*" hidden onchange="saveSocioPhoto(this)"></div><h2>${revName()}</h2><p>Posición #${me.posicion} del ranking</p><div class="profile-level">${me.nivel==='Inmortal'?'👑':me.nivel==='Leyenda'?'🏆':'💎'} ${me.nivel}</div><div class="level-track"><div class="level-chip ${me.nivel==='Diamante'?'on':''}">💎 Diamante<br>1–9</div><div class="level-chip ${me.nivel==='Leyenda'?'on':''}">🏆 Leyenda<br>10–25</div><div class="level-chip ${me.nivel==='Inmortal'?'on':''}">👑 Inmortal<br>26+</div></div></section><div><div class="profile-stats"><div class="profile-stat"><b>${me.ventas}</b><span>Ventas</span></div><div class="profile-stat"><b>${me.score}</b><span>Score</span></div><div class="profile-stat"><b>${me.racha}🔥</b><span>Racha renovaciones</span></div></div><div class="card"><div class="card-h"><h2>Insignias</h2><span>${me.cursos||0} cursos</span></div><div class="badge-grid">${(gamificacion.insignias||[]).map(b=>`<div class="sales-badge ${b.activa?'on':''}" title="${b.detalle}"><i>${b.icon}</i><b>${b.nombre}</b></div>`).join('')}</div></div><div class="rank-card"><div class="card-h"><h2>Ranking por ventas</h2><span>Top socios</span></div>${rows||'<div class="empty">Aún no hay ranking.</div>'}</div></div></div>`;
+}
+async function saveSocioPhoto(input){const f=input.files?.[0];if(!f)return;try{const avatarData=await compressImage(f,520,.78);await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({avatarData})});await loadGamificacion();vPerfil()}catch(e){alert(e?.error==='foto_invalida'?'La foto no es válida o pesa demasiado.':'No se pudo guardar la foto.')}}
+function renRow(s){
+  const ini=(nombreCli(s.cliente)[0]||'?').toUpperCase();
+  return `<div class="renew-item">
+    <div class="av">${ini}</div>
+    <div class="meta"><div class="nm">${nombreCli(s.cliente)}</div><div class="pl">${s.nombre}</div></div>
+    <span class="pill ${s.est.c}">${s.est.t}</span>
+  </div>`;
+}
+
+
+/* COMPRAS NUEVAS · conectadas al catálogo + combos */
+let compraSels=[], compraDestino='sublicuentas', compraImg='', compraPickerOpen=false;
+function compraSlug(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'producto'}
+function compraEmoji(nombre,cat){
+  const t=norm((nombre||'')+' '+(cat||''));
+  if(t.includes('netflix'))return '🍿';
+  if(t.includes('disney'))return '🏰';
+  if(t.includes('max')||t.includes('hbo'))return '🎬';
+  if(t.includes('vix'))return '📺';
+  if(t.includes('viki'))return '🌸';
+  if(t.includes('prime'))return '📦';
+  if(t.includes('paramount'))return '⛰️';
+  if(t.includes('crunchyroll'))return '🍥';
+  if(t.includes('oleada'))return '🌊';
+  if(t.includes('iptv'))return '📡';
+  if(t.includes('spotify'))return '🎵';
+  if(t.includes('deezer'))return '🎧';
+  if(t.includes('canva'))return '🎨';
+  if(t.includes('gemini'))return '🤖';
+  if(t.includes('mcafee')||t.includes('antivirus'))return '🛡️';
+  if(t.includes('office')||t.includes('microsoft'))return '💼';
+  if(t.includes('free fire'))return '🎮';
+  return '🛒';
+}
+function compraTipoDesdeCatalogo(it,cat){
+  const t=norm([it.n,it.s,it.d,cat].filter(Boolean).join(' '));
+  if(/netflix|disney|max|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
+  if(/canva|gemini|office personal|microsoft 365|invitacion al correo|invitacion al gmail|gmail del cliente|al correo del cliente|a correo del cliente/.test(t))return 'correo';
+  if(/mcafee|antivirus|office 2021|office 2024|licencia permanente|serial de activacion|key/.test(t))return t.includes('key')?'serial_key':'serial';
+  if(/oleada|iptv|spotify|deezer|correo y contrasena|correo y clave|se entrega correo y contrasena/.test(t))return 'acceso';
+  if(/free fire|recarga|juegos/.test(t))return 'detalle';
+  return 'detalle';
+}
+// ✅ NUEVO: para estas 6 plataformas, además del nombre/apellido del perfil,
+// se pide en qué dispositivo lo va a usar el cliente (TV, celular, tablet o
+// computadora) — así el equipo ya sabe para cuál armar el acceso.
+function compraPideDispositivo(it,cat){
+  const t=norm([it.n,it.s,cat].filter(Boolean).join(' '));
+  return /disney|\bmax\b|\bvix\b|paramount|crunchyroll|prime video/.test(t);
+}
+function compraAyudaDesdeTipo(p){
+  if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.';
+  if(p.tipo==='correo')return 'Pedir solo el correo del cliente.';
+  if(p.tipo==='acceso')return 'Este servicio se entrega con acceso. El encargado hará la entrega.';
+  if(p.tipo==='serial_key')return 'Este producto se entrega con key / serial. El encargado hará la entrega.';
+  if(p.tipo==='serial')return 'Este producto se entrega con serial/licencia. El encargado hará la entrega.';
+  return 'Pedir el detalle necesario para procesar la compra.';
+}
+function compraProductosCatalogo(){
+  const out=[];
+  (PRECIOS||[]).forEach((g,gi)=>{
+    (g.items||[]).forEach((it,ii)=>{
+      const nombre=(it.s?`${it.n} · ${it.s}`:it.n);
+      const tipo=compraTipoDesdeCatalogo(it,g.cat);
+      out.push({
+        id:`cat_${gi}_${ii}_${compraSlug(nombre)}`,
+        emoji:compraEmoji(nombre,g.cat),
+        nombre,
+        base:it.n||'',
+        sub:it.s||'',
+        precio:it.p,
+        precioTxt:it.p==null?'Por comisión':`Lps. ${it.p}`,
+        tipo,
+        pideDispositivo:tipo==='perfil'&&compraPideDispositivo(it,g.cat),
+        ayuda:compraAyudaDesdeTipo({tipo}),
+        detalleCatalogo:it.d||'',
+        categoria:g.cat||'Catálogo',
+        grupo:g.cat||'Catálogo'
+      });
+    });
+  });
+  return out;
+}
+function compraEnsureSel(){
+  const arr=compraProductosCatalogo();
+  const ids=new Set(arr.map(x=>x.id));
+  compraSels=(compraSels||[]).filter(id=>ids.has(id));
+  if(!compraSels.length && arr.length)compraSels=[arr[0].id];
+}
+function compraSeleccionados(){compraEnsureSel();const arr=compraProductosCatalogo();return compraSels.map(id=>arr.find(x=>x.id===id)).filter(Boolean)}
+function compraProducto(){return compraSeleccionados()[0]||compraProductosCatalogo()[0]||{id:'',emoji:'🛒',nombre:'Producto',tipo:'detalle',ayuda:'Seleccione un producto del catálogo.',precio:null,precioTxt:'',categoria:'Catálogo',detalleCatalogo:''}}
+function compraTipoTxt(t){return {perfil:'Pide nombre y apellido del perfil',acceso:'Se entrega acceso',correo:'Pide correo',serial:'Se entrega serial',serial_key:'Se entrega key / serial',detalle:'Pide detalle de compra'}[t]||'Compra'}
+function compraMath(){
+  const items=compraSeleccionados();
+  const subtotal=items.reduce((a,p)=>a+(Number.isFinite(Number(p.precio))?Number(p.precio):0),0);
+  const conPrecio=items.filter(p=>p.precio!=null).length;
+  const descuento=Math.min(Math.max(conPrecio-1,0),4)*10;
+  return {items,subtotal,conPrecio,descuento,total:Math.max(0,subtotal-descuento),hayComision:items.some(p=>p.precio==null)};
+}
+function compraResumenTxt(){
+  const m=compraMath();
+  if(m.items.length<=1)return `${m.items.length} producto · ${m.items[0]?.precioTxt||''}`;
+  return `${m.items.length} productos · Subtotal Lps. ${m.subtotal} · Descuento Lps. ${m.descuento} · Total Lps. ${m.total}${m.items.length>5?' · descuento máximo aplicado':''}${m.hayComision?' + comisión':''}`;
+}
+function setCompraProducto(id){compraSels=[id];compraImg='';compraPickerOpen=false;renderCompraForm()}
+function toggleCompraProducto(id){
+  compraEnsureSel();
+  const msg=document.getElementById('buyMsg');
+  if(compraSels.includes(id)){
+    if(compraSels.length===1){ if(msg){msg.style.color='#6E8299';msg.textContent='Debe quedar al menos 1 producto seleccionado.'} return; }
+    compraSels=compraSels.filter(x=>x!==id);
+  }else{
+    compraSels.push(id);
+  }
+  compraImg=''; renderCompraForm();
+}
+function toggleCompraPicker(){compraPickerOpen=!compraPickerOpen;renderCompraForm()}
+function setCompraDestino(d){compraDestino=d;document.querySelectorAll('.destino-seg button').forEach(b=>b.classList.toggle('on',b.dataset.dest===d))}
+function buyFid(p,field){return `buy_${field}_${p.id}`}
+// ✅ NUEVO: selector de dispositivo (TV/Celular/Tablet/Computadora) — solo
+// para las 6 plataformas que lo piden (ver compraPideDispositivo).
+function compraDispositivoHtml(p){
+  const opciones=[['tv','📺 TV'],['celular','📱 Celular'],['tablet','📱 Tablet'],['computadora','💻 Computadora']];
+  return `<div class="buy-dispositivo">
+    <small class="buy-disp-label">¿En qué dispositivo va este perfil?</small>
+    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt" data-disp="${v}" onclick="setCompraDispositivo('${p.id}','${v}',this);return false">${l}</button>`).join('')}</div>
+    <input type="hidden" id="${buyFid(p,'dispositivo')}" value="">
+  </div>`;
+}
+function setCompraDispositivo(pid,val){
+  const input=document.getElementById(`buy_dispositivo_${pid}`); if(input)input.value=val;
+  const wrap=input&&input.previousElementSibling; // .dispositivo-opts
+  if(wrap)wrap.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.disp===val));
+}
+function compraCampos(p){
+  if(p.tipo==='perfil'){
+    const base=`<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" placeholder="Apellido del perfil"></div>`;
+    return p.pideDispositivo ? base+compraDispositivoHtml(p) : base;
+  }
+  // ✅ Gemini y Canva: es invitación al correo, no perfil con clave — se pide
+  // el correo Y el nombre del cliente (para saber a quién se le invitó).
+  if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'nombreCliente')}" placeholder="Nombre del cliente" style="margin-bottom:8px"><input class="comp-in" id="${buyFid(p,'correo')}" type="email" placeholder="Correo del cliente">`;
+  if(p.tipo==='detalle')return `<input class="comp-in" id="${buyFid(p,'detalle')}" placeholder="Detalle requerido: ID, número, plan o indicación del cliente">`;
+  if(p.tipo==='acceso')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con acceso. Adjunte comprobante; use comentario si necesita dejar una indicación.</div>`;
+  if(p.tipo==='serial_key')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con key / serial. El encargado lo entrega después de revisar el comprobante.</div>`;
+  if(p.tipo==='serial')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con serial/licencia. El encargado lo entrega después de revisar el comprobante.</div>`;
+  return '';
+}
+function compraOpcionesHtml(){
+  const productos=compraProductosCatalogo();
+  const grupos=[];
+  productos.forEach(p=>{let item=grupos.find(x=>x.g===p.grupo);if(!item){item={g:p.grupo,items:[]};grupos.push(item)}item.items.push(p)});
+  return grupos.map(gr=>`<div class="buy-group">${gr.g}</div>`+gr.items.map(x=>`<button class="buy-option ${compraSels.includes(x.id)?'on':''}" onclick="toggleCompraProducto('${x.id}');return false">
+    <span class="bo-main"><span class="bo-emoji">${compraSels.includes(x.id)?'✅':x.emoji}</span><span><b>${x.nombre}</b><small>${compraTipoTxt(x.tipo)}</small></span></span>
+    <span class="bo-price">${x.precioTxt}</span>
+  </button>`).join('')).join('');
+}
+function compraDatosHtml(items){
+  return items.map((p,i)=>`<div class="buy-product-box">
+    <div class="buy-product-title"><span>${i+1}. ${p.emoji} ${p.nombre}</span><small>${p.precioTxt}</small></div>
+    <div class="buy-product-help">${p.ayuda}</div>
+    ${compraCampos(p)}
+  </div>`).join('');
+}
+function vCompras(){
+  content.innerHTML=`<section class="operations-hero"><h2>Nueva compra</h2><p>Seleccione servicios, arme un combo y envíe el comprobante directamente al equipo.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section><div id="compraForm"></div>`;
+  renderCompraForm();
+}
+function renderCompraForm(){
+  const items=compraSeleccionados(), p=compraProducto(), m=compraMath();
+  const el=document.getElementById('compraForm'); if(!el)return;
+  const pickedNames=items.map(x=>`${x.emoji} ${x.nombre}`).join(' + ');
+  el.innerHTML=`
+  <button class="buy-picker-btn" onclick="toggleCompraPicker();return false">
+    <span class="buy-picked"><span class="buy-emoji">🛒</span><span><span class="buy-name">${items.length>1?'Combo de '+items.length+' plataformas':p.nombre}</span><span class="buy-type">${pickedNames}</span></span></span>
+    <span class="buy-arrow">${compraPickerOpen?'▲':'▼'}</span>
+  </button>
+  ${compraPickerOpen?`<div class="buy-list"><div class="buy-combo-tip">Seleccione las plataformas que necesite. Descuento automático: 2 = Lps. 10, 3 = Lps. 20, 4 = Lps. 30, 5 o más = Lps. 40 máximo.</div>${compraOpcionesHtml()}</div>`:''}
+  <div class="card">
+    <div class="card-h"><h2>Datos de la compra</h2><a onclick="go('precios')">Catálogo</a></div>
+    <div class="buy-total-box">
+      <b>${items.length>1?'Combo seleccionado':'Producto seleccionado'}</b>
+      <span>${compraResumenTxt()}</span>
+    </div>
+    <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
+    ${compraDatosHtml(items)}
+    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto pagado" value="${m.total||''}">
+    <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: método de pago, urgencia o detalle del cliente…"></textarea>
+    <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
+    <div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()">
+      <div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small style="display:block;margin-top:4px;color:#7890AA;font-weight:900">Seleccione la captura guardada, no cámara.</small></div>
+      <img id="buyPrev" style="display:none" alt="">
+    </div>
+    <button class="act primary buy-submit" id="buyBtn" onclick="enviarCompra()">Enviar compra</button>
+    <div id="buyMsg" style="text-align:center;font-weight:900;font-size:13px;margin-top:10px;min-height:16px;font-family:var(--fn)"></div>
+  </div>`;
+}
+async function pickCompra(input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  const msg=document.getElementById('buyMsg'); msg.style.color='#6E8299'; msg.textContent='Procesando comprobante…';
+  try{
+    compraImg=await compressImage(f,1280,0.7);
+    const prev=document.getElementById('buyPrev'), ph=document.getElementById('buyPh');
+    prev.src=compraImg; prev.style.display='block'; ph.style.display='none'; msg.textContent='';
+  }catch(e){ msg.style.color='#e54848'; msg.textContent='No pude leer la imagen del comprobante.'; }
+}
+async function enviarCompra(){
+  const items=compraSeleccionados(), msg=document.getElementById('buyMsg'), m=compraMath();
+  const val=id=>(document.getElementById(id)?.value||'').trim();
+  const productos=[];
+  for(const p of items){
+    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo'));
+    if(p.tipo==='perfil' && (!perfilNombre||!perfilApellido)){msg.style.color='#e54848';msg.textContent='Coloque nombre y apellido del perfil para '+p.nombre+'.';return}
+    if(p.tipo==='perfil' && p.pideDispositivo && !dispositivo){msg.style.color='#e54848';msg.textContent='Elija en qué dispositivo va el perfil de '+p.nombre+'.';return}
+    if(p.tipo==='correo' && !correo){msg.style.color='#e54848';msg.textContent='Coloque el correo para '+p.nombre+'.';return}
+    if(p.tipo==='correo' && !nombreCliente){msg.style.color='#e54848';msg.textContent='Coloque el nombre del cliente para '+p.nombre+'.';return}
+    if(p.tipo==='detalle' && !detalleServicio){msg.style.color='#e54848';msg.textContent='Coloque el detalle para '+p.nombre+'.';return}
+    productos.push({
+      id:p.id, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
+      precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo
+    });
+  }
+  if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
+  const btn=document.getElementById('buyBtn'); btn.disabled=true; btn.textContent='Enviando…';
+  try{
+    const r=await API.call('/rev/compra',{method:'POST',body:JSON.stringify({
+      destino:compraDestino,
+      servicio:items.length>1?`Combo ${items.length} plataformas`:items[0].nombre,
+      productos,
+      comboCantidad:items.length,
+      subtotalCatalogo:m.subtotal,
+      descuentoCombo:m.descuento,
+      totalCombo:m.total,
+      monto:val('buyMonto')||m.total,
+      comentario:val('buyComentario'), imagen:compraImg
+    })});
+    msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';
+    compraImg=''; compraPickerOpen=false;
+    setTimeout(()=>renderCompraForm(),900);
+  }catch(e){
+    msg.style.color='#e54848';
+    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',falta_servicio:'Seleccione un servicio.'};
+    msg.textContent=map[e&&e.error]||('No se pudo enviar la compra. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
+  }finally{btn.disabled=false;btn.textContent='Enviar compra'}
+}
+
+
+/* BUZÓN — mensajes del equipo (entrada) + sugerencias (salida) */
+function vSugerencias(){
+  marcarBuzonLeido();
+  const msgs=[...avisos].sort((a,b)=>(b.ts||0)-(a.ts||0));
+  content.innerHTML=`
+  <div class="scr-title">📬 Buzón</div>
+
+  <div class="card">
+    <div class="card-h"><h2>📥 Mensajes del equipo</h2><a onclick="loadAvisos()">Actualizar</a></div>
+    <p class="buzon-int">Avisos y respuestas de Sublicuentas para vos.</p>
+    <div id="buzonMsgs">${msgs.length
+      ? `<div class="buzon-list">${msgs.map(a=>`
+          <div class="buzon-msg">
+            <div class="bm-ic">📣</div>
+            <div class="bm-body"><div class="bm-txt">${a.texto}</div><div class="bm-meta">${a.autor||'Sublicuentas'} · hace ${tiempoDesde(a.ts)}</div></div>
+          </div>`).join('')}</div>`
+      : `<div class="empty" style="padding:22px"><div class="ico">📭</div>Sin mensajes por ahora. Acá verás los avisos y respuestas del equipo.</div>`}</div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>💬 Enviar sugerencia</h2><a onclick="go('inicio')">Inicio</a></div>
+    <p style="font-family:var(--fn);font-weight:700;color:var(--muted);font-size:13.5px;margin-bottom:10px;line-height:1.4">Elegí a quién le escribís y mandá tu mensaje. Le llega directo por Telegram.</p>
+    <div class="sug-dest" id="sugDest">
+      <button class="on" data-d="sublicuentas" onclick="setSugDestino('sublicuentas',this)">🟣 Sublicuentas</button>
+      <button data-d="relojes" onclick="setSugDestino('relojes',this)">⌚ Relojes</button>
+    </div>
+    <textarea id="sugTxt" rows="4" placeholder="Tu sugerencia o comentario..." style="width:100%;border-radius:16px;border:2px solid #eee;padding:12px;font-family:var(--fn);font-size:15px;resize:vertical;box-sizing:border-box"></textarea>
+    <button id="sugBtn" onclick="enviarSugerencia()" style="margin-top:10px;width:100%;background:var(--accent);color:#fff;border:none;border-radius:18px;padding:13px;font-family:var(--ff);font-weight:700;font-size:16px;box-shadow:0 6px 0 var(--accent-d)">Enviar</button>
+    <div id="sugMsg" style="margin-top:10px;font-family:var(--fn);font-weight:700;font-size:13.5px"></div>
+  </div>`;
+}
+let sugDestino='sublicuentas';
+function setSugDestino(d,btn){sugDestino=d;document.querySelectorAll('#sugDest button').forEach(b=>b.classList.toggle('on',b===btn))}
+async function enviarSugerencia(){
+  const txt=document.getElementById('sugTxt').value.trim();
+  const msgEl=document.getElementById('sugMsg');
+  if(!txt){msgEl.textContent='Escribí algo primero.';msgEl.style.color='#e54848';return}
+  const btn=document.getElementById('sugBtn');
+  btn.disabled=true; btn.textContent='Enviando…';
+  try{
+    await API.call('/rev/sugerencia',{method:'POST',body:JSON.stringify({texto:txt,destino:sugDestino})});
+    document.getElementById('sugTxt').value='';
+    msgEl.textContent='✅ Enviado a '+(sugDestino==='relojes'?'Relojes':'Sublicuentas')+'. ¡Gracias!';
+    msgEl.style.color='#1aa15a';
+  }catch(e){
+    msgEl.textContent='No pude enviarlo. Intentá de nuevo.';
+    msgEl.style.color='#e54848';
+  }finally{ btn.disabled=false; btn.textContent='Enviar'; }
+}
+
+/* CLIENTES */
+let cliF='';
+let cliEstado='todos';
+function vClientes(){
+  const fs=flat();
+  const semana=fs.filter(s=>s.est.n>=0&&s.est.n<=7);
+  const mes=fs.filter(s=>s.est.n>=0&&s.est.n<=30);
+  const vencidos=fs.filter(s=>s.est.n<0);
+  const vigentes=fs.filter(s=>esVigente(s.est));
+  const cliVig=clientes.filter(esClienteVigente).length;
+  const cliNoVig=clientes.filter(esClienteNoVigente).length;
+  const montoSemana=semana.reduce((a,s)=>a+(s.precio||0),0);
+  const montoMes=mes.reduce((a,s)=>a+(s.precio||0),0);
+  const montoVencido=vencidos.reduce((a,s)=>a+(s.precio||0),0);
+  const cartera=vigentes.reduce((a,s)=>a+(s.precio||0),0);
+  const max=Math.max(montoMes,montoSemana,montoVencido,cartera,1);
+  content.innerHTML=`
+  <section class="operations-hero clients"><h2>Clientes</h2><p>Consulte su cartera, encuentre cualquier cliente y envíe cobros en segundos.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section>
+  <div class="finance-card">
+    <div class="finance-head"><h2>Resumen de cobros</h2><span>${fs.length} servicios</span></div>
+    <div class="finance-grid">
+      <div class="finance-mini good"><b>${cliVig}</b><span>👤 Clientes vigentes · en fecha</span></div>
+      <div class="finance-mini exp"><b>${cliNoVig}</b><span>🚫 No vigentes · dejaron de contratar</span></div>
+      <div class="finance-mini"><b>${semana.length}</b><span>Cobrar esta semana · ${money(montoSemana)}</span></div>
+      <div class="finance-mini"><b>${vencidos.length}</b><span>Vencidos · ${money(montoVencido)}</span></div>
+    </div>
+    <div class="bar-row"><div class="lab"><span>Semana</span><b>${money(montoSemana)}</b></div><div class="bar"><i style="width:${Math.max(4,Math.round((montoSemana/max)*100))}%"></i></div></div>
+    <div class="bar-row"><div class="lab"><span>Mes</span><b>${money(montoMes)}</b></div><div class="bar"><i style="width:${Math.max(4,Math.round((montoMes/max)*100))}%"></i></div></div>
+    <div class="bar-row"><div class="lab"><span>Cartera vigente</span><b>${money(cartera)}</b></div><div class="bar"><i style="width:${Math.max(4,Math.round((cartera/max)*100))}%"></i></div></div>
+  </div>
+  <div class="seg" id="cliSeg" style="margin:0 0 12px">
+    ${[['todos','Todos',clientes.length],['vigentes','Vigentes',cliVig],['novigentes','No vigentes',cliNoVig]].map(([k,l,n])=>
+      `<button class="${cliEstado===k?'on':''}" onclick="cliEstado='${k}';renderCli()">${l} · ${n}</button>`).join('')}
+  </div>
+  <div class="search">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+    <input id="cliSearch" placeholder="Buscar cliente o teléfono" oninput="cliF=this.value;renderCli()">
+  </div>
+  <div id="cliList"></div>`;
+  renderCli();
+}
+function renderCli(){
+  document.querySelectorAll('#cliSeg button').forEach(b=>{
+    const k=b.textContent.startsWith('Todos')?'todos':b.textContent.startsWith('Vigentes')?'vigentes':'novigentes';
+    b.classList.toggle('on',k===cliEstado);
+  });
+  const f=norm(cliF);
+  const list=clientes.filter(c=>{
+    if(cliEstado==='vigentes'&&!esClienteVigente(c))return false;
+    if(cliEstado==='novigentes'&&!esClienteNoVigente(c))return false;
+    return !f||norm(nombreCli(c)).includes(f)||(c.telefono||'').includes(f);
+  })
+    .sort((a,b)=>norm(nombreCli(a)).localeCompare(norm(nombreCli(b))));
+  const el=document.getElementById('cliList');if(!el)return;
+  el.innerHTML=list.length?list.map(cliCard).join(''):`<div class="card"><div class="empty"><div class="ico">🔍</div>Sin resultados.</div></div>`;
+}
+function cliCard(c){
+  const svcs=Array.isArray(c.servicios)?c.servicios:[];
+  const peor=svcs.map(s=>estado(parseFecha(pick(s,CONFIG.campos.vencimiento)))).reduce((a,b)=>b.n<a.n?b:a,{n:9999,c:'mut'});
+  const ec=estadoCliente(c);
+  return `<div class="cli-card">
+    <div class="cli-top">
+      <div><div class="cli-name">${nombreCli(c)} <span class="pill ${ec.c}" style="font-size:10.5px;padding:2px 9px;vertical-align:middle">${ec.t}</span></div><div class="cli-tel">${c.telefono||'sin teléfono'}</div></div>
+      <span class="pill ${peor.c}">${svcs.length} ${svcs.length===1?'servicio':'servicios'}</span>
+    </div>
+    ${svcs.length?`<div class="svc-list">${svcs.map((s,ix)=>svcRow(s,c.id,ix)).join('')}</div>`:''}
+    <div class="cli-actions"><button class="act primary" onclick='openCobro("${c.id}","")'>Mensaje de cobro</button>${waBtn(c)}</div>
+  </div>`;
+}
+function svcRow(s,cid,ix){
+  const nm=pick(s,CONFIG.campos.servicio)||'Servicio';
+  const f=parseFecha(pick(s,CONFIG.campos.vencimiento)),e=estado(f);
+  const mt=[f?`Vence ${fmtFecha(f)}`:null,e.n<0?'⚠️ corte pendiente':null].filter(Boolean).join(' · ');
+  return `<div class="svc">
+    <div style="display:flex;align-items:center;gap:11px;min-width:0">
+      <span class="dot-s ${e.c}"></span>
+      <div style="min-width:0"><div class="nm">${nm}</div>${mt?`<div class="mt">${mt}</div>`:''}</div>
+    </div>
+    <div class="svc-right"><span class="pill ${e.c}">${e.t}</span><button class="svc-mini" onclick='openComprobante("${cid}","${enc(nm)}",${ix});event.stopPropagation()'>Renovar</button></div>
+  </div>`;
+}
+function waBtn(c){const t=(c.telefono||c.telefono_norm||'').toString().replace(/\D/g,'');
+  return t?`<a class="act ghost" href="https://wa.me/504${t}" target="_blank">WhatsApp</a>`:''}
+
+/* RENOVAR */
+let renF='todos';
+function vRenovar(){
+  const corte=flat().filter(s=>s.est.n<0);
+  content.innerHTML=`
+  <section class="operations-hero renew"><h2>Renovaciones</h2><p>Priorice vencidos, cobre a tiempo y registre la nueva fecha sin salir del panel.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section>
+  ${corte.length?`<div class="cut-alert"><b>🚨 ${corte.length} alerta${corte.length===1?'':'s'} de corte</b><span>Estos clientes ya pasaron del día de pago. Puede enviar mensaje de cobro o renovar la fecha desde aquí.</span></div>`:''}
+  <div class="seg">
+    ${[['todos','Todos'],['vencidos','Corte/Vencidos'],['porvencer','Por vencer']].map(([k,l])=>
+      `<button class="${renF===k?'on':''}" onclick="renF='${k}';renderRen()">${l}</button>`).join('')}
+  </div>
+  <div id="renList"></div>`;
+  renderRen();
+}
+function renderRen(){
+  document.querySelectorAll('.seg button').forEach(b=>{
+    const k=b.textContent==='Todos'?'todos':b.textContent.startsWith('Corte')?'vencidos':'porvencer';
+    b.classList.toggle('on',k===renF);
+  });
+  let fs=flat().filter(s=>s.est.n<9999);
+  if(renF==='vencidos')fs=fs.filter(s=>s.est.c==='exp'||s.est.c==='due');
+  if(renF==='porvencer')fs=fs.filter(s=>s.est.c==='soon');
+  document.getElementById('renList').innerHTML= fs.length
+    ? fs.map(s=>`<div class="cli-card">
+        <div class="cli-top">
+          <div><div class="cli-name">${nombreCli(s.cliente)}</div><div class="cli-tel">${s.nombre}</div></div>
+          <span class="pill ${s.est.c}">${s.est.t}</span></div>
+        <div class="cli-actions">
+          <button class="act primary" onclick='openCobro("${s.cliente.id}","${enc(s.nombre)}")'>Mensaje de cobro</button>
+          <button class="act ghost" style="flex:none;min-width:92px;padding:12px 10px" title="Renovar / comprobante" onclick='openComprobante("${s.cliente.id}","${enc(s.nombre)}",${s.servicioIndex})'>🔄 Renovar</button>
+        </div></div>`).join('')
+    : `<div class="card"><div class="empty"><div class="ico">✅</div><b>Todo en orden</b>No hay nada en este filtro.</div></div>`;
+}
+
+/* PRECIOS */
+/* Catálogo de precios: este array es el RESPALDO por si el fetch al
+   servidor falla (offline, API caída, etc.). Cuando enterApp() consigue
+   cargar /rev/precios, reemplaza este contenido con el catálogo real que
+   se administra ahora desde Sublichat (pestaña Revendedores → Precios) —
+   así ya no hace falta editar código para cambiar un precio. */
+let PRECIOS=[
+  {cat:'📺 Streaming',sub:'Plan mensual',items:[
+    {n:'Netflix',p:110,d:'👤 Perfil personal: correo y contraseña\n📺 Reproduce en 1 dispositivo a la vez\n🔐 Más perfiles: sin clave, acceso por código\n🏠 A los 20 días puede pedir código hogar'},
+    {n:'Disney+ Premium',p:80,d:'🔢 Acceso por código\n👤 PIN de perfil\n📱 1 dispositivo'},
+    {n:'Disney+ Standar',p:50,d:'🔢 Acceso por código\n👤 PIN de perfil\n📱 1 dispositivo'},
+    {n:'Max',p:60,d:'📺 En TV: acceso por código\n📱 En celular: se da clave\n👤 PIN de perfil · 1 dispositivo'},
+    {n:'Vix',p:30,d:'📧 Se entrega correo y contraseña\n📱 1 dispositivo'},
+    {n:'Viki Rakuten',p:60,d:'📧 Se entrega correo y contraseña\n📱 1 dispositivo'},
+    {n:'Prime Video',p:60,d:'🔢 Acceso por código\n👤 PIN de perfil · 1 dispositivo'},
+    {n:'Paramount+',p:60,d:'📧 Se entrega correo y contraseña\n📱 1 dispositivo'},
+    {n:'Crunchyroll',p:60,d:'👤 PIN de perfil\n📱 1 dispositivo'},
+    {n:'Oleada',s:'1 dispositivo',p:70,d:'▶️ Reproduce en 1 a la vez\n🤖 Solo dispositivos Android / Web'},
+    {n:'Oleada',s:'3 dispositivos',p:130,d:'▶️ Reproduce en 1 a la vez\n🤖 Solo dispositivos Android / Web'},
+    {n:'IPTV',s:'1 pantalla',p:80,d:'📲 Funciona en cualquier dispositivo\n🎁 Prueba gratis de 3 horas'},
+    {n:'IPTV',s:'2 pantallas',p:110,d:'📲 Funciona en cualquier dispositivo\n🎁 Prueba gratis de 3 horas'},
+    {n:'IPTV',s:'3 pantallas',p:140,d:'📲 Funciona en cualquier dispositivo\n🎁 Prueba gratis de 3 horas'},
+  ]},
+  {cat:'🎶 Música',sub:'Plan mensual',items:[
+    {n:'Spotify Premium',p:80,d:'📧 Se entrega correo y contraseña'},
+    {n:'Deezer Premium',p:50,d:'📧 Se entrega correo y contraseña'},
+  ]},
+  {cat:'💻 Productividad',items:[
+    {n:'Canva Edu Pro',s:'1 mes',p:20,d:'✉️ Invitación al correo del cliente\n⚠️ Debe estar registrado en Canva'},
+    {n:'Microsoft 365',s:'1 año · correo y clave · 5 disp · 100 GB',p:200,d:'📧 Se entrega correo y contraseña\n💻 5 dispositivos\n☁️ 100 GB en Drive'},
+    {n:'Microsoft 365',s:'1 año · a correo del cliente · 1 TB',p:350,d:'📧 Al correo del cliente\n🗓️ Vigencia 1 año\n💻 Nivel 5 dispositivos\n☁️ 1 TB en Drive'},
+    {n:'Office 2021 Pro Plus',s:'Windows · licencia permanente',p:200,d:'🪟 Solo para Windows\n🔑 Serial de activación\n♾️ Licencia permanente'},
+    {n:'Office 2024 Pro Plus',s:'Windows · licencia permanente',p:250,d:'🪟 Solo para Windows\n🔑 Serial de activación\n♾️ Licencia permanente'},
+    {n:'Antivirus McAfee',s:'1 año · 1 dispositivo',p:150,d:'🛡️ Protección 1 dispositivo\n🔑 Se entrega key / serial\n🗓️ Vigencia 1 año'},
+    {n:'Antivirus McAfee',s:'1 año · 3 dispositivos',p:350,d:'🛡️ Protección 3 dispositivos\n🔑 Se entrega serial\n🗓️ Vigencia 1 año'},
+  ]},
+  {cat:'🤖 Inteligencia Artificial',items:[
+    {n:'Gemini Pro',s:'1 mes',p:100,d:'✉️ Invitación al Gmail del cliente'},
+  ]},
+  {cat:'🎮 Recargas de juegos',items:[
+    {n:'Free Fire',s:'Por comisión',p:null,d:'💬 Consultar precios con su asesor'},
+  ]},
+];
+function toggleDet(id,row){const d=document.getElementById(id);if(!d)return;const open=d.classList.toggle('show');row.classList.toggle('open',open)}
+/* ── Políticas y términos (editable: cambiá el texto por el de tu catálogo) ── */
+const POLITICAS=[
+  {t:'📄 Términos y condiciones', c:
+`• Los servicios son suscripciones digitales, en perfil compartido o privado (individual) según el plan elegido.
+• En el perfil PRIVADO se entregan correo y contraseña de la cuenta. En el perfil compartido solo se entrega el acceso al perfil asignado, sin correo ni contraseña.
+• El cliente se compromete a no cambiar la contraseña, el correo ni la configuración de las cuentas compartidas. Hacerlo puede suspender el servicio sin reembolso.
+• El servicio se activa una vez confirmado el pago.
+• La vigencia de cada servicio corresponde al periodo contratado.`},
+  {t:'🔄 Políticas y devoluciones', c:
+`• No se realizan devoluciones de dinero una vez entregado y funcionando el acceso.
+• Si una cuenta presenta fallas, se repone o reemplaza sin costo dentro del periodo contratado.
+• La garantía cubre fallas de la cuenta, no el mal uso del cliente (cambio de contraseña, compartir el acceso, etc.).
+• Todo reemplazo o reclamo se gestiona por el mismo medio de compra (WhatsApp).`},
+  {t:'🔒 Política de privacidad', c:
+`• Los datos del cliente (nombre, teléfono, correo) se usan únicamente para gestionar y dar soporte al servicio.
+• No compartimos ni vendemos los datos a terceros.
+• El cliente puede solicitar la eliminación de sus datos al finalizar el servicio.`},
+];
+function togglePol(el){el.classList.toggle('open');const b=el.querySelector('.pol-body');b.style.maxHeight=el.classList.contains('open')?(b.scrollHeight+30)+'px':'0'}
+function politicasHTML(){
+  return `<div class="card" style="margin-top:4px">
+    <div style="font-family:var(--ff);font-weight:700;font-size:18px;color:var(--txt);margin-bottom:4px">📋 Políticas y términos</div>
+    <p style="font-family:var(--fn);font-weight:700;font-size:12.5px;color:var(--muted);margin-bottom:12px">Para tenerlas a mano y compartirlas con el cliente.</p>
+    ${POLITICAS.map(p=>`<div class="pol-item" onclick="togglePol(this)">
+      <div class="pol-head">${p.t}<span class="det-caret">▾</span></div>
+      <div class="pol-body">${p.c}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function vPrecios(){
+  const cuentasCompradas=flat().filter(s=>esVigente(s.est)).length;
+  const meta=10;
+  const faltan=Math.max(0,meta-(cuentasCompradas%meta||meta));
+  const alcanzada=cuentasCompradas>=meta && cuentasCompradas%meta===0;
+  const progreso=Math.min(100,((cuentasCompradas%meta)||meta)/meta*100);
+  const premio=cuentasCompradas>=meta
+    ? (alcanzada?'¡Meta alcanzada! Reclame su DEEZER PREMIUM GRATIS 🎁':`Ya lleva ${cuentasCompradas} cuentas. Le faltan ${faltan} para reclamar otro premio.`)
+    : `Le faltan ${meta-cuentasCompradas} cuentas para reclamar su premio.`;
+  const secciones=PRECIOS.map(g=>`
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-family:var(--ff);font-weight:700;font-size:18px;color:var(--txt);margin-bottom:${g.sub?'2px':'10px'}">${g.cat}</div>
+      ${g.sub?`<div style="font-family:var(--fn);font-weight:700;font-size:12.5px;color:var(--muted);margin-bottom:10px">${g.sub}</div>`:''}
+      ${g.items.map((it,ix)=>{const did='det_'+(g.cat.replace(/[^a-zA-Z]/g,'')||'x')+ix;return `<div class="price${it.d?' has-det':''}" ${it.d?`onclick="toggleDet('${did}',this)"`:''}>
+        <div style="min-width:0"><div class="pn">${it.n}${it.d?' <span class="det-caret">▾</span>':''}</div>${it.s?`<div class="psub">${it.s}</div>`:''}</div>
+        <div class="pv" style="${it.p==null?'font-size:13px;color:var(--muted)':'color:#15a34a'}">${it.p==null?'Por comisión':('Lps. '+it.p)}</div>
+      </div>${it.d?`<div class="price-det" id="${did}">${it.d}</div>`:''}`}).join('')}
+    </div>`).join('');
+  const oferta=`<div class="reward-card">
+      <div class="reward-top"><span>🎁</span><b>Meta socio</b></div>
+      <h3>${premio}</h3>
+      <p>Promo: por cada 10 cuentas compradas, recibe 1 DEEZER PREMIUM GRATIS.</p>
+      <div class="goalbar"><i style="width:${progreso}%"></i></div>
+      <small>${Math.min((cuentasCompradas%meta)||meta,meta)} / ${meta} cuentas en esta meta</small>
+    </div>`;
+  const catMs=Number(gamificacion.catalogoActualizadoAt||0),catTxt=catMs?new Date(catMs).toLocaleString('es-HN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'sincronizado ahora';
+  content.innerHTML=`<div class="scr-title">Catálogo mayorista</div><div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div>
+    <p style="color:var(--muted);font-weight:700;font-family:var(--fn);font-size:13.5px;margin:-8px 2px 16px">Este es tu costo. Vos vendés al precio que querás. 💰</p>
+    ${oferta}${secciones}${politicasHTML()}`;
+}
+
+/* AULA */
+function vAula(){
+  const plantillas=askPlantillas();
+  content.innerHTML=CONFIG.academiaUrl
+    ?`<div class="scr-title">Subli Aula</div><div class="aula-wrap"><iframe src="${CONFIG.academiaUrl}" allow="fullscreen"></iframe></div>`
+    :`<div class="scr-title">Subli Aula</div>
+      <div class="ai-panel">
+        <b>✨ Asistente IA</b>
+        <p>Escribí qué necesitás (cobrar, vender, responder una falla, cerrar una venta…) y la IA te arma el mensaje listo para enviar.</p>
+        <textarea id="aiPrompt" placeholder="Ej: mensaje para convencer a un cliente indeciso de Netflix, trato de usted y corto"></textarea>
+        <div class="chip-row">
+          <button onclick="aiQuick('Mensaje amable para cobrar una renovación, trato de usted, corto')">💰 Cobro</button>
+          <button onclick="aiQuick('Mensaje para cerrar una venta de IPTV ya mismo, trato de usted')">🔥 Cierre</button>
+          <button onclick="aiQuick('Respuesta para una falla técnica pidiendo captura y dispositivo')">🛠️ Falla</button>
+          <button onclick="aiQuick('Mensaje de bienvenida para un cliente nuevo con reglas de uso')">🤝 Bienvenida</button>
+          <button onclick="aiQuick('Mensaje para ofrecer un combo de plataformas y que pague mejor')">🎁 Combo</button>
+        </div>
+        <button class="act primary" style="width:100%" onclick="aiGenerar(event)">Generar mensaje</button>
+        <div class="ai-result" id="aiResult" style="display:none">
+          <textarea id="aiOut" readonly></textarea>
+          <div class="cobro-actions">
+            <button class="act ghost" onclick="aiOtra(event)">🎲 Otra</button>
+            <button class="act ghost" onclick="aiCopy(event)">Copiar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Ask Sublicuentas</h2><a onclick="go('inicio')">Inicio</a></div>
+        <p style="color:var(--muted);font-weight:800;font-family:var(--fn);font-size:13.5px;line-height:1.45">Respuestas listas para cobrar, vender, atender fallas y cerrar mejor. Todo queda dentro del aula.</p>
+        <div class="ask-grid">${plantillas.map((p,ix)=>`<div class="ask-item"><div class="ai">${p.i}</div><div style="min-width:0"><b>${p.t}</b><p id="askp_${ix}">${p.m}</p><div class="ask-tools"><button onclick='copyAskId("askp_${ix}",event)'>Copiar</button><button onclick='iaVarianteId("askp_${ix}",event)'>✨ IA</button></div></div></div>`).join('')}</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Centro de entrenamiento</h2><a onclick="go('clientes')">Finanzas</a></div>
+        <p style="color:var(--muted);font-weight:800;font-family:var(--fn);font-size:13.5px;line-height:1.45">Cursos rápidos para socios: atención, renovaciones, instalación y cierre de ventas.</p>
+        <div class="aula-grid">
+          <div class="aula-item"><div class="ai">💬</div><div><b>Atención al cliente</b><p>Responda corto, claro y siempre de usted. Confirme dispositivo antes de vender IPTV.</p><button class="ask-copy" onclick="completarCurso('atencion',this)">✓ Marcar completado</button></div></div>
+          <div class="aula-item"><div class="ai">🔔</div><div><b>Renovaciones</b><p>Cobre antes del vencimiento. Envíe recordatorio amable, luego urgente y finalmente último aviso.</p><button class="ask-copy" onclick="completarCurso('renovaciones',this)">✓ Marcar completado</button></div></div>
+          <div class="aula-item"><div class="ai">📲</div><div><b>Instalaciones</b><p>Pida marca/modelo. Guíe por pasos y solicite captura si aparece error.</p><button class="ask-copy" onclick="completarCurso('instalaciones',this)">✓ Marcar completado</button></div></div>
+          <div class="aula-item"><div class="ai">🧾</div><div><b>Reglas de entrega</b><p>No prometa más dispositivos de los vendidos. Indique renovación, perfil, PIN y cuidados.</p><button class="ask-copy" onclick="completarCurso('entregas',this)">✓ Marcar completado</button></div></div>
+        </div>
+      </div>`;
+}
+async function completarCurso(cursoId,btn){
+  const old=btn.textContent;btn.disabled=true;btn.textContent='Guardando…';
+  try{await API.call('/rev/curso-completado',{method:'POST',body:JSON.stringify({cursoId})});btn.textContent='✅ Completado';await loadGamificacion()}catch(e){btn.disabled=false;btn.textContent=old;alert('No se pudo guardar el progreso del curso.')}
+}
+
+function askPlantillas(){return [
+  {i:'⚡',t:'Disponibilidad',m:'Sí, tenemos disponible. Indíqueme por favor el dispositivo donde lo usará y por cuánto tiempo desea el servicio.'},
+  {i:'💳',t:'Precio',m:'Con gusto. El precio depende del servicio y cantidad de pantallas. Le confirmo opciones para que elija la que más le conviene.'},
+  {i:'🔔',t:'Renovación hoy',m:'Hola 👋 le recuerdo que su servicio vence *hoy* ⚡ Para no perder el acceso, puede renovar cuando guste. Avíseme y lo dejo activo al toque 🚀'},
+  {i:'⏳',t:'Por vencer',m:'Hola 👋 su servicio está *próximo a vencer* 📅 Puede renovar desde ya y seguir disfrutando todo sin interrupciones 🍿 Quedo atento 🙌'},
+  {i:'🚨',t:'Vencido',m:'Hola 👋 su servicio ya aparece *vencido* 🛑 No se preocupe, lo reactivo apenas confirme su renovación 🔄 Estoy para servirle 🤝'},
+  {i:'🛠️',t:'Falla técnica',m:'Con gusto le ayudo. Envíeme captura del error, dispositivo que usa y desde cuándo le aparece para revisarlo rápido.'},
+  {i:'📲',t:'Instalación',m:'Claro. Primero necesito saber si usará Smart TV, TV Box, celular, tablet o computadora para darle los pasos correctos.'},
+  {i:'🤝',t:'Cliente nuevo',m:'Bienvenido. Le explico rápido: el servicio se entrega con acceso, reglas de uso y fecha de renovación para que todo quede claro.'},
+  {i:'🔥',t:'Cierre directo',m:'Perfecto. Si desea, se lo puedo activar ahora mismo y le envío los datos de acceso al confirmar el pago.'},
+  {i:'🎁',t:'Combo',m:'Le puedo armar un combo para que tenga más contenido y pague mejor. Dígame qué plataformas usa más y le recomiendo opción.'},
+  {i:'💬',t:'Cliente indeciso',m:'Entiendo. Para que elija mejor, le resumo las opciones por precio, contenido y dispositivo donde lo verá.'},
+  {i:'🧓',t:'Adulto mayor',m:'Con gusto le explico despacio. Solo necesito saber qué televisor o celular usa y le voy indicando paso por paso.'},
+  {i:'✅',t:'Confirmación pago',m:'Pago confirmado, muchas gracias. En unos momentos le envío sus datos de acceso y la fecha de renovación.'},
+  {i:'📌',t:'Reglas de uso',m:'Importante: use solo el dispositivo/pantallas contratadas, no cambie datos de la cuenta y avise si necesita soporte.'},
+  {i:'🙌',t:'Agradecimiento',m:'Gracias por renovar con nosotros. Quedamos atentos para apoyarle si necesita algo durante su mes de servicio.'},
+  {i:'🔁',t:'Seguimiento',m:'Hola 👋 solo paso a confirmar si desea que le reserve el servicio o si lo dejamos pendiente por ahora.'},
+  {i:'💵',t:'Métodos de pago',m:'Con gusto. Puede pagar por transferencia, depósito o billetera. Apenas confirme, le envío sus datos de acceso enseguida.'},
+  {i:'📺',t:'Recomendar plataforma',m:'Según lo que ve, le recomiendo la opción que mejor se ajusta a su gusto y dispositivo. ¿Qué tipo de contenido disfruta más?'},
+  {i:'🔐',t:'Cambio de contraseña',m:'Por seguridad, no comparta ni cambie los datos de la cuenta. Si necesita un ajuste, escríbame y lo gestiono por usted.'},
+  {i:'🧩',t:'Pantallas / perfiles',m:'Recuerde usar solo las pantallas/perfiles contratados. Si necesita más, con gusto le amplío el plan.'},
+  {i:'🎯',t:'Promo del mes',m:'Tenemos una promo especial este mes 🎉 Si renueva ahora, aprovecha el mejor precio. ¿Le reservo la suya?'},
+  {i:'😟',t:'Cliente molesto',m:'Lamento el inconveniente 🙏 Cuénteme qué pasó y lo resolvemos de inmediato. Su servicio es importante para nosotros.'},
+  {i:'⭐',t:'Pedir reseña',m:'Si quedó contento con el servicio, me ayudaría muchísimo una pequeña recomendación 🙏 ¡Gracias por su confianza!'},
+  {i:'📅',t:'Recordar fecha',m:'Le anoto su fecha de renovación para avisarle con tiempo. Así nunca pierde el acceso sin querer 🙌'}
+]}
+function vAsk(){go('aula')}
+function copyAsk(txt,ev){navigator.clipboard?.writeText(txt);const b=ev.target,o=b.textContent;b.textContent='Copiado';setTimeout(()=>b.textContent=o,1000)}
+/* ── IA del Aula ── */
+let aiLastPrompt='';
+function aiQuick(t){const ta=document.getElementById('aiPrompt');if(ta){ta.value=t;ta.focus()}}
+async function aiGenerar(ev){
+  const ta=document.getElementById('aiPrompt'); const t=(ta?.value||'').trim();
+  if(!t){alert('Escribí qué mensaje necesitás 🙂');return}
+  aiLastPrompt=t;
+  const btn=ev.target,old=btn.textContent;btn.textContent='Pensando…';btn.disabled=true;
+  const out=await askGemini('Generá un mensaje de WhatsApp para un negocio de suscripciones digitales en Honduras. Pedido: '+t+'. Reglas: español hondureño, trato de usted, claro y cálido, máximo 5 líneas, con 1 o 2 emojis, sin inventar precios. Devolvé SOLO el mensaje.','');
+  btn.textContent=old;btn.disabled=false;
+  if(!out){alert('La IA no respondió.\n\nDetalle: '+(aiLastError||'sin respuesta')+'\n\nRevisá la llave GEMINI_API_KEY en Render.');return}
+  const box=document.getElementById('aiResult'),o=document.getElementById('aiOut');
+  o.value=out;box.style.display='block';o.scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function aiOtra(ev){
+  if(!aiLastPrompt)return;
+  const btn=ev.target,old=btn.textContent;btn.textContent='🎲…';btn.disabled=true;
+  const out=await askGemini('Generá OTRA versión distinta de un mensaje de WhatsApp. Pedido: '+aiLastPrompt+'. Reglas: español hondureño, trato de usted, cálido, máximo 5 líneas, 1-2 emojis, sin precios, redacción diferente a la anterior. Devolvé SOLO el mensaje.','');
+  btn.textContent=old;btn.disabled=false;
+  if(out)document.getElementById('aiOut').value=out;
+}
+function aiCopy(ev){const v=document.getElementById('aiOut').value;navigator.clipboard?.writeText(v);const b=ev.target,o=b.textContent;b.textContent='¡Copiado!';setTimeout(()=>b.textContent=o,1200)}
+function copyAskId(pid,ev){const t=document.getElementById(pid)?.textContent||'';navigator.clipboard?.writeText(t);const b=ev.target,o=b.textContent;b.textContent='¡Copiado!';setTimeout(()=>b.textContent=o,1000)}
+async function iaVarianteId(pid,ev){
+  const el=document.getElementById(pid);if(!el)return;
+  const base=el.textContent||'';
+  const btn=ev.target,old=btn.textContent;btn.textContent='✨…';btn.disabled=true;
+  const out=await askGemini('Reescribí este mensaje con otras palabras, mismo sentido, para WhatsApp. Español hondureño, trato de usted, cálido, máximo 5 líneas, 1-2 emojis. Mensaje base: "'+base+'". Devolvé SOLO el mensaje nuevo.','');
+  btn.textContent=old;btn.disabled=false;
+  if(!out){alert('La IA no respondió.\n\nDetalle: '+(aiLastError||'sin respuesta')+'\n\nRevisá la llave GEMINI_API_KEY en Render.');return}
+  el.textContent=out;                 // cambia el texto AHÍ MISMO
+  el.style.transition='background .3s';el.style.background='#FFF7CC';
+  setTimeout(()=>{el.style.background='transparent'},700);
+}
+
+/* COBRO */
+let cobroCtx=null;
+function openCobro(id,servicio){
+  const c=clientes.find(x=>x.id===id);if(!c)return;
+  const svcs=Array.isArray(c.servicios)?c.servicios:[];
+  cobroSub.textContent=nombreCli(c)+' · variedad infinita · 🎲 Otra para más';
+  cobroTel=(c.telefono||c.telefono_norm||'').toString().replace(/\D/g,'');
+  cobroWa.style.opacity=cobroTel?'1':'.5'; cobroWa.style.pointerEvents=cobroTel?'auto':'none';
+  const seg=document.getElementById('cobroSeg');
+  let html='';
+  const multi = svcs.length>1 && servicio==='';
+  if(svcs.length>1){
+    html+=`<div class="seg service-seg" style="margin-bottom:10px">`;
+    if(servicio===''){ html+=`<button class="on" onclick='fillCobroAll("${id}",this)'>📋 Todos</button>`; }
+    html+=svcs.map((s,i)=>{const n=pick(s,CONFIG.campos.servicio)||('Servicio '+(i+1));
+      const on=(servicio!==''&&i===0)?'on':'';
+      return `<button class="${on}" onclick='fillCobro("${id}","${enc(n)}",this)'>${n}</button>`}).join('');
+    html+=`</div>`;
+  }
+  html+=`<div class="seg variant-seg" style="margin-bottom:12px">
+    ${['amable','hoy','vencido','ultimo','gracias'].map((v,i)=>`<button class="${i===0?'on':''}" onclick="setCobroVariante('${v}',this)">${({amable:'Amable',hoy:'Hoy vence',vencido:'Vencido',ultimo:'Último aviso',gracias:'Gracias'})[v]}</button>`).join('')}
+  </div>`;
+  seg.innerHTML=html;
+  if(multi) fillCobroAll(id);
+  else fillCobro(id,servicio||(pick(svcs[0]||{},CONFIG.campos.servicio)||''));
+  cobroOverlay.classList.add('show');
+}
+function fillCobroAll(id,btn){
+  if(btn&&btn.closest('.service-seg')){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
+  const c=clientes.find(x=>x.id===id);const svcs=Array.isArray(c?.servicios)?c.servicios:[];
+  const list=svcs.map((s,i)=>{const f=parseFecha(pick(s,CONFIG.campos.vencimiento));
+    return {nm:pick(s,CONFIG.campos.servicio)||('Servicio '+(i+1)),fecha:f,dias:dias(f),precio:precioServicio(s)};});
+  cobroCtx={id,cliente:c,multi:list};
+  setCobroVariante('amable');
+}
+function fillCobro(id,servicio,btn){
+  if(btn&&btn.closest('.service-seg')){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
+  const c=clientes.find(x=>x.id===id);const svcs=Array.isArray(c?.servicios)?c.servicios:[];
+  const svc=svcs.find(s=>(pick(s,CONFIG.campos.servicio)||'')===servicio)||svcs[0]||{};
+  const nm=pick(svc,CONFIG.campos.servicio)||servicio||'su servicio';
+  const f=parseFecha(pick(svc,CONFIG.campos.vencimiento)),dr=dias(f);
+  cobroCtx={id,cliente:c,servicio:nm,fecha:f,dias:dr,precio:precioServicio(svc)};
+  setCobroVariante('amable');
+}
+let cobroTipo='amable';
+function pickRnd(a){return a[Math.floor(Math.random()*a.length)]}
+const bold=s=>'*'+s+'*';
+function cobroMsg(tipo='amable'){
+  cobroTipo=tipo;
+  const c=cobroCtx?.cliente||{};
+  const N=bold(nombreCli(c));
+
+  const SALUDO=[
+    `Hola ${N} 👋`,`Buen día ${N} ☀️`,`¿Qué tal, ${N}? 😊`,`Hola ${N}, ¿cómo está? 🙌`,
+    `Saludos ${N} ✨`,`Buenas ${N} 👋`,`Hola ${N} 🎬`,`¡Hola ${N}! 📺`,
+    `Hola de nuevo ${N} 💬`,`Que tenga buen día, ${N} 🌟`,`Hola ${N} 🤝`,`Buen día ${N} 🔔`,
+    `Hola ${N} 🍿`,`¡Buenas ${N}! 🎉`,`Hola ${N}, espero esté bien 😊`,
+  ];
+  const CIERRE=[
+    `Quedo atento para ayudarle 🙌`,`Estoy para servirle 🤝`,`Cualquier cosa, aquí estoy 💬`,
+    `Avíseme y lo dejamos al día ✅`,`Con gusto le ayudo cuando guste 😊`,`Estoy pendiente de su mensaje 📲`,
+    `Gracias por su preferencia 🙏`,`Aquí estoy para lo que necesite 🤝`,`Quedo a la orden 🙌`,
+    `Escríbame cuando guste ✨`,`Será un gusto seguir atendiéndole 🌟`,`Mil gracias por su confianza 🙏`,
+  ];
+
+  /* ── Mensaje UNIFICADO: cliente con varios servicios ── */
+  if(cobroCtx?.multi && cobroCtx.multi.length>1){
+    const list=cobroCtx.multi;
+    const lineaServicio=(s)=>{
+      const F=bold(fmtFecha(s.fecha)); const d=s.dias; let est;
+      if(s.fecha==null) est=`sin fecha registrada`;
+      else if(d<0) est=`venció el ${F} 🔴`;
+      else if(d===0) est=`vence ${bold('hoy')} (${F}) 🟠`;
+      else if(d<=5) est=`vence el ${F} (en ${d}d) 🟡`;
+      else est=`vence el ${F} 🟢`;
+      const m=s.precio>0?` — ${bold(money(s.precio))}`:'';
+      return `• ${bold(s.nm)}: ${est}${m}`;
+    };
+    const lineas=list.map(lineaServicio).join('\n');
+    const total=list.reduce((a,s)=>a+(s.precio||0),0);
+    const totalLn=total>0?`\n\n💵 Total a renovar: ${bold(money(total))}`:'';
+    const INTRO={
+      amable:[
+        `Le recuerdo con tiempo las fechas de renovación de sus servicios 📅:`,
+        `Pasando a recordarle el detalle de sus servicios y sus vencimientos 🗓️:`,
+        `Aquí el resumen de sus servicios para que no se le pase ninguna fecha ✅:`,
+        `Le comparto el estado de sus servicios con nosotros 📋:`,
+      ],
+      hoy:[
+        `Le aviso que tiene servicios que se renuevan hoy ⚡. Este es el detalle:`,
+        `Hoy toca revisar sus renovaciones 📅. Aquí el resumen de sus servicios:`,
+        `Recordatorio del día: estos son sus servicios y sus fechas ⏰:`,
+      ],
+      vencido:[
+        `Noté que tiene servicios pendientes de renovación 🚨. Este es el detalle:`,
+        `Le comparto el estado de sus servicios; algunos ya vencieron ⏳:`,
+        `Revisando su cuenta, estos son los servicios por reactivar 🔄:`,
+      ],
+      ultimo:[
+        `${bold('Último aviso')} ⚠️ sobre la renovación de sus servicios. Detalle:`,
+        `Este es el ${bold('recordatorio final')} de sus servicios pendientes ⏳:`,
+        `Para no suspender el acceso, le dejo el detalle de sus servicios 🔕:`,
+      ],
+      gracias:[
+        `¡Gracias por renovar! 🎉 Sus servicios quedaron al día ✅:`,
+        `Todo en orden ✅ Aquí el resumen de sus servicios activos 🙌:`,
+        `¡Listo! Sus servicios siguen activos. Gracias por su confianza 🙏:`,
+      ],
+    };
+    const intro=pickRnd(INTRO[tipo]||INTRO.amable);
+    return `${pickRnd(SALUDO)}\n\n${intro}\n\n${lineas}${totalLn}\n\n${pickRnd(CIERRE)}`;
+  }
+
+  /* ── Mensaje individual (un solo servicio) ── */
+  const nm=cobroCtx?.servicio||'su servicio';
+  const fecha=fmtFecha(cobroCtx?.fecha), precio=cobroCtx?.precio||0;
+  const S=bold(nm), F=bold(fecha), M=precio>0?bold(money(precio)):'';
+  const monto = M?` La renovación queda en ${M} 💵.`:'';
+
+  const CORE={
+    amable:[
+      `Le recuerdo con tiempo que su servicio de ${S} se renueva el ${F} 📅.${monto}`,
+      `Solo un recordatorio amable: su ${S} vence el ${F} ⏳.${monto} Cuando guste lo dejamos activo.`,
+      `Su ${S} está por renovarse (vence el ${F}) 🔔.${monto} Si desea continuar, con gusto le ayudo.`,
+      `Pasando a avisarle que su ${S} llega a su fecha el ${F} 📆.${monto}`,
+      `Su ${S} sigue activo hasta el ${F} ✅.${monto} Para no perder el acceso, puede renovar cuando guste.`,
+      `Le aviso con anticipación: su ${S} se vence el ${F} 🗓️.${monto} Así no se queda sin servicio.`,
+    ],
+    hoy:[
+      `Su servicio de ${S} vence ${bold('hoy')} ⚡ (${F}).${monto} Para mantenerlo sin cortes, puede renovar enseguida.`,
+      `${bold('Hoy')} es el día de renovación de su ${S} 📅.${monto} Avíseme y lo dejo activo al toque ⚡`,
+      `Le recuerdo que ${S} se renueva ${bold('hoy')} 🔔.${monto} Así no pierde el acceso 👌`,
+      `Hoy toca renovar su ${S} 🎬.${monto} Cuando guste lo activamos sin demora 🚀`,
+      `¡Atención! Su ${S} vence ${bold('hoy')} mismo ⏰.${monto} Renovando ahora sigue viendo todo sin interrupción.`,
+    ],
+    vencido:[
+      `Su ${S} aparece ${bold('vencido')} desde el ${F} 🚨.${monto} No se preocupe, lo reactivo apenas confirme.`,
+      `Noté que su ${S} quedó ${bold('vencido')} (${F}) ⏳.${monto} Si desea seguir disfrutándolo, lo reactivo hoy mismo 🔄`,
+      `Su servicio de ${S} ya está ${bold('vencido')} 🛑.${monto} Para reactivarlo solo me avisa 🙌`,
+      `¡Ojo! Su ${S} venció el ${F} 📵.${monto} Lo dejamos al día en cuanto guste 🚀`,
+      `Su ${S} se desactivó el ${F} 😕.${monto} Reactivarlo toma un momento, avíseme y lo resolvemos 🔧`,
+    ],
+    ultimo:[
+      `${bold('Último aviso')} ⚠️ Su ${S} está pendiente de renovación (venció el ${F}).${monto} Para no suspender el acceso, hoy es buen momento.`,
+      `Este es el ${bold('último recordatorio')} por su ${S} ⏳.${monto} Si no se renueva, el acceso se suspende. Lo resolvemos enseguida 🙏`,
+      `Para no dejarlo pasar: su ${S} está por suspenderse 🔕.${monto} Si desea conservarlo, renueve hoy 🙌`,
+      `No quiero que pierda su ${S} 😟 Es el aviso final antes del corte (${F}).${monto}`,
+      `${bold('Importante')} ⚠️ Su ${S} se cancela si no renueva pronto.${monto} ¿Lo dejamos activo hoy? 🤝`,
+    ],
+    gracias:[
+      `¡Gracias por renovar su ${S}! 🎉 Quedó activo y al día ✅.`,
+      `Listo ✅ Su ${S} quedó renovado. ¡Gracias por su confianza! 🙌`,
+      `Su ${S} ya está activo nuevamente 🎬 Gracias por preferirnos 🙏`,
+      `¡Renovación confirmada! 🥳 Su ${S} quedó al día. Que lo disfrute muchísimo 🍿`,
+      `Todo en orden ${N} ✅ Su ${S} sigue activo. ¡Gracias por seguir con nosotros! 💚`,
+    ],
+  };
+  const core=pickRnd(CORE[tipo]||CORE.amable);
+  return `${pickRnd(SALUDO)}\n\n${core}\n\n${pickRnd(CIERRE)}`;
+}
+function otraVariante(ev){
+  if(!cobroCtx)return;
+  cobroText.value=cobroMsg(cobroTipo);
+  if(ev&&ev.target){const b=ev.target,o=b.textContent;b.textContent='🎲…';setTimeout(()=>b.textContent=o,400)}
+}
+function setCobroVariante(tipo,btn){
+  if(btn&&btn.closest('.variant-seg')){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
+  cobroText.value=cobroMsg(tipo);
+}
+/* ====== IA (Gemini/Claude vía backend /rev/ask) ====== */
+let aiLastError='';
+async function askGemini(prompt, fallback=''){
+  aiLastError='';
+  const paths=[CONFIG.aiPath,...(CONFIG.aiFallbackPaths||[])].filter((v,i,a)=>v&&a.indexOf(v)===i);
+  for(const p of paths){
+    try{
+      const r=await API.call(p,{method:'POST',body:JSON.stringify({prompt})});
+      if(r&&r.text&&r.text.trim()) return r.text.trim();
+    }catch(e){
+      if(e&&e.code==='auth'){location.reload();return fallback}
+      aiLastError=(e&&(e.detail||e.error||e.message))||'sin_conexion';
+      /* probar siguiente ruta */
+    }
+  }
+  return fallback;
+}
+async function generateCobroIA(ev){
+  if(!cobroCtx)return;
+  const btn=ev.target,old=btn.textContent;btn.textContent='Pensando…';btn.disabled=true;
+  let prompt;
+  if(cobroCtx.multi && cobroCtx.multi.length>1){
+    const detalle=cobroCtx.multi.map(s=>`- ${s.nm} (vence ${fmtFecha(s.fecha)})`).join('\n');
+    prompt=`Escribí UN SOLO mensaje de WhatsApp de cobro para el cliente "${nombreCli(cobroCtx.cliente)}", que tiene varios servicios con estas fechas de renovación:\n${detalle}\nReglas: un único mensaje que mencione todos los servicios juntos (no uno por servicio), trato de usted, tono cálido y profesional hondureño, podés listar los servicios con viñetas, sin poner precios, con 1 o 2 emojis. Devolvé SOLO el mensaje, sin explicaciones.`;
+  }else{
+    prompt=`Escribí un mensaje de WhatsApp de cobro para el cliente "${nombreCli(cobroCtx.cliente)}", por el servicio "${cobroCtx.servicio}" con vencimiento ${fmtFecha(cobroCtx.fecha)}. Reglas: trato de usted, tono cálido y profesional hondureño, máximo 4 líneas, sin poner precio, con 1 o 2 emojis. Devolvé SOLO el mensaje, sin explicaciones.`;
+  }
+  const out=await askGemini(prompt,'');
+  if(out) cobroText.value=out;
+  else alert('La IA no respondió.\n\nDetalle: '+(aiLastError||'sin respuesta')+'\n\nRevisá la llave GEMINI_API_KEY en Render.');
+  btn.textContent=old;btn.disabled=false;
+}
+function sendWa(){if(cobroTel)window.open('https://wa.me/504'+cobroTel+'?text='+encodeURIComponent(cobroText.value),'_blank')}
+function copyCobro(ev){navigator.clipboard?.writeText(cobroText.value);const b=ev.target,o=b.textContent;b.textContent='¡Copiado!';setTimeout(()=>b.textContent=o,1200)}
+function closeCobro(){cobroOverlay.classList.remove('show')}
+
+/* ── Comprobante de renovación (sube foto + puede renovar fecha) ── */
+let compCtx=null, compImg='';
+function dateInputValue(d){if(!d)return'';const x=new Date(d);x.setHours(12,0,0,0);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function addMeses(d,m){const x=new Date(d||Date.now());x.setHours(12,0,0,0);const day=x.getDate();x.setMonth(x.getMonth()+m);if(x.getDate()!==day)x.setDate(0);return x}
+function baseCompFecha(){return (compCtx&&compCtx.fecha&&dias(compCtx.fecha)>0)?compCtx.fecha:new Date()}
+function setCompMeses(m){const inp=document.getElementById('compNuevaFecha');if(!inp)return;inp.value=dateInputValue(addMeses(baseCompFecha(),m));const info=document.getElementById('compFechaInfo');if(info)info.textContent='Se renovará hasta '+fmtFecha(parseFecha(inp.value))+'. También puede cambiar la fecha manualmente.'}
+function clearCompFecha(){const inp=document.getElementById('compNuevaFecha');if(inp)inp.value='';const info=document.getElementById('compFechaInfo');if(info)info.textContent='Solo se guardará el comprobante; no se modificará la fecha del cliente.'}
+function openComprobante(id,servicio,servicioIndex){
+  const c=clientes.find(x=>x.id===id); if(!c)return;
+  const svcs=Array.isArray(c.servicios)?c.servicios:[];
+  let ix=Number(servicioIndex);
+  if(!Number.isInteger(ix)||ix<0||ix>=svcs.length) ix=svcs.findIndex(s=>(pick(s,CONFIG.campos.servicio)||'')===servicio);
+  if(ix<0)ix=0;
+  const svc=svcs[ix]||{};
+  const nm=pick(svc,CONFIG.campos.servicio)||servicio||'Servicio';
+  const f=parseFecha(pick(svc,CONFIG.campos.vencimiento));
+  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:ix, fecha:f};
+  compImg='';
+  document.getElementById('compSub').textContent=compCtx.cliente+' · '+compCtx.servicio;
+  ['compQuien','compCom','compMonto','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
+  const prev=document.getElementById('compPrev'), ph=document.getElementById('compPh');
+  prev.style.display='none'; prev.src=''; ph.style.display='flex';
+  const info=document.getElementById('compFechaInfo');
+  if(info)info.textContent=f?`Fecha actual: ${fmtFecha(f)}. Elija +1m/+3m o ponga una fecha manual.`:'Sin fecha actual. Ponga la nueva fecha si desea renovar.';
+  document.getElementById('compMsg').textContent='';
+  document.getElementById('compOverlay').classList.add('show');
+}
+function closeComprobante(){document.getElementById('compOverlay').classList.remove('show')}
+function compressImage(file,maxDim,q){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{ let w=img.width,h=img.height;
+      const sc=Math.min(1,maxDim/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url); resolve(cv.toDataURL('image/jpeg',q));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('img'))};
+    img.src=url;
+  });
+}
+async function pickComprobante(input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  const msg=document.getElementById('compMsg'); msg.style.color='#6E8299'; msg.textContent='Procesando foto…';
+  try{
+    compImg=await compressImage(f,1280,0.7);
+    const prev=document.getElementById('compPrev'), ph=document.getElementById('compPh');
+    prev.src=compImg; prev.style.display='block'; ph.style.display='none'; msg.textContent='';
+  }catch(e){ msg.style.color='#e54848'; msg.textContent='No pude leer la foto.'; }
+}
+async function refreshClientesPostRenew(){
+  try{
+    clientes=await API.call('/rev/clientes');
+    if(current==='renovar')renderRen();
+    else if(current==='clientes')renderCli();
+    else if(current==='inicio')vInicio();
+  }catch(e){}
+}
+async function enviarComprobante(){
+  const msg=document.getElementById('compMsg');
+  const nuevaFecha=(document.getElementById('compNuevaFecha')?.value||'').trim();
+  if(!compImg && !nuevaFecha){ msg.style.color='#e54848'; msg.textContent='Suba una foto o elija nueva fecha para renovar.'; return }
+  const btn=document.getElementById('compBtn'); btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    const res=await API.call('/rev/renovacion',{method:'POST',body:JSON.stringify({
+      clienteId:compCtx.id, cliente:compCtx.cliente, servicio:compCtx.servicio, servicioIndex:compCtx.servicioIndex,
+      comentario:document.getElementById('compCom').value.trim(),
+      quien:document.getElementById('compQuien').value.trim(),
+      monto:document.getElementById('compMonto').value||0,
+      nuevaFecha,
+      imagen:compImg
+    })});
+    msg.style.color='#1aa15a'; msg.textContent=res.renovado?('✅ Renovado hasta '+fmtFecha(parseFecha(res.nuevaFecha))+' y guardado.'): '✅ Comprobante guardado.';
+    if(res.renovado) await refreshClientesPostRenew();
+    setTimeout(closeComprobante,1100);
+  }catch(e){
+    msg.style.color='#e54848';
+    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.'};
+    msg.textContent=map[e&&e.error]||('No se pudo guardar. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
+  }finally{ btn.disabled=false; btn.textContent='Guardar'; }
+}
+
+/* logos + auto-login */
+document.getElementById('loginLogo').src=ROBOT_IMG;
+(function(){
+  const S=['¡Hola! 👋','¡Qué onda! 🤙','¡Buenas! 😎','¡Hey! 🙌','¡Bienvenido! ✨','¡Saludos! 🫡',
+    '¡Qué tal! 😃','¡Arriba! 🚀','¡Hola hola! 👋','¡Listos! 💪','¡A darle! 🔥','¡Buen día! ☀️',
+    '¡Qué gusto! 😄','¡Pura vida! 🌟','¡Vamos! ⚡'];
+  const i=Math.floor(Date.now()/864e5)%S.length;
+  const el=document.getElementById('loginBubble'); if(el) el.textContent=S[i];
+})();
+document.getElementById('brandLogo').src=LOGO;
+document.getElementById('introRobot').src=ROBOT_IMG;
+document.getElementById('introWord').src=WORD_IMG;
+
+/* ===== INTRO ===== */
+let introDone=false;
+function closeIntro(){
+  if(introDone)return; introDone=true;
+  const v=document.getElementById('introVid');
+  try{v.pause()}catch(e){}
+  const ov=document.getElementById('intro');
+  ov.classList.add('out');
+  setTimeout(()=>ov.remove(),550);
+}
+function startIntro(){
+  const ov=document.getElementById('intro');
+  if(!ov)return;
+  const vid=document.getElementById('introVid');
+  const brand=document.getElementById('introBrand');
+  // duración tope 5s
+  const ms=Math.min(CONFIG.introDuracion||4600,5000);
+  if(CONFIG.introVideo){
+    brand.classList.add('hide');
+    vid.classList.remove('hide');
+    vid.src=CONFIG.introVideo;
+    let t=setTimeout(closeIntro,5000); // nunca pasar de 5s
+    vid.addEventListener('ended',()=>{clearTimeout(t);closeIntro()});
+    vid.addEventListener('error',()=>{clearTimeout(t);
+      vid.classList.add('hide'); brand.classList.remove('hide'); setTimeout(closeIntro,ms);});
+    const p=vid.play();
+    if(p&&p.catch)p.catch(()=>{clearTimeout(t);
+      vid.classList.add('hide'); brand.classList.remove('hide'); setTimeout(closeIntro,ms);});
+  }else{
+    setTimeout(closeIntro,ms);
+  }
+}
+startIntro();
+
+/* ── Sesión: persiste hasta cerrar usuario o 1h de inactividad ── */
+const IDLE_MS=60*60*1000; // 1 hora
+let idleTimer=null;
+function expireIdle(){ if(API.token){ API.clear(); st('del','rev_admin'); st('del','rev_last'); location.reload(); } }
+function resetIdle(){ clearTimeout(idleTimer); idleTimer=setTimeout(expireIdle,IDLE_MS); }
+function touchActivity(){ if(API.token){ st('set','rev_last',String(Date.now())); resetIdle(); } }
+['click','keydown','touchstart','scroll','mousemove'].forEach(ev=>window.addEventListener(ev,touchActivity,{passive:true}));
+
+window.addEventListener('load',()=>{
+  if(!API.token)return;
+  const last=+(st('get','rev_last')||0);
+  if(last && Date.now()-last>IDLE_MS){ API.clear(); st('del','rev_admin'); st('del','rev_last'); return; } // vencida por inactividad
+  if(st('get','rev_admin')==='1'){ isAdmin=true; adminToken=API.token; enterAdmin(); }
+  else { try{rev=JSON.parse(st('get','rev_data'))}catch(e){}; if(rev)enterApp(); }
+  touchActivity();
+});
+</script>
+</body>
+</html>
