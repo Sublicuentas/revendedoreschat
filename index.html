@@ -452,6 +452,7 @@ h1,h2,h3,.disp{font-family:var(--ff)}
 .buy-selected{display:none}.buy-help strong{color:var(--txt)}
 .destino-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0 12px}.destino-seg button{border:2px solid #e7edf4;background:#fff;color:var(--txt2);border-radius:15px;padding:12px 8px;font-family:var(--fn);font-weight:950;box-shadow:0 4px 0 #e3ebf5}.destino-seg button.on{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent-d)}
 .buy-help{font-family:var(--fn);font-weight:850;color:var(--muted);font-size:12.8px;line-height:1.4;margin:-2px 2px 11px}.buy-grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.buy-grid2 .comp-in{margin-bottom:11px}.buy-submit{width:100%;margin-top:2px}.buy-note{background:#F8FBFF;border:2px solid #e7edf4;border-radius:18px;padding:11px 12px;font-family:var(--fn);font-weight:850;color:var(--txt2);font-size:12.7px;line-height:1.4;margin-bottom:11px}.buy-note b{font-family:var(--ff);color:var(--txt)}
+.buy-dispositivo{margin:-3px 0 11px}.buy-disp-label{display:block;font-family:var(--fn);font-weight:850;color:var(--muted);font-size:12px;margin:0 2px 7px}.dispositivo-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.disp-opt{background:#F6FAFF;border:2px solid transparent;border-radius:14px;padding:10px 8px;text-align:center;font-family:var(--fn);font-weight:850;color:var(--txt);font-size:13px;box-shadow:0 3px 0 #e2edf7}.disp-opt.on{border-color:var(--accent);background:#FFF5F7;box-shadow:0 3px 0 #ffd2d2;color:#b4232c}
 .adm-purchase-card{background:#fff;border-radius:22px;padding:13px;margin-bottom:11px;box-shadow:var(--sh-sm);display:grid;grid-template-columns:82px 1fr;gap:12px;align-items:start}.adm-purchase-title{font-family:var(--ff);font-weight:700;font-size:15.5px;color:var(--txt);line-height:1.15}.adm-purchase-meta{font-family:var(--fn);font-weight:800;font-size:12.2px;color:var(--muted);line-height:1.38;margin-top:4px}.adm-tag.dest{background:#EEF2FF;color:#3730A3}.adm-tag.pending{background:#FFF7D9;color:#8a6500}@media(max-width:380px){.buy-grid2{grid-template-columns:1fr}.adm-purchase-card{grid-template-columns:70px 1fr}}
 
 
@@ -1153,6 +1154,13 @@ function compraTipoDesdeCatalogo(it,cat){
   if(/free fire|recarga|juegos/.test(t))return 'detalle';
   return 'detalle';
 }
+// ✅ NUEVO: para estas 6 plataformas, además del nombre/apellido del perfil,
+// se pide en qué dispositivo lo va a usar el cliente (TV, celular, tablet o
+// computadora) — así el equipo ya sabe para cuál armar el acceso.
+function compraPideDispositivo(it,cat){
+  const t=norm([it.n,it.s,cat].filter(Boolean).join(' '));
+  return /disney|\bmax\b|\bvix\b|paramount|crunchyroll|prime video/.test(t);
+}
 function compraAyudaDesdeTipo(p){
   if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.';
   if(p.tipo==='correo')return 'Pedir solo el correo del cliente.';
@@ -1176,6 +1184,7 @@ function compraProductosCatalogo(){
         precio:it.p,
         precioTxt:it.p==null?'Por comisión':`Lps. ${it.p}`,
         tipo,
+        pideDispositivo:tipo==='perfil'&&compraPideDispositivo(it,g.cat),
         ayuda:compraAyudaDesdeTipo({tipo}),
         detalleCatalogo:it.d||'',
         categoria:g.cat||'Catálogo',
@@ -1221,9 +1230,29 @@ function toggleCompraProducto(id){
 function toggleCompraPicker(){compraPickerOpen=!compraPickerOpen;renderCompraForm()}
 function setCompraDestino(d){compraDestino=d;document.querySelectorAll('.destino-seg button').forEach(b=>b.classList.toggle('on',b.dataset.dest===d))}
 function buyFid(p,field){return `buy_${field}_${p.id}`}
+// ✅ NUEVO: selector de dispositivo (TV/Celular/Tablet/Computadora) — solo
+// para las 6 plataformas que lo piden (ver compraPideDispositivo).
+function compraDispositivoHtml(p){
+  const opciones=[['tv','📺 TV'],['celular','📱 Celular'],['tablet','📱 Tablet'],['computadora','💻 Computadora']];
+  return `<div class="buy-dispositivo">
+    <small class="buy-disp-label">¿En qué dispositivo va este perfil?</small>
+    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt" data-disp="${v}" onclick="setCompraDispositivo('${p.id}','${v}',this);return false">${l}</button>`).join('')}</div>
+    <input type="hidden" id="${buyFid(p,'dispositivo')}" value="">
+  </div>`;
+}
+function setCompraDispositivo(pid,val){
+  const input=document.getElementById(`buy_dispositivo_${pid}`); if(input)input.value=val;
+  const wrap=input&&input.previousElementSibling; // .dispositivo-opts
+  if(wrap)wrap.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.disp===val));
+}
 function compraCampos(p){
-  if(p.tipo==='perfil')return `<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" placeholder="Apellido del perfil"></div>`;
-  if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'correo')}" type="email" placeholder="Correo del cliente">`;
+  if(p.tipo==='perfil'){
+    const base=`<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" placeholder="Apellido del perfil"></div>`;
+    return p.pideDispositivo ? base+compraDispositivoHtml(p) : base;
+  }
+  // ✅ Gemini y Canva: es invitación al correo, no perfil con clave — se pide
+  // el correo Y el nombre del cliente (para saber a quién se le invitó).
+  if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'nombreCliente')}" placeholder="Nombre del cliente" style="margin-bottom:8px"><input class="comp-in" id="${buyFid(p,'correo')}" type="email" placeholder="Correo del cliente">`;
   if(p.tipo==='detalle')return `<input class="comp-in" id="${buyFid(p,'detalle')}" placeholder="Detalle requerido: ID, número, plan o indicación del cliente">`;
   if(p.tipo==='acceso')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con acceso. Adjunte comprobante; use comentario si necesita dejar una indicación.</div>`;
   if(p.tipo==='serial_key')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con key / serial. El encargado lo entrega después de revisar el comprobante.</div>`;
@@ -1293,13 +1322,15 @@ async function enviarCompra(){
   const val=id=>(document.getElementById(id)?.value||'').trim();
   const productos=[];
   for(const p of items){
-    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle'));
+    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo'));
     if(p.tipo==='perfil' && (!perfilNombre||!perfilApellido)){msg.style.color='#e54848';msg.textContent='Coloque nombre y apellido del perfil para '+p.nombre+'.';return}
+    if(p.tipo==='perfil' && p.pideDispositivo && !dispositivo){msg.style.color='#e54848';msg.textContent='Elija en qué dispositivo va el perfil de '+p.nombre+'.';return}
     if(p.tipo==='correo' && !correo){msg.style.color='#e54848';msg.textContent='Coloque el correo para '+p.nombre+'.';return}
+    if(p.tipo==='correo' && !nombreCliente){msg.style.color='#e54848';msg.textContent='Coloque el nombre del cliente para '+p.nombre+'.';return}
     if(p.tipo==='detalle' && !detalleServicio){msg.style.color='#e54848';msg.textContent='Coloque el detalle para '+p.nombre+'.';return}
     productos.push({
       id:p.id, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
-      precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio
+      precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo
     });
   }
   if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
