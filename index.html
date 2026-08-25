@@ -695,7 +695,7 @@ function estado(d){const n=dias(d);
 function nombreCli(c){return c.nombrePerfil||c.nombre||c.nombre_norm||'Cliente'}
 function revName(r=rev){
   if(!r)return 'socio';
-  const raw=(r.nombre||r.nombre_norm||'').toString().trim();
+  const raw=(r.nombreMostrar||gamificacion?.perfil?.nombreMostrar||r.nombre||r.nombre_norm||'').toString().trim();
   const user=(r.usuario||r.user||r.username||r.alias||'').toString().trim();
   const bad=['sublicuentas','sublichat','admin','administrador'];
   if(raw && !bad.includes(norm(raw)))return raw;
@@ -1187,9 +1187,11 @@ function vInicio(){
 async function vPerfil(){
   content.innerHTML='<div class="spin"></div>';await loadGamificacion();if(current!=='perfil')return;
   const me=gamificacion.perfil||{ventas:0,score:0,nivel:'Sin nivel',racha:0,cursos:0,avatar:''},avatar=me.avatar||ROBOT_IMG;
-  content.innerHTML=`<div class="scr-title">Mi progreso</div><div class="profile-layout"><section class="profile-hero"><div class="profile-photo-wrap"><img class="profile-photo" src="${avatar}" alt="Foto de ${revName()}"><button class="profile-photo-edit" onclick="document.getElementById('socioPhoto').click()">📷</button><input id="socioPhoto" type="file" accept="image/*" hidden onchange="saveSocioPhoto(this)"></div><h2>${revName()}</h2><p>Progreso personal del socio</p><div class="profile-level">${me.nivel==='Inmortal'?'👑':me.nivel==='Leyenda'?'🏆':me.nivel==='Diamante'?'💎':'⭐'} ${me.nivel}</div><div class="level-track"><div class="level-chip ${me.nivel==='Diamante'?'on':''}">💎 Diamante<br>1–9</div><div class="level-chip ${me.nivel==='Leyenda'?'on':''}">🏆 Leyenda<br>10–25</div><div class="level-chip ${me.nivel==='Inmortal'?'on':''}">👑 Inmortal<br>26+</div></div></section><div><div class="profile-stats"><div class="profile-stat"><b>${me.ventas}</b><span>Ventas</span></div><div class="profile-stat"><b>${me.score}</b><span>Score</span></div><div class="profile-stat"><b>${me.racha}🔥</b><span>Racha renovaciones</span></div></div><div class="card"><div class="card-h"><h2>Insignias</h2><span>${me.cursos||0} cursos</span></div><div class="badge-grid">${(gamificacion.insignias||[]).map(b=>`<div class="sales-badge ${b.activa?'on':''}" title="${b.detalle}"><i>${b.icon}</i><b>${b.nombre}</b></div>`).join('')}</div></div><button class="reward-open" onclick="go('recompensas')">🎁 Ver recompensa de mi nivel <span>›</span></button></div></div>`;
+  content.innerHTML=`<div class="scr-title">Mi perfil</div><div class="profile-layout"><section class="profile-hero"><div class="profile-photo-wrap"><img class="profile-photo" src="${avatar}" alt="Foto de ${revName()}"><button class="profile-photo-edit" onclick="document.getElementById('socioPhoto').click()">📷</button><input id="socioPhoto" type="file" accept="image/*" hidden onchange="saveSocioPhoto(this)"></div><h2>${me.nombreMostrar||revName()}</h2><button class="ask-copy" onclick="toggleEditSocio()">✏️ Editar perfil</button><div id="editSocioBox" style="display:none;margin-top:12px"><input class="comp-in" id="socioNombre" maxlength="45" value="${enc(me.nombreMostrar||revName())}" placeholder="Nombre visible"><button class="act primary" style="margin-top:8px" onclick="saveSocioProfile()">Guardar cambios</button></div><p>Progreso personal del socio</p><div class="profile-level">${me.nivel==='Inmortal'?'👑':me.nivel==='Leyenda'?'🏆':me.nivel==='Diamante'?'💎':'⭐'} ${me.nivel}</div><div class="level-track"><div class="level-chip ${me.nivel==='Diamante'?'on':''}">💎 Diamante<br>1–9 ventas</div><div class="level-chip ${me.nivel==='Leyenda'?'on':''}">🏆 Leyenda<br>10–25 ventas</div><div class="level-chip ${me.nivel==='Inmortal'?'on':''}">👑 Inmortal<br>26+ ventas</div></div></section><div><div class="profile-stats"><div class="profile-stat"><b>${me.ventas}</b><span>Ventas</span></div><div class="profile-stat"><b>${me.score}</b><span>Score</span></div><div class="profile-stat"><b>${me.racha}🔥</b><span>Racha renovaciones</span></div></div><div class="card"><div class="card-h"><h2>Insignias</h2><span>${me.cursos||0} cursos</span></div><div class="badge-grid">${(gamificacion.insignias||[]).map(b=>`<div class="sales-badge ${b.activa?'on':''}" title="${b.detalle}"><i>${b.icon}</i><b>${b.nombre}</b></div>`).join('')}</div></div><button class="reward-open" onclick="go('recompensas')">🎁 Ver recompensas de mi nivel <span>›</span></button></div></div>`;
 }
 async function saveSocioPhoto(input){const f=input.files?.[0];if(!f)return;try{const avatarData=await compressImage(f,520,.78);await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({avatarData})});await loadGamificacion();vPerfil()}catch(e){alert(e?.error==='foto_invalida'?'La foto no es válida o pesa demasiado.':'No se pudo guardar la foto.')}}
+function toggleEditSocio(){const el=document.getElementById('editSocioBox');if(el)el.style.display=el.style.display==='none'?'block':'none'}
+async function saveSocioProfile(){const nombreMostrar=(document.getElementById('socioNombre')?.value||'').trim();if(nombreMostrar.length<2)return alert('Escriba un nombre válido.');try{await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({nombreMostrar})});rev.nombreMostrar=nombreMostrar;await loadGamificacion();renderTop();vPerfil()}catch(e){alert('No se pudo actualizar el perfil.')}}
 async function vRecompensas(){
   content.innerHTML='<div class="spin"></div>';await loadGamificacion();if(current!=='recompensas')return;
   const me=gamificacion.perfil||{nivel:'Sin nivel',ventas:0},opts=gamificacion.recompensas||[],claims=gamificacion.solicitudes||[];
@@ -1245,8 +1247,9 @@ function compraTipoDesdeCatalogo(it,cat){
 // computadora) — así el equipo ya sabe para cuál armar el acceso.
 function compraPideDispositivo(it,cat){
   const t=norm([it.n,it.s,cat].filter(Boolean).join(' '));
-  return /disney|\bmax\b|\bvix\b|paramount|crunchyroll|prime video/.test(t);
+  return /disney|\bmax\b|\bhbo\b|\bvix\b|crunchyroll|prime video/.test(t);
 }
+function compraEsIptv(p){return /iptv/.test(norm([p.base,p.nombre,p.categoria].join(' ')))}
 function compraAyudaDesdeTipo(p){
   if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.';
   if(p.tipo==='correo')return 'Pedir solo el correo del cliente.';
@@ -1326,6 +1329,11 @@ function compraDispositivoHtml(p){
     <input type="hidden" id="${buyFid(p,'dispositivo')}" value="">
   </div>`;
 }
+function compraMarcaTvHtml(p){
+  const opciones=[['samsung','Samsung'],['lg','LG'],['tcl','TCL'],['roku','Roku TV'],['otro','Otra']];
+  return `<div class="buy-dispositivo"><small class="buy-disp-label">¿En qué marca o sistema de TV usará IPTV?</small><div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt" data-marca="${v}" onclick="setCompraMarcaTv('${p.id}','${v}',this);return false">📺 ${l}</button>`).join('')}</div><input type="hidden" id="${buyFid(p,'marcaTv')}" value=""><input class="comp-in" id="${buyFid(p,'marcaTvOtra')}" placeholder="Especifique marca y modelo" style="display:none;margin-top:9px"></div>`;
+}
+function setCompraMarcaTv(pid,val,btn){const input=document.getElementById(`buy_marcaTv_${pid}`);if(input)input.value=val;btn?.parentElement?.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.marca===val));const otro=document.getElementById(`buy_marcaTvOtra_${pid}`);if(otro)otro.style.display=val==='otro'?'block':'none'}
 function setCompraDispositivo(pid,val){
   const input=document.getElementById(`buy_dispositivo_${pid}`); if(input)input.value=val;
   const wrap=input&&input.previousElementSibling; // .dispositivo-opts
@@ -1340,7 +1348,7 @@ function compraCampos(p){
   // el correo Y el nombre del cliente (para saber a quién se le invitó).
   if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'nombreCliente')}" placeholder="Nombre del cliente" style="margin-bottom:8px"><input class="comp-in" id="${buyFid(p,'correo')}" type="email" placeholder="Correo del cliente">`;
   if(p.tipo==='detalle')return `<input class="comp-in" id="${buyFid(p,'detalle')}" placeholder="Detalle requerido: ID, número, plan o indicación del cliente">`;
-  if(p.tipo==='acceso')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con acceso. Adjunte comprobante; use comentario si necesita dejar una indicación.</div>`;
+  if(p.tipo==='acceso')return `${compraEsIptv(p)?compraMarcaTvHtml(p):''}<div class="buy-note"><b>Entrega:</b> este producto se entrega con acceso. Adjunte comprobante; use comentario si necesita dejar una indicación.</div>`;
   if(p.tipo==='serial_key')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con key / serial. El encargado lo entrega después de revisar el comprobante.</div>`;
   if(p.tipo==='serial')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con serial/licencia. El encargado lo entrega después de revisar el comprobante.</div>`;
   return '';
@@ -1408,15 +1416,17 @@ async function enviarCompra(){
   const val=id=>(document.getElementById(id)?.value||'').trim();
   const productos=[];
   for(const p of items){
-    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo'));
+    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo')), marcaTv=val(buyFid(p,'marcaTv')), marcaTvOtra=val(buyFid(p,'marcaTvOtra'));
     if(p.tipo==='perfil' && (!perfilNombre||!perfilApellido)){msg.style.color='#e54848';msg.textContent='Coloque nombre y apellido del perfil para '+p.nombre+'.';return}
     if(p.tipo==='perfil' && p.pideDispositivo && !dispositivo){msg.style.color='#e54848';msg.textContent='Elija en qué dispositivo va el perfil de '+p.nombre+'.';return}
     if(p.tipo==='correo' && !correo){msg.style.color='#e54848';msg.textContent='Coloque el correo para '+p.nombre+'.';return}
     if(p.tipo==='correo' && !nombreCliente){msg.style.color='#e54848';msg.textContent='Coloque el nombre del cliente para '+p.nombre+'.';return}
     if(p.tipo==='detalle' && !detalleServicio){msg.style.color='#e54848';msg.textContent='Coloque el detalle para '+p.nombre+'.';return}
+    if(compraEsIptv(p) && !marcaTv){msg.style.color='#e54848';msg.textContent='Seleccione la marca o sistema del TV para '+p.nombre+'.';return}
+    if(compraEsIptv(p) && marcaTv==='otro' && !marcaTvOtra){msg.style.color='#e54848';msg.textContent='Especifique la marca y modelo del TV.';return}
     productos.push({
       id:p.id, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
-      precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo
+      precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
     });
   }
   if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
@@ -1686,15 +1696,12 @@ function politicasHTML(){
   </div>`;
 }
 
-function vPrecios(){
-  const cuentasCompradas=flat().filter(s=>esVigente(s.est)).length;
-  const meta=10;
-  const faltan=Math.max(0,meta-(cuentasCompradas%meta||meta));
-  const alcanzada=cuentasCompradas>=meta && cuentasCompradas%meta===0;
-  const progreso=Math.min(100,((cuentasCompradas%meta)||meta)/meta*100);
-  const premio=cuentasCompradas>=meta
-    ? (alcanzada?'¡Meta alcanzada! Reclame su DEEZER PREMIUM GRATIS 🎁':`Ya lleva ${cuentasCompradas} cuentas. Le faltan ${faltan} para reclamar otro premio.`)
-    : `Le faltan ${meta-cuentasCompradas} cuentas para reclamar su premio.`;
+async function vPrecios(){
+  await loadGamificacion();if(current!=='precios')return;
+  const me=gamificacion.perfil||{ventas:0,nivel:'Sin nivel'},ventas=Number(me.ventas||0);
+  const siguiente=ventas<1?1:ventas<10?10:ventas<26?26:26;
+  const progreso=ventas>=26?100:Math.min(100,Math.round((ventas/siguiente)*100));
+  const faltan=Math.max(0,siguiente-ventas);
   const secciones=PRECIOS.map(g=>`
     <div class="card" style="margin-bottom:16px">
       <div style="font-family:var(--ff);font-weight:700;font-size:18px;color:var(--txt);margin-bottom:${g.sub?'2px':'10px'}">${g.cat}</div>
@@ -1705,11 +1712,12 @@ function vPrecios(){
       </div>${it.d?`<div class="price-det" id="${did}">${it.d}</div>`:''}`}).join('')}
     </div>`).join('');
   const oferta=`<div class="reward-card">
-      <div class="reward-top"><span>🎁</span><b>Meta socio</b></div>
-      <h3>${premio}</h3>
-      <p>Promo: por cada 10 cuentas compradas, recibe 1 DEEZER PREMIUM GRATIS.</p>
+      <div class="reward-top"><span>🎁</span><b>Recompensas de socio</b></div>
+      <h3>${me.nivel==='Sin nivel'?'Complete su primera venta para alcanzar Diamante.':`${me.nivel} · ${ventas} ventas registradas`}</h3>
+      <p>${ventas>=26?'Ya alcanzó el nivel máximo. Puede escoger una recompensa Inmortal.':`Le faltan ${faltan} venta${faltan===1?'':'s'} para ${ventas<1?'Diamante':ventas<10?'Leyenda':'Inmortal'}.`}</p>
       <div class="goalbar"><i style="width:${progreso}%"></i></div>
-      <small>${Math.min((cuentasCompradas%meta)||meta,meta)} / ${meta} cuentas en esta meta</small>
+      <small>${ventas>=26?'Nivel Inmortal':`${ventas} / ${siguiente} ventas`}</small>
+      <button class="ask-copy" style="margin-top:12px" onclick="go('recompensas')">Ver y escoger premios</button>
     </div>`;
   const catMs=Number(gamificacion.catalogoActualizadoAt||0),catTxt=catMs?new Date(catMs).toLocaleString('es-HN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'sincronizado ahora';
   const rewardMini=(gamificacion.recompensas||[]).length?`<button class="reward-open" style="margin:0 0 16px" onclick="go('recompensas')">🎁 ${gamificacion.perfil?.nivel}: escoja su recompensa <span>›</span></button>`:'';
