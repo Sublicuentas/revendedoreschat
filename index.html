@@ -810,6 +810,16 @@ function enterApp(){
   toggleImpBar();
   loadClientes();
   loadAvisos();
+  loadPrecios();
+}
+/* Trae el catálogo real (lo administra Sublichat). Si falla, se queda
+   con el PRECIOS de respaldo definido arriba — el socio nunca se queda
+   sin ver precios, aunque estén desactualizados. */
+async function loadPrecios(){
+  try{
+    const data=await API.call('/rev/precios');
+    if(Array.isArray(data)&&data.length) PRECIOS=data;
+  }catch(e){ /* se queda con el respaldo */ }
 }
 function toggleImpBar(){
   const b=document.getElementById('impBar');
@@ -1486,7 +1496,12 @@ function renderRen(){
 }
 
 /* PRECIOS */
-const PRECIOS=[
+/* Catálogo de precios: este array es el RESPALDO por si el fetch al
+   servidor falla (offline, API caída, etc.). Cuando enterApp() consigue
+   cargar /rev/precios, reemplaza este contenido con el catálogo real que
+   se administra ahora desde Sublichat (pestaña Revendedores → Precios) —
+   así ya no hace falta editar código para cambiar un precio. */
+let PRECIOS=[
   {cat:'📺 Streaming',sub:'Plan mensual',items:[
     {n:'Netflix',p:110,d:'👤 Perfil personal: correo y contraseña\n📺 Reproduce en 1 dispositivo a la vez\n🔐 Más perfiles: sin clave, acceso por código\n🏠 A los 20 días puede pedir código hogar'},
     {n:'Disney+ Premium',p:80,d:'🔢 Acceso por código\n👤 PIN de perfil\n📱 1 dispositivo'},
