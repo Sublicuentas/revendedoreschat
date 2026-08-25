@@ -818,9 +818,11 @@ function enterApp(){
    sin ver precios, aunque estén desactualizados. */
 async function loadPrecios(){
   try{
-    const data=await API.call('/rev/precios');
-    if(Array.isArray(data)&&data.length) PRECIOS=data;
+    const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
+    if(Array.isArray(data)) PRECIOS=data;
+    return true;
   }catch(e){ /* se queda con el respaldo */ }
+  return false;
 }
 function toggleImpBar(){
   const b=document.getElementById('impBar');
@@ -1051,10 +1053,15 @@ function tiempoDesde(ts){
 
 /* nav */
 const content=document.getElementById('content');
-function go(v){current=v;
+async function go(v){current=v;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   window.scrollTo(0,0);
   const views={inicio:vInicio,compras:vCompras,clientes:vClientes,renovar:vRenovar,precios:vPrecios,buzon:vSugerencias,aula:vAula};
+  if(v==='precios'){
+    content.innerHTML='<div class="spin"></div><div style="text-align:center;color:var(--muted);font-weight:800">Actualizando catálogo…</div>';
+    await loadPrecios();
+    if(current!=='precios')return;
+  }
   (views[v]||vInicio)();
   actualizarBadgeBuzon();
 }
