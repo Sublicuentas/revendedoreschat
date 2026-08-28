@@ -732,7 +732,8 @@ function estado(d){const n=dias(d);
 function nombreCli(c){return c.nombrePerfil||c.nombre||c.nombre_norm||'Cliente'}
 function revName(r=rev){
   if(!r)return 'socio';
-  const raw=(r.nombreMostrar||gamificacion?.perfil?.nombreMostrar||r.nombre||r.nombre_norm||'').toString().trim();
+  let raw=(r.nombreMostrar||gamificacion?.perfil?.nombreMostrar||r.nombre||r.nombre_norm||'').toString().trim();
+  if(norm(raw)==='geissel')raw='Geisell';
   const user=(r.usuario||r.user||r.username||r.alias||'').toString().trim();
   const bad=['sublicuentas','sublichat','admin','administrador'];
   if(raw && !bad.includes(norm(raw)))return raw;
@@ -916,11 +917,22 @@ function enterApp(){
    con el PRECIOS de respaldo definido arriba — el socio nunca se queda
    sin ver precios, aunque estén desactualizados. */
 async function loadPrecios(){
+  const socioKey=norm(rev?.nombre_norm||rev?.nombre||'socio').replace(/[^a-z0-9]+/g,'_');
+  const cacheKey='catalogo_personal_'+socioKey;
   try{
     const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
-    if(Array.isArray(data)) PRECIOS=data;
+    if(Array.isArray(data)&&data.length){
+      PRECIOS=data;
+      try{localStorage.setItem(cacheKey,JSON.stringify({at:Date.now(),data}))}catch(_){ }
+    }
     return true;
-  }catch(e){ /* se queda con el respaldo */ }
+  }catch(e){
+    try{
+      const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');
+      if(Array.isArray(cached?.data)&&cached.data.length){PRECIOS=cached.data;return false}
+    }catch(_){ }
+    PRECIOS=JSON.parse(JSON.stringify(esTarifaEspecial(rev)?PRECIOS_ESPECIALES:PRECIOS_BASE));
+  }
   return false;
 }
 function toggleImpBar(){
@@ -1261,7 +1273,7 @@ function compraEmoji(nombre,cat){
   if(t.includes('paramount'))return '⛰️';
   if(t.includes('crunchyroll'))return '🍥';
   if(t.includes('oleada'))return '🌊';
-  if(t.includes('iptv'))return '📡';
+  if(t.includes('iptv')||t.includes('latintv')||t.includes('liontv')||t.includes('latin tv')||t.includes('lion tv'))return '📡';
   if(t.includes('spotify'))return '🎵';
   if(t.includes('deezer'))return '🎧';
   if(t.includes('canva'))return '🎨';
@@ -1275,8 +1287,8 @@ function compraTipoDesdeCatalogo(it,cat){
   const t=norm([it.n,it.s,it.d,cat].filter(Boolean).join(' '));
   if(/netflix|disney|max|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
   if(/canva|gemini|office personal|microsoft 365|invitacion al correo|invitacion al gmail|gmail del cliente|al correo del cliente|a correo del cliente/.test(t))return 'correo';
-  if(/mcafee|antivirus|office 2021|office 2024|licencia permanente|serial de activacion|key/.test(t))return t.includes('key')?'serial_key':'serial';
-  if(/oleada|iptv|spotify|deezer|correo y contrasena|correo y clave|se entrega correo y contrasena/.test(t))return 'acceso';
+  if(/mcafee|nod32|eset|antivirus|office 2021|office 2024|licencia permanente|serial de activacion|key/.test(t))return t.includes('key')?'serial_key':'serial';
+  if(/oleada|iptv|liontv|latintv|latin tv|lion tv|spotify|deezer|correo y contrasena|correo y clave|se entrega correo y contrasena/.test(t))return 'acceso';
   if(/free fire|recarga|juegos/.test(t))return 'detalle';
   return 'detalle';
 }
@@ -1287,7 +1299,7 @@ function compraPideDispositivo(it,cat){
   const t=norm([it.n,it.s,cat].filter(Boolean).join(' '));
   return /disney|\bmax\b|\bhbo\b|\bvix\b|crunchyroll|prime video/.test(t);
 }
-function compraEsIptv(p){return /iptv/.test(norm([p.base,p.nombre,p.categoria].join(' ')))}
+function compraEsIptv(p){return /iptv|liontv|latintv|latin tv|lion tv/.test(norm([p.base,p.nombre,p.categoria].join(' ')))}
 function compraAyudaDesdeTipo(p){
   if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.';
   if(p.tipo==='correo')return 'Pedir solo el correo del cliente.';
@@ -1303,7 +1315,8 @@ function compraProductosCatalogo(){
       const nombre=(it.s?`${it.n} · ${it.s}`:it.n);
       const tipo=compraTipoDesdeCatalogo(it,g.cat);
       out.push({
-        id:`cat_${gi}_${ii}_${compraSlug(nombre)}`,
+        id:it.id?`cat_${compraSlug(it.id)}`:`cat_${gi}_${ii}_${compraSlug(nombre)}`,
+        catalogId:it.id||'',
         emoji:compraEmoji(nombre,g.cat),
         nombre,
         base:it.n||'',
@@ -1463,7 +1476,7 @@ async function enviarCompra(){
     if(compraEsIptv(p) && !marcaTv){msg.style.color='#e54848';msg.textContent='Seleccione la marca o sistema del TV para '+p.nombre+'.';return}
     if(compraEsIptv(p) && marcaTv==='otro' && !marcaTvOtra){msg.style.color='#e54848';msg.textContent='Especifique la marca y modelo del TV.';return}
     productos.push({
-      id:p.id, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
+      id:p.id, catalogId:p.catalogId, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
       precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
     });
   }
@@ -1666,7 +1679,7 @@ function renderRen(){
    cargar /rev/precios, reemplaza este contenido con el catálogo real que
    se administra ahora desde Sublichat (pestaña Revendedores → Precios) —
    así ya no hace falta editar código para cambiar un precio. */
-let PRECIOS=[
+const PRECIOS_BASE=[
   {cat:'📺 Streaming',sub:'Plan mensual',items:[
     {n:'Netflix',p:110,d:'👤 Perfil personal: correo y contraseña\n📺 Reproduce en 1 dispositivo a la vez\n🔐 Más perfiles: sin clave, acceso por código\n🏠 A los 20 días puede pedir código hogar'},
     {n:'Disney+ Premium',p:80,d:'🔢 Acceso por código\n👤 PIN de perfil\n📱 1 dispositivo'},
@@ -1703,6 +1716,48 @@ let PRECIOS=[
     {n:'Free Fire',s:'Por comisión',p:null,d:'💬 Consultar precios con su asesor'},
   ]},
 ];
+const PRECIOS_ESPECIALES=[
+  {cat:'📺 Streaming',sub:'Plan mensual',items:[
+    {id:'netflix_premium',n:'Netflix Premium',s:'1 mes',p:130,d:'Perfil Premium · 1 dispositivo a la vez'},
+    {id:'netflix_premium_vip',n:'Netflix Premium VIP',s:'1 mes',p:150,d:'Acceso VIP · 1 dispositivo a la vez'},
+    {id:'disney_premium',n:'Disney Premium',s:'1 mes',p:100,d:'Acceso por perfil · 1 dispositivo'},
+    {id:'disney_premium_sin_espn',n:'Disney Premium sin ESPN',s:'1 mes',p:70,d:'Acceso por perfil · 1 dispositivo'},
+    {id:'hbo_max',n:'HBO Max',s:'1 mes',p:80,d:'Acceso por perfil · 1 dispositivo'},
+    {id:'prime_video',n:'Prime Video',s:'1 mes',p:80,d:'Acceso por perfil · 1 dispositivo'},
+    {id:'crunchyroll',n:'Crunchyroll',s:'1 mes',p:80,d:'Acceso por perfil · 1 dispositivo'},
+    {id:'paramount',n:'Paramount+',s:'1 mes',p:80,d:'Acceso mensual · 1 dispositivo'},
+    {id:'vix',n:'ViX',s:'1 mes',p:80,d:'Acceso mensual · 1 dispositivo'},
+    {id:'viki_rakuten',n:'Viki Rakuten',s:'1 mes',p:80,d:'Acceso mensual · 1 dispositivo'},
+  ]},
+  {cat:'📡 IPTV y TV',items:[
+    {id:'oleada_tv_1',n:'Oleada TV',s:'1 dispositivo',p:90,d:'Usuario y clave · 1 dispositivo'},
+    {id:'oleada_tv_3',n:'Oleada TV',s:'3 dispositivos',p:200,d:'Usuario y clave · 3 dispositivos'},
+    {id:'liontv_1',n:'LionTV',s:'1 dispositivo',p:250,d:'Plan LionTV · 1 dispositivo'},
+    {id:'liontv_2',n:'LionTV',s:'2 dispositivos',p:275,d:'Plan LionTV · 2 dispositivos'},
+    {id:'liontv_3',n:'LionTV',s:'3 dispositivos',p:300,d:'Plan LionTV · 3 dispositivos'},
+    {id:'liontv_5',n:'LionTV',s:'5 dispositivos',p:350,d:'Plan LionTV · 5 dispositivos'},
+    {id:'latintv_1',n:'LatinTV',s:'1 dispositivo',p:99,d:'Plan LatinTV · 1 dispositivo'},
+    {id:'latintv_2',n:'LatinTV',s:'2 dispositivos',p:149,d:'Plan LatinTV · 2 dispositivos'},
+    {id:'latintv_3',n:'LatinTV',s:'3 dispositivos',p:199,d:'Plan LatinTV · 3 dispositivos'},
+    {id:'latintv_4',n:'LatinTV',s:'4 dispositivos',p:249,d:'Plan LatinTV · 4 dispositivos'},
+  ]},
+  {cat:'🎵 Música',sub:'Plan mensual',items:[
+    {id:'spotify',n:'Spotify Premium',s:'1 mes',p:110,d:'Acceso Premium mensual'},
+    {id:'deezer',n:'Deezer Premium',s:'1 mes',p:90,d:'Acceso Premium mensual'},
+  ]},
+  {cat:'💻 Productividad y seguridad',items:[
+    {id:'nod32',n:'ESET NOD32 Antivirus',s:'1 año · 1 dispositivo',p:399,d:'Licencia por 1 año para 1 dispositivo'},
+    {id:'duolingo',n:'Duolingo',s:'1 mes',p:89,d:'Acceso mensual'},
+    {id:'canva',n:'Canva Pro',s:'1 mes',p:69,d:'Activación por 1 mes'},
+    {id:'office_365',n:'Office 365',s:'1 año',p:449,d:'Licencia por 1 año'},
+    {id:'office_2021',n:'Office 2021 Pro Plus',s:'Licencia permanente',p:449,d:'Licencia permanente para Windows'},
+  ]},
+  {cat:'🤖 Inteligencia Artificial',items:[
+    {id:'gemini_pro',n:'Gemini Pro',s:'1 mes',p:170,d:'Activación por 1 mes'},
+  ]},
+];
+function esTarifaEspecial(r){return ['sublicuentas','sublicuentas 2','relojes','geisell','geissel'].includes(norm(r?.nombre_norm||r?.nombre||''))}
+let PRECIOS=JSON.parse(JSON.stringify(PRECIOS_BASE));
 function toggleDet(id,row){const d=document.getElementById(id);if(!d)return;const open=d.classList.toggle('show');row.classList.toggle('open',open)}
 /* ── Políticas y términos (editable: cambiá el texto por el de tu catálogo) ── */
 const POLITICAS=[
