@@ -836,7 +836,8 @@ function estadoCliente(c){
 function flat(){const out=[];
   clientes.forEach(c=>(Array.isArray(c.servicios)?c.servicios:[]).forEach((s,ix)=>{
     const f=parseFecha(pick(s,CONFIG.campos.vencimiento));
-    out.push({cliente:c,servicioIndex:ix,nombre:pick(s,CONFIG.campos.servicio)||'Servicio',fecha:f,est:estado(f),precio:precioServicio(s)});
+    const original=Number(s.servicioIndexOriginal??s._servicioIndexOriginal??ix);
+    out.push({cliente:c,servicioIndex:Number.isInteger(original)?original:ix,compraId:String(s.compraId||''),nombre:pick(s,CONFIG.campos.servicio)||'Servicio',fecha:f,est:estado(f),precio:precioServicio(s)});
   }));
   return out.sort((a,b)=>a.est.n-b.est.n);
 }
@@ -2154,17 +2155,19 @@ function clearCompFecha(){const inp=document.getElementById('compNuevaFecha');if
 function openComprobante(id,servicio,servicioIndex){
   const c=clientes.find(x=>x.id===id); if(!c)return;
   const svcs=Array.isArray(c.servicios)?c.servicios:[];
-  let ix=Number(servicioIndex);
-  if(!Number.isInteger(ix)||ix<0||ix>=svcs.length) ix=svcs.findIndex(s=>(pick(s,CONFIG.campos.servicio)||'')===servicio);
+  const originalIndex=s=>{const n=Number(s?.servicioIndexOriginal??s?._servicioIndexOriginal);return Number.isInteger(n)?n:-1};
+  let ix=svcs.findIndex(s=>originalIndex(s)===Number(servicioIndex));
+  if(ix<0) ix=svcs.findIndex(s=>(pick(s,CONFIG.campos.servicio)||'')===servicio);
   if(ix<0)ix=0;
   const svc=svcs[ix]||{};
+  const idxOriginal=originalIndex(svc)>=0?originalIndex(svc):ix;
   const nm=pick(svc,CONFIG.campos.servicio)||servicio||'Servicio';
   const f=parseFecha(pick(svc,CONFIG.campos.vencimiento));
-  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:ix, fecha:f, servicios:svcs.map((s,i)=>({servicioIndex:i,servicio:pick(s,CONFIG.campos.servicio)||`Servicio ${i+1}`,fecha:parseFecha(pick(s,CONFIG.campos.vencimiento))}))};
+  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:idxOriginal, compraId:String(svc.compraId||''), fecha:f, servicios:svcs.map((s,i)=>({servicioIndex:originalIndex(s)>=0?originalIndex(s):i,compraId:String(s.compraId||''),servicio:pick(s,CONFIG.campos.servicio)||`Servicio ${i+1}`,fecha:parseFecha(pick(s,CONFIG.campos.vencimiento))}))};
   compImg='';
   document.getElementById('compSub').textContent=compCtx.cliente+' · '+compCtx.servicio;
   const sel=document.getElementById('compServices');
-  sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===ix?'on':''}"><input type="checkbox" value="${s.servicioIndex}" ${s.servicioIndex===ix?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)"><span><b>${s.servicio}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
+  sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===idxOriginal?'on':''}"><input type="checkbox" value="${s.servicioIndex}" ${s.servicioIndex===idxOriginal?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)"><span><b>${s.servicio}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
   ['compQuien','compCom','compMonto','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
   const prev=document.getElementById('compPrev'), ph=document.getElementById('compPh');
   prev.style.display='none'; prev.src=''; ph.style.display='flex';
@@ -2216,7 +2219,8 @@ async function enviarComprobante(){
   try{
     const res=await API.call('/rev/renovacion',{method:'POST',body:JSON.stringify({
       clienteId:compCtx.id, cliente:compCtx.cliente, servicio:compCtx.servicio, servicioIndex:compCtx.servicioIndex,
-      servicios:servicios.map(s=>({servicioIndex:s.servicioIndex,servicio:s.servicio})),
+      compraId:compCtx.compraId||'',
+      servicios:servicios.map(s=>({servicioIndex:s.servicioIndex,compraId:s.compraId||'',servicio:s.servicio})),
       comentario:document.getElementById('compCom').value.trim(),
       quien:document.getElementById('compQuien').value.trim(),
       monto:document.getElementById('compMonto').value||0,
@@ -2228,7 +2232,7 @@ async function enviarComprobante(){
     setTimeout(closeComprobante,1100);
   }catch(e){
     msg.style.color='#e54848';
-    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.'};
+    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',servicio_no_permitido:'Esa cuenta no pertenece a este socio.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.'};
     msg.textContent=map[e&&e.error]||('No se pudo guardar. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
   }finally{ btn.disabled=false; btn.textContent='Guardar'; }
 }
