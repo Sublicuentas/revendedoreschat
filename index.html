@@ -34,8 +34,8 @@ Para no perder el acceso, recuerde renovar a tiempo. ¡Quedo atento! 🙌`,
   verPrecioEnCliente: true,
   // Intro de video al abrir. Poné la URL de tu .mp4 (o dejá "" para usar la animación de marca).
   introVideo: "",
-  // Duración (ms) de la intro de marca cuando NO hay video. Tope 5000.
-  introDuracion: 4600
+  // Intro corta solo en la primera visita de la pestaña. Las sesiones activas la omiten.
+  introDuracion: 900
 };
 const LOGO = "assets/robot-socios.png";
 const ROBOT_IMG = "assets/robot-socios.png";
@@ -44,7 +44,8 @@ const WORD_IMG = "assets/word.webp";
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{
   --txt:#0F2D52; --txt2:#3a567a; --muted:#6E8299;
@@ -505,6 +506,14 @@ body{background:var(--partner-bg)}
 @media(min-width:900px){.desktop-nav-extra{display:flex!important}.nav .nav-btn.main-plus{order:initial}.nav .nav-btn{min-height:54px}.nav .nav-ico,.nav .nav-btn.main-plus .nav-ico{width:35px;height:35px;border-radius:12px;font-size:20px;transform:none;box-shadow:0 4px 0 #d3cfdf,0 8px 14px rgba(45,36,83,.12)}.nav .nav-btn.on .nav-ico{transform:translateY(-2px)}.operations-grid{display:grid;grid-template-columns:1.02fr 1.45fr;gap:16px;align-items:start}.operations-hero{min-height:150px}.intro-robot{width:390px!important;height:430px!important}}
 @media(max-width:620px){.partner-hero{min-height:238px;padding:23px 20px}.partner-copy{max-width:68%}.partner-copy h2{font-size:27px}.partner-copy p{font-size:12px}.partner-mascot{width:185px;height:185px;right:-34px;bottom:-26px}.partner-actions{grid-template-columns:1fr 1fr}.profile-robot{width:132px;height:132px}.profile-stats{gap:8px}.profile-stat{padding:14px 5px}.nav{padding-bottom:max(7px,env(safe-area-inset-bottom))}.operations-hero{padding:22px 112px 22px 19px}.operations-hero h2{font-size:25px}.operations-hero img{width:115px;height:115px}.intro-robot{width:86vw!important}}
 
+/* Geisell usa este acceso únicamente para consultar su catálogo personalizado. */
+body.catalog-only .nav .nav-btn:not([data-v="precios"]){display:none!important}
+body.catalog-only .partner-inbox-btn{display:none!important}
+body.catalog-only .nav{justify-content:center}
+body.catalog-only .nav .nav-btn[data-v="precios"]{flex:0 1 220px;max-width:220px}
+.catalog-only-note{display:flex;align-items:center;gap:10px;margin:0 0 15px;padding:12px 14px;border:1px solid #dcd2fa;border-radius:17px;background:#f4efff;color:#6336c7;font-family:var(--fn);font-size:12.5px;font-weight:900}
+.catalog-detail-shell{width:100%;margin:0 auto}
+
 /* CORRECCIÓN WEB · layout independiente del móvil */
 @media(min-width:900px){
   html,body{width:100%;max-width:100%;overflow-x:hidden}
@@ -522,9 +531,10 @@ body{background:var(--partner-bg)}
   .catalog-categories{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:16px!important}
   .catalog-category{min-height:155px!important;padding:19px!important}
   .catalog-category b{font-size:18px!important}
-  .catalog-app-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;align-items:start}
+  .catalog-detail-shell{max-width:900px}
+  .catalog-detail-shell .catalog-app-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;align-items:start}
   .catalog-app{height:100%;box-sizing:border-box;padding:16px!important}
-  .catalog-detail-head{min-height:180px;padding:22px 26px!important}
+  .catalog-detail-shell .catalog-detail-head{min-height:142px;padding:19px 23px!important}
   .catalog-detail-head .catalog-back{margin-bottom:13px!important}
   #renList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;align-items:start}
   #renList .cli-card{margin:0!important;height:100%;box-sizing:border-box}
@@ -540,6 +550,8 @@ body{background:var(--partner-bg)}
   #app.wrap{max-width:1240px!important}
   .catalog-categories{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 }
+@media(min-width:900px){body.catalog-only .nav{justify-content:flex-start}body.catalog-only .nav .nav-btn[data-v="precios"]{max-width:none;flex:none}}
+@media(min-width:900px) and (max-width:1080px){.catalog-detail-shell{max-width:680px}.catalog-detail-shell .catalog-app-list{grid-template-columns:1fr!important}}
 </style>
 </head>
 <body>
@@ -597,7 +609,7 @@ body{background:var(--partner-bg)}
       <span class="greet" id="greet">Panel de socios</span>
       <span class="fecha-hora" id="fechaHora"></span>
     </div>
-    <button class="icon-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
+    <button class="icon-btn partner-inbox-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
     <button class="icon-btn" onclick="logout()" aria-label="Salir">
       <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12"/></svg>
     </button>
@@ -685,6 +697,10 @@ body{background:var(--partner-bg)}
 <script>
 let rev=null, clientes=[], cobroTel='', current='inicio';
 let isAdmin=false, adminToken=null, adminRevs=[], adminComps=[], adminCompras=[], impersonating=false;
+let socioEpoch=0;
+let syncAt={clientes:0,avisos:0,precios:0,gamificacion:0};
+const DATA_TTL={clientes:60000,avisos:120000,precios:300000,gamificacion:120000};
+const dataRequests={clientes:null,avisos:null,precios:null,gamificacion:null};
 
 /* API */
 const API={
@@ -711,6 +727,54 @@ function st(op,k,v){try{if(op==='get')return localStorage.getItem(k);if(op==='se
 /* helpers */
 function pick(o,keys){for(const k of keys){if(o&&o[k]!=null&&o[k]!=='')return o[k]}return null}
 function norm(s){return(s||'').toString().trim().toLowerCase()}
+function socioSoloCatalogo(r=rev){
+  if(!r)return false;
+  const n=norm(r.nombre_norm||r.nombre||r.usuario||r.id||'');
+  return r.soloCatalogo===true||n==='geisell'||n==='geissel';
+}
+function socioCacheId(){return norm(rev?.nombre_norm||rev?.nombre||'socio').replace(/[^a-z0-9]+/g,'_')||'socio'}
+function socioCacheKey(tipo){return tipo==='precios'?'catalogo_personal_'+socioCacheId():`socios_cache_${tipo}_${socioCacheId()}`}
+function readSocioCache(tipo){
+  try{
+    const c=JSON.parse(st('get',socioCacheKey(tipo))||'null');
+    return c&&c.data!=null?c:null;
+  }catch(_){return null}
+}
+function writeSocioCache(tipo,data){
+  const at=Date.now();syncAt[tipo]=at;
+  try{st('set',socioCacheKey(tipo),JSON.stringify({at,data}))}catch(_){}
+}
+function dataFresh(tipo){return Date.now()-Number(syncAt[tipo]||0)<Number(DATA_TTL[tipo]||0)}
+function runSocioRequest(tipo,runner){
+  const epoch=socioEpoch,active=dataRequests[tipo];
+  if(active&&active.epoch===epoch)return active.promise;
+  const holder={epoch,promise:null};
+  holder.promise=Promise.resolve().then(()=>runner(epoch)).finally(()=>{if(dataRequests[tipo]===holder)dataRequests[tipo]=null});
+  dataRequests[tipo]=holder;
+  return holder.promise;
+}
+function applySocioMode(){
+  const only=socioSoloCatalogo();
+  document.body.classList.toggle('catalog-only',only);
+  if(only)closePartnerQuick();
+  return only;
+}
+function prepareSocioData(){
+  socioEpoch++;
+  syncAt={clientes:0,avisos:0,precios:0,gamificacion:0};
+  clientes=[];avisos=[];
+  gamificacion={perfil:null,ranking:[],insignias:[],catalogoActualizadoAt:0,recompensas:[],solicitudes:[]};
+  PRECIOS=JSON.parse(JSON.stringify(esTarifaEspecial(rev)?PRECIOS_ESPECIALES:PRECIOS_BASE));
+  const tipos=['clientes','avisos','precios','gamificacion'];
+  tipos.forEach(tipo=>{
+    const c=readSocioCache(tipo);if(!c)return;
+    syncAt[tipo]=Number(c.at||0);
+    if(tipo==='clientes'&&Array.isArray(c.data))clientes=c.data;
+    if(tipo==='avisos'&&Array.isArray(c.data))avisos=c.data;
+    if(tipo==='precios'&&Array.isArray(c.data)&&c.data.length)PRECIOS=c.data;
+    if(tipo==='gamificacion'&&c.data&&typeof c.data==='object')gamificacion=c.data;
+  });
+}
 function parseFecha(v){
   if(v==null)return null;
   if(typeof v==='object'){if(v.seconds)return new Date(v.seconds*1000);if(v._seconds)return new Date(v._seconds*1000);if(v.toDate)return v.toDate()}
@@ -880,7 +944,7 @@ async function doLogin(){
       enterAdmin();
       return;
     }
-    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||usuario};
+    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||usuario,soloCatalogo:res.soloCatalogo===true};
     st('set','rev_data',JSON.stringify(rev)); st('del','rev_admin');
     enterApp();
   }catch(e){
@@ -904,37 +968,39 @@ function enterApp(){
   login.classList.add('hide');
   document.getElementById('app').classList.remove('hide');
   document.getElementById('nav').classList.remove('hide');
+  prepareSocioData();
+  const only=applySocioMode();
   greet.textContent='Hola, '+revName();
   actualizarFechaHora();
   toggleImpBar();
-  loadClientes();
-  loadAvisos();
-  loadPrecios();
-  loadGamificacion();
+  applySocioAvatar();
+  catalogCategoria='';compraSels=[];compraPickerOpen=false;
+  go(only?'precios':'inicio');
+  loadPrecios().then(()=>{if(current==='precios')vPrecios()});
+  if(!only){
+    loadClientes();
+    loadAvisos();
+    loadGamificacion();
+  }
   clearInterval(window.__subliInboxTimer);
-  window.__subliInboxTimer=setInterval(()=>{loadAvisos();loadGamificacion()},60000);
+  if(!only)window.__subliInboxTimer=setInterval(()=>{loadAvisos();loadGamificacion()},120000);
 }
 /* Trae el catálogo real (lo administra Sublichat). Si falla, se queda
    con el PRECIOS de respaldo definido arriba — el socio nunca se queda
    sin ver precios, aunque estén desactualizados. */
 async function loadPrecios(){
-  const socioKey=norm(rev?.nombre_norm||rev?.nombre||'socio').replace(/[^a-z0-9]+/g,'_');
-  const cacheKey='catalogo_personal_'+socioKey;
-  try{
-    const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
-    if(Array.isArray(data)&&data.length){
-      PRECIOS=data;
-      try{localStorage.setItem(cacheKey,JSON.stringify({at:Date.now(),data}))}catch(_){ }
-    }
-    return true;
-  }catch(e){
+  return runSocioRequest('precios',async(epoch)=>{
     try{
-      const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');
-      if(Array.isArray(cached?.data)&&cached.data.length){PRECIOS=cached.data;return false}
-    }catch(_){ }
-    PRECIOS=JSON.parse(JSON.stringify(esTarifaEspecial(rev)?PRECIOS_ESPECIALES:PRECIOS_BASE));
-  }
-  return false;
+      const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
+      if(epoch!==socioEpoch)return false;
+      if(Array.isArray(data)&&data.length){PRECIOS=data;writeSocioCache('precios',data)}
+      return true;
+    }catch(e){
+      if(epoch!==socioEpoch)return false;
+      if(!Array.isArray(PRECIOS)||!PRECIOS.length)PRECIOS=JSON.parse(JSON.stringify(esTarifaEspecial(rev)?PRECIOS_ESPECIALES:PRECIOS_BASE));
+      return false;
+    }
+  });
 }
 function toggleImpBar(){
   const b=document.getElementById('impBar');
@@ -948,6 +1014,9 @@ function logout(){API.clear();st('del','rev_admin');location.reload()}
 /* ── ADMIN (modo dios, solo lectura) ── */
 let admF='', admCompF='', admCompraF='', admMode='socios';
 async function enterAdmin(){
+  socioEpoch++;
+  clearInterval(window.__subliInboxTimer);
+  document.body.classList.remove('catalog-only');
   impersonating=false;
   login.classList.add('hide');
   document.getElementById('app').classList.remove('hide');
@@ -1104,13 +1173,9 @@ async function verComo(id,nombre_norm,nombre){
   try{
     const res=await API.call('/rev/admin/impersonate',{method:'POST',body:JSON.stringify({id,nombre_norm}),headers:{Authorization:'Bearer '+adminToken}});
     API.token=res.token;                 // token del socio solo en memoria
-    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||res.nombre_norm};
+    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||res.nombre_norm,soloCatalogo:res.soloCatalogo===true};
     impersonating=true;
-    document.getElementById('nav').classList.remove('hide');
-    greet.textContent='Hola, '+revName();
-    toggleImpBar();
-    loadClientes();
-    loadAvisos();
+    enterApp();
   }catch(e){
     let msg;
     if(e&&e.code==='auth') msg='Sesión de admin vencida. Cerrá sesión y volvé a entrar.';
@@ -1129,21 +1194,46 @@ function volverAdmin(){
 }
 
 async function loadClientes(){
-  try{clientes=await API.call('/rev/clientes');go('inicio')}
-  catch(e){
-    if(e.code==='auth'){location.reload();return}
-    content.innerHTML=`<div class="card"><div class="empty"><div class="ico">⚠️</div><b>No pude cargar tus clientes</b>Revisá que la API esté arriba.</div></div>`;
-  }
+  return runSocioRequest('clientes',async(epoch)=>{
+    try{
+      const data=await API.call('/rev/clientes');
+      if(epoch!==socioEpoch)return clientes;
+      clientes=Array.isArray(data)?data:[];writeSocioCache('clientes',clientes);
+      if(current==='inicio')vInicio();
+      else if(current==='clientes')renderCli();
+      else if(current==='renovar')renderRen();
+      return clientes;
+    }catch(e){
+      if(e.code==='auth'){location.reload();return clientes}
+      if(epoch===socioEpoch&&!clientes.length&&current==='inicio')content.innerHTML=`<div class="card"><div class="empty"><div class="ico">⚠️</div><b>No pude actualizar tus clientes</b>El catálogo y los últimos datos guardados siguen disponibles. Reintentaremos automáticamente.</div></div>`;
+      return clientes;
+    }
+  });
 }
 let avisos=[],gamificacion={perfil:null,ranking:[],insignias:[],catalogoActualizadoAt:0};
-async function loadGamificacion(){try{gamificacion=await API.call('/rev/gamificacion?_='+Date.now(),{cache:'no-store'});applySocioAvatar();return gamificacion}catch(e){return gamificacion}}
+async function loadGamificacion(){
+  return runSocioRequest('gamificacion',async(epoch)=>{
+    try{
+      const data=await API.call('/rev/gamificacion?_='+Date.now(),{cache:'no-store'});
+      if(epoch!==socioEpoch)return gamificacion;
+      if(data&&typeof data==='object'){gamificacion=data;writeSocioCache('gamificacion',data);applySocioAvatar()}
+      return gamificacion;
+    }catch(e){return gamificacion}
+  });
+}
 function applySocioAvatar(){const img=document.getElementById('brandLogo');if(img)img.src=gamificacion?.perfil?.avatar||ROBOT_IMG}
 async function loadAvisos(){
-  try{ avisos=await API.call('/rev/avisos');
-    if(current==='inicio') vInicio();
-    else if(current==='buzon') vSugerencias();
-  }catch(e){ avisos=[]; }
-  actualizarBadgeBuzon();
+  return runSocioRequest('avisos',async(epoch)=>{
+    try{
+      const data=await API.call('/rev/avisos');
+      if(epoch!==socioEpoch)return avisos;
+      avisos=Array.isArray(data)?data:[];writeSocioCache('avisos',avisos);
+      if(current==='inicio')vInicio();
+      else if(current==='buzon')vSugerencias();
+    }catch(e){}
+    if(epoch===socioEpoch)actualizarBadgeBuzon();
+    return avisos;
+  });
 }
 /* ── Buzón: control de leídos/no leídos ── */
 function maxAvisoTs(){return avisos.reduce((m,a)=>Math.max(m,a.ts||0),0)}
@@ -1167,16 +1257,22 @@ function tiempoDesde(ts){
 
 /* nav */
 const content=document.getElementById('content');
-async function go(v){current=v;
+function go(v){
+  const only=socioSoloCatalogo();
+  if(only&&v!=='precios')v='precios';
+  current=v;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   window.scrollTo(0,0);
   const views={inicio:vInicio,compras:vCompras,clientes:vClientes,renovar:vRenovar,precios:vPrecios,buzon:vSugerencias,aula:vAula,perfil:vPerfil,recompensas:vRecompensas};
-  if(v==='precios'){
-    content.innerHTML='<div class="spin"></div><div style="text-align:center;color:var(--muted);font-weight:800">Actualizando catálogo…</div>';
-    await Promise.all([loadPrecios(),loadGamificacion()]);
-    if(current!=='precios')return;
-  }
   (views[v]||vInicio)();
+  if(!only&&['inicio','clientes','renovar'].includes(v)&&!dataFresh('clientes'))loadClientes();
+  if(!only&&v==='buzon'&&!dataFresh('avisos'))loadAvisos();
+  if(v==='precios'){
+    const jobs=[];
+    if(!dataFresh('precios'))jobs.push(loadPrecios());
+    if(!only&&!dataFresh('gamificacion'))jobs.push(loadGamificacion());
+    if(jobs.length)Promise.allSettled(jobs).then(()=>{if(current==='precios')vPrecios()});
+  }
   actualizarBadgeBuzon();
 }
 function openPartnerQuick(){document.getElementById('partnerQuick')?.classList.add('show')}
@@ -1339,10 +1435,9 @@ function compraEnsureSel(){
   const arr=compraProductosCatalogo();
   const ids=new Set(arr.map(x=>x.id));
   compraSels=(compraSels||[]).filter(id=>ids.has(id));
-  if(!compraSels.length && arr.length)compraSels=[arr[0].id];
 }
 function compraSeleccionados(){compraEnsureSel();const arr=compraProductosCatalogo();return compraSels.map(id=>arr.find(x=>x.id===id)).filter(Boolean)}
-function compraProducto(){return compraSeleccionados()[0]||compraProductosCatalogo()[0]||{id:'',emoji:'🛒',nombre:'Producto',tipo:'detalle',ayuda:'Seleccione un producto del catálogo.',precio:null,precioTxt:'',categoria:'Catálogo',detalleCatalogo:''}}
+function compraProducto(){return compraSeleccionados()[0]||{id:'',emoji:'🛒',nombre:'Seleccione un producto',tipo:'detalle',ayuda:'Abra la lista y elija el servicio que necesita.',precio:null,precioTxt:'',categoria:'Catálogo',detalleCatalogo:''}}
 function compraTipoTxt(t){return {perfil:'Pide nombre y apellido del perfil',acceso:'Se entrega acceso',correo:'Pide correo',serial:'Se entrega serial',serial_key:'Se entrega key / serial',detalle:'Pide detalle de compra'}[t]||'Compra'}
 function compraMath(){
   const items=compraSeleccionados();
@@ -1353,15 +1448,14 @@ function compraMath(){
 }
 function compraResumenTxt(){
   const m=compraMath();
+  if(!m.items.length)return 'Todavía no ha seleccionado ningún producto.';
   if(m.items.length<=1)return `${m.items.length} producto · ${m.items[0]?.precioTxt||''}`;
   return `${m.items.length} productos · Subtotal Lps. ${m.subtotal} · Descuento Lps. ${m.descuento} · Total Lps. ${m.total}${m.items.length>5?' · descuento máximo aplicado':''}${m.hayComision?' + comisión':''}`;
 }
 function setCompraProducto(id){compraSels=[id];compraImg='';compraPickerOpen=false;renderCompraForm()}
 function toggleCompraProducto(id){
   compraEnsureSel();
-  const msg=document.getElementById('buyMsg');
   if(compraSels.includes(id)){
-    if(compraSels.length===1){ if(msg){msg.style.color='#6E8299';msg.textContent='Debe quedar al menos 1 producto seleccionado.'} return; }
     compraSels=compraSels.filter(x=>x!==id);
   }else{
     compraSels.push(id);
@@ -1422,13 +1516,15 @@ function compraDatosHtml(items){
   </div>`).join('');
 }
 function vCompras(){
+  if(socioSoloCatalogo()){go('precios');return}
+  compraEnsureSel();if(!compraSels.length)compraPickerOpen=true;
   content.innerHTML=`<section class="operations-hero"><h2>Nueva compra</h2><p>Seleccione servicios, arme un combo y envíe el comprobante directamente al equipo.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section><div id="compraForm"></div>`;
   renderCompraForm();
 }
 function renderCompraForm(){
   const items=compraSeleccionados(), p=compraProducto(), m=compraMath();
   const el=document.getElementById('compraForm'); if(!el)return;
-  const pickedNames=items.map(x=>`${x.emoji} ${x.nombre}`).join(' + ');
+  const pickedNames=items.length?items.map(x=>`${x.emoji} ${x.nombre}`).join(' + '):'Toque aquí para elegir del catálogo';
   el.innerHTML=`
   <button class="buy-picker-btn" onclick="toggleCompraPicker();return false">
     <span class="buy-picked"><span class="buy-emoji">🛒</span><span><span class="buy-name">${items.length>1?'Combo de '+items.length+' plataformas':p.nombre}</span><span class="buy-type">${pickedNames}</span></span></span>
@@ -1450,7 +1546,7 @@ function renderCompraForm(){
       <div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small style="display:block;margin-top:4px;color:#7890AA;font-weight:900">Seleccione la captura guardada, no cámara.</small></div>
       <img id="buyPrev" style="display:none" alt="">
     </div>
-    <button class="act primary buy-submit" id="buyBtn" onclick="enviarCompra()">Enviar compra</button>
+    <button class="act primary buy-submit" id="buyBtn" onclick="enviarCompra()" ${items.length?'':'disabled'}>${items.length?'Enviar compra':'Seleccione un producto'}</button>
     <div id="buyMsg" style="text-align:center;font-weight:900;font-size:13px;margin-top:10px;min-height:16px;font-family:var(--fn)"></div>
   </div>`;
 }
@@ -1465,6 +1561,7 @@ async function pickCompra(input){
 }
 async function enviarCompra(){
   const items=compraSeleccionados(), msg=document.getElementById('buyMsg'), m=compraMath();
+  if(!items.length){compraPickerOpen=true;renderCompraForm();return}
   const val=id=>(document.getElementById(id)?.value||'').trim();
   const productos=[];
   for(const p of items){
@@ -1496,7 +1593,7 @@ async function enviarCompra(){
       comentario:val('buyComentario'), imagen:compraImg
     })});
     msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';
-    compraImg=''; compraPickerOpen=false;
+    compraImg=''; compraSels=[]; compraPickerOpen=true;
     setTimeout(()=>renderCompraForm(),900);
   }catch(e){
     msg.style.color='#e54848';
@@ -1803,14 +1900,14 @@ function catalogIcon(cat,i){const t=norm(cat);if(/stream|pelicula|series/.test(t
 function catalogAppStyle(i){const a=[['linear-gradient(145deg,#ffad43,#f07827)','rgba(240,120,39,.25)'],['linear-gradient(145deg,#24d9bd,#0aa58d)','rgba(10,165,141,.25)'],['linear-gradient(145deg,#ed66df,#b944d6)','rgba(185,68,214,.25)'],['linear-gradient(145deg,#40c8f2,#248be0)','rgba(36,139,224,.25)'],['linear-gradient(145deg,#8969ee,#6741ce)','rgba(103,65,206,.25)']];return a[i%a.length]}
 function openCatalogCategory(ix){catalogCategoria=String(ix);vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function closeCatalogCategory(){catalogCategoria='';vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
-function buyFromCatalog(ix){const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){compraSels=[found.id];compraPickerOpen=false;go('compras')}}
-async function vPrecios(){
-  await loadGamificacion();if(current!=='precios')return;
+function buyFromCatalog(ix){if(socioSoloCatalogo())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){compraSels=[found.id];compraPickerOpen=false;go('compras')}}
+function vPrecios(){
+  const only=socioSoloCatalogo();
   const me=gamificacion.perfil||{ventas:0,nivel:'Sin nivel'},ventas=Number(me.ventas||0);
   const siguiente=ventas<1?1:ventas<10?10:ventas<26?26:26;
   const progreso=ventas>=26?100:Math.min(100,Math.round((ventas/siguiente)*100));
   const faltan=Math.max(0,siguiente-ventas);
-  const oferta=`<div class="reward-card">
+  const oferta=only?'':`<div class="reward-card">
       <div class="reward-top"><span>🎁</span><b>Recompensas de socio</b></div>
       <h3>${me.nivel==='Sin nivel'?'Complete su primera venta para alcanzar Diamante.':`${me.nivel} · ${ventas} ventas registradas`}</h3>
       <p>${ventas>=26?'Ya alcanzó el nivel máximo. Puede escoger una recompensa Inmortal.':`Le faltan ${faltan} venta${faltan===1?'':'s'} para ${ventas<1?'Diamante':ventas<10?'Leyenda':'Inmortal'}.`}</p>
@@ -1818,16 +1915,17 @@ async function vPrecios(){
       <small>${ventas>=26?'Nivel Inmortal':`${ventas} / ${siguiente} ventas`}</small>
       <button class="ask-copy" style="margin-top:12px" onclick="go('recompensas')">Ver y escoger premios</button>
     </div>`;
-  const catMs=Number(gamificacion.catalogoActualizadoAt||0),catTxt=catMs?new Date(catMs).toLocaleString('es-HN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'sincronizado ahora';
-  const rewardMini=(gamificacion.recompensas||[]).length?`<button class="reward-open" style="margin:0 0 16px" onclick="go('recompensas')">🎁 ${gamificacion.perfil?.nivel}: escoja su recompensa <span>›</span></button>`:'';
+  const catMs=Number(gamificacion.catalogoActualizadoAt||syncAt.precios||0),catTxt=catMs?new Date(catMs).toLocaleString('es-HN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'sincronizado ahora';
+  const rewardMini=!only&&(gamificacion.recompensas||[]).length?`<button class="reward-open" style="margin:0 0 16px" onclick="go('recompensas')">🎁 ${gamificacion.perfil?.nivel}: escoja su recompensa <span>›</span></button>`:'';
+  const onlyNote=only?`<div class="catalog-only-note">👀 Este usuario es solo catálogo: aquí puede consultar y copiar sus precios personalizados.</div>`:'';
   if(catalogCategoria!==''&&PRECIOS[Number(catalogCategoria)]){
     const ix=Number(catalogCategoria),g=PRECIOS[ix],t=catalogTheme(ix),ico=catalogIcon(g.cat,ix);
-    const apps=g.items.map((it,i)=>{const [grad,glow]=catalogAppStyle(i),copy=String(`${it.n} · ${it.p==null?'Por comisión':'Lps. '+it.p}`).replace(/'/g,"\\'");return `<article class="catalog-app"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${it.n}</b><small>${it.s||'Servicio disponible'}</small></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+it.p}</strong></div><div class="catalog-app-desc">${it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.'}</div><div class="catalog-app-actions"><button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button><button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button></div></article>`}).join('');
-    content.innerHTML=`<div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${g.cat}</h2><p>${g.sub||`${g.items.length} opciones disponibles para sus clientes`}</p></div><div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div>${politicasHTML()}`;
+    const apps=g.items.map((it,i)=>{const [grad,glow]=catalogAppStyle(i),copy=String(`${it.n} · ${it.p==null?'Por comisión':'Lps. '+it.p}`).replace(/'/g,"\\'"),actions=only?`<button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button>`:`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button><button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button>`;return `<article class="catalog-app"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${it.n}</b><small>${it.s||'Servicio disponible'}</small></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+it.p}</strong></div><div class="catalog-app-desc">${it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.'}</div><div class="catalog-app-actions">${actions}</div></article>`}).join('');
+    content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${g.cat}</h2><p>${g.sub||`${g.items.length} opciones disponibles para sus clientes`}</p></div>${onlyNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div>${politicasHTML()}</div>`;
     return;
   }
   const categorias=PRECIOS.map((g,i)=>{const t=catalogTheme(i),ico=catalogIcon(g.cat,i);return `<button class="catalog-category" style="background:${t.g};--cat-shadow:${t.s}" onclick="openCatalogCategory(${i})"><span class="cat-arrow">›</span><span class="cat-icon">${ico}</span><b>${g.cat}</b><small>${g.items.length} producto${g.items.length===1?'':'s'}${g.sub?' · '+g.sub:''}</small></button>`}).join('');
-  content.innerHTML=`<div class="scr-title">Catálogo mayorista</div><div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div>${rewardMini}<p class="catalog-intro">Seleccione una categoría para consultar aplicaciones, precios y condiciones. Este es su costo mayorista.</p>${oferta}<div class="catalog-section-title"><h2>Categorías</h2><span>${PRECIOS.length} secciones</span></div><div class="catalog-categories">${categorias}</div>${politicasHTML()}`;
+  content.innerHTML=`<div class="scr-title">${only?'Catálogo de Geisell':'Catálogo mayorista'}</div>${onlyNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div>${rewardMini}<p class="catalog-intro">Seleccione una categoría para consultar aplicaciones, precios y condiciones. Este es su costo mayorista.</p>${oferta}<div class="catalog-section-title"><h2>Categorías</h2><span>${PRECIOS.length} secciones</span></div><div class="catalog-categories">${categorias}</div>${politicasHTML()}`;
 }
 
 /* AULA */
@@ -2203,7 +2301,8 @@ async function pickComprobante(input){
 }
 async function refreshClientesPostRenew(){
   try{
-    clientes=await API.call('/rev/clientes');
+    const data=await API.call('/rev/clientes');
+    clientes=Array.isArray(data)?data:[];writeSocioCache('clientes',clientes);
     if(current==='renovar')renderRen();
     else if(current==='clientes')renderCli();
     else if(current==='inicio')vInicio();
@@ -2248,7 +2347,6 @@ document.getElementById('loginLogo').src=ROBOT_IMG;
 })();
 document.getElementById('brandLogo').src=LOGO;
 document.getElementById('introRobot').src=ROBOT_IMG;
-document.getElementById('introWord').src=WORD_IMG;
 
 /* ===== INTRO ===== */
 let introDone=false;
@@ -2263,10 +2361,13 @@ function closeIntro(){
 function startIntro(){
   const ov=document.getElementById('intro');
   if(!ov)return;
+  let seen=false;try{seen=sessionStorage.getItem('socios_intro_seen')==='1'}catch(_){}
+  if(API.token||seen){introDone=true;ov.remove();return}
+  try{sessionStorage.setItem('socios_intro_seen','1')}catch(_){}
   const vid=document.getElementById('introVid');
   const brand=document.getElementById('introBrand');
-  // duración tope 5s
-  const ms=Math.min(CONFIG.introDuracion||4600,5000);
+  // La marca acompaña el arranque, pero nunca bloquea el panel más de 1.4 s.
+  const ms=Math.min(CONFIG.introDuracion||900,1400);
   if(CONFIG.introVideo){
     brand.classList.add('hide');
     vid.classList.remove('hide');
@@ -2292,14 +2393,16 @@ function resetIdle(){ clearTimeout(idleTimer); idleTimer=setTimeout(expireIdle,I
 function touchActivity(){ if(API.token){ st('set','rev_last',String(Date.now())); resetIdle(); } }
 ['click','keydown','touchstart','scroll','mousemove'].forEach(ev=>window.addEventListener(ev,touchActivity,{passive:true}));
 
-window.addEventListener('load',()=>{
+function resumeSession(){
   if(!API.token)return;
   const last=+(st('get','rev_last')||0);
   if(last && Date.now()-last>IDLE_MS){ API.clear(); st('del','rev_admin'); st('del','rev_last'); return; } // vencida por inactividad
   if(st('get','rev_admin')==='1'){ isAdmin=true; adminToken=API.token; enterAdmin(); }
   else { try{rev=JSON.parse(st('get','rev_data'))}catch(e){}; if(rev)enterApp(); }
   touchActivity();
-});
+}
+// El script está al final del body: no esperamos imágenes ni fuentes para abrir la sesión.
+resumeSession();
 </script>
 </body>
 </html>
