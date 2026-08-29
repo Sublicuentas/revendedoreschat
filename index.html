@@ -506,12 +506,12 @@ body{background:var(--partner-bg)}
 @media(min-width:900px){.desktop-nav-extra{display:flex!important}.nav .nav-btn.main-plus{order:initial}.nav .nav-btn{min-height:54px}.nav .nav-ico,.nav .nav-btn.main-plus .nav-ico{width:35px;height:35px;border-radius:12px;font-size:20px;transform:none;box-shadow:0 4px 0 #d3cfdf,0 8px 14px rgba(45,36,83,.12)}.nav .nav-btn.on .nav-ico{transform:translateY(-2px)}.operations-grid{display:grid;grid-template-columns:1.02fr 1.45fr;gap:16px;align-items:start}.operations-hero{min-height:150px}.intro-robot{width:390px!important;height:430px!important}}
 @media(max-width:620px){.partner-hero{min-height:238px;padding:23px 20px}.partner-copy{max-width:68%}.partner-copy h2{font-size:27px}.partner-copy p{font-size:12px}.partner-mascot{width:185px;height:185px;right:-34px;bottom:-26px}.partner-actions{grid-template-columns:1fr 1fr}.profile-robot{width:132px;height:132px}.profile-stats{gap:8px}.profile-stat{padding:14px 5px}.nav{padding-bottom:max(7px,env(safe-area-inset-bottom))}.operations-hero{padding:22px 112px 22px 19px}.operations-hero h2{font-size:25px}.operations-hero img{width:115px;height:115px}.intro-robot{width:86vw!important}}
 
-/* Geisell usa este acceso únicamente para consultar su catálogo personalizado. */
-body.catalog-only .nav .nav-btn:not([data-v="precios"]){display:none!important}
-body.catalog-only .partner-inbox-btn{display:none!important}
-body.catalog-only .nav{justify-content:center}
-body.catalog-only .nav .nav-btn[data-v="precios"]{flex:0 1 220px;max-width:220px}
-.catalog-only-note{display:flex;align-items:center;gap:10px;margin:0 0 15px;padding:12px 14px;border:1px solid #dcd2fa;border-radius:17px;background:#f4efff;color:#6336c7;font-family:var(--fn);font-size:12.5px;font-weight:900}
+/* Geisell consulta su cartera, renovaciones y catálogo, sin compras nuevas. */
+body.geisell-mode .nav .nav-btn:not([data-v="clientes"]):not([data-v="precios"]):not([data-v="renovar"]){display:none!important}
+body.geisell-mode .nav .nav-btn[data-v="renovar"]{display:flex!important}
+body.geisell-mode .partner-inbox-btn{display:none!important}
+body.geisell-mode .nav{justify-content:center}
+.geisell-access-note{display:flex;align-items:center;gap:10px;margin:0 0 15px;padding:12px 14px;border:1px solid #dcd2fa;border-radius:17px;background:#f4efff;color:#6336c7;font-family:var(--fn);font-size:12.5px;font-weight:900}
 .catalog-detail-shell{width:100%;margin:0 auto}
 
 /* CORRECCIÓN WEB · layout independiente del móvil */
@@ -550,7 +550,7 @@ body.catalog-only .nav .nav-btn[data-v="precios"]{flex:0 1 220px;max-width:220px
   #app.wrap{max-width:1240px!important}
   .catalog-categories{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 }
-@media(min-width:900px){body.catalog-only .nav{justify-content:flex-start}body.catalog-only .nav .nav-btn[data-v="precios"]{max-width:none;flex:none}}
+@media(min-width:900px){body.geisell-mode .nav{justify-content:flex-start}}
 @media(min-width:900px) and (max-width:1080px){.catalog-detail-shell{max-width:680px}.catalog-detail-shell .catalog-app-list{grid-template-columns:1fr!important}}
 </style>
 </head>
@@ -647,7 +647,7 @@ body.catalog-only .nav .nav-btn[data-v="precios"]{flex:0 1 220px;max-width:220px
 <div class="cobro-overlay" id="cobroOverlay" onclick="if(event.target===this)closeCobro()">
   <div class="cobro-sheet">
     <div class="grab"></div>
-    <h3>Mensaje de cobro</h3>
+    <h3 id="cobroTitle">Mensaje de cobro</h3>
     <div class="cobro-sub" id="cobroSub"></div>
     <div id="cobroSeg"></div>
     <textarea class="cobro-text" id="cobroText"></textarea>
@@ -716,22 +716,33 @@ const API={
     return r.json();
   }
 };
-// Despertar el backend apenas carga la página: en el plan gratis de Render
-// el servicio se duerme si nadie lo usa, y el primer request (el login)
-// puede tardar 30-50s en despertar. Este ping corre en paralelo con la
-// intro (que igual tarda unos segundos), así el server ya está despierto
-// para cuando el usuario realmente toca "Acceder".
-try{ fetch(API.base+'/health',{cache:'no-store'}).catch(()=>{}); }catch(e){}
+// Render puede dormir la API. La despertamos al abrir y la mantenemos activa
+// mientras esta pestaña siga abierta; nunca bloqueamos la interfaz por el ping.
+function pingPanelApi(){
+  try{
+    const ctl=typeof AbortController!=='undefined'?new AbortController():null;
+    const timer=ctl?setTimeout(()=>ctl.abort(),12000):null;
+    return fetch(API.base+'/health',{cache:'no-store',...(ctl?{signal:ctl.signal}:{})})
+      .catch(()=>null).finally(()=>{if(timer)clearTimeout(timer)});
+  }catch(_){return Promise.resolve(null)}
+}
+pingPanelApi();
+window.__subliApiKeepAlive=setInterval(pingPanelApi,8*60*1000);
 function st(op,k,v){try{if(op==='get')return localStorage.getItem(k);if(op==='set')localStorage.setItem(k,v);if(op==='del')localStorage.removeItem(k)}catch(e){return null}}
 
 /* helpers */
 function pick(o,keys){for(const k of keys){if(o&&o[k]!=null&&o[k]!=='')return o[k]}return null}
 function norm(s){return(s||'').toString().trim().toLowerCase()}
-function socioSoloCatalogo(r=rev){
+function socioGeisell(r=rev){
   if(!r)return false;
   const n=norm(r.nombre_norm||r.nombre||r.usuario||r.id||'');
-  return r.soloCatalogo===true||n==='geisell'||n==='geissel';
+  return n==='geisell'||n==='geissel';
 }
+function socioSinCompras(r=rev){
+  return !!r&&(r.sinCompras===true||r.soloCatalogo===true||socioGeisell(r));
+}
+function vistaGeisellPermitida(v){return ['clientes','precios','renovar'].includes(v)}
+function etiquetaMensajeRenovacion(){return socioGeisell()?'Mensaje de renovación':'Mensaje de cobro'}
 function socioCacheId(){return norm(rev?.nombre_norm||rev?.nombre||'socio').replace(/[^a-z0-9]+/g,'_')||'socio'}
 function socioCacheKey(tipo){return tipo==='precios'?'catalogo_personal_'+socioCacheId():`socios_cache_${tipo}_${socioCacheId()}`}
 function readSocioCache(tipo){
@@ -754,10 +765,10 @@ function runSocioRequest(tipo,runner){
   return holder.promise;
 }
 function applySocioMode(){
-  const only=socioSoloCatalogo();
-  document.body.classList.toggle('catalog-only',only);
-  if(only)closePartnerQuick();
-  return only;
+  const restricted=socioSinCompras();
+  document.body.classList.toggle('geisell-mode',restricted);
+  if(restricted)closePartnerQuick();
+  return restricted;
 }
 function prepareSocioData(){
   socioEpoch++;
@@ -933,18 +944,20 @@ async function doLogin(){
   if(pinModo && !pin){loginErr.textContent='Poné también el PIN de configuración.';return}
   if(CONFIG.apiBase.includes('TU-BOT')){loginErr.textContent='Falta poner la URL de la API (CONFIG.apiBase).';return}
   loginBtn.disabled=true; loginBtn.textContent=LOGIN_CTA.load;
+  const slowLoginTimer=setTimeout(()=>{if(loginBtn.disabled)loginBtn.textContent='Despertando servidor…'},3500);
   try{
     const body={usuario,password};
     if(pin) body.pin=pin;
     const res=await API.call('/rev/login',{method:'POST',body:JSON.stringify(body)});
     API.setToken(res.token);
+    touchActivity();
     if(res.admin){
       isAdmin=true; adminToken=res.token;
       st('set','rev_admin','1'); st('del','rev_data');
       enterAdmin();
       return;
     }
-    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||usuario,soloCatalogo:res.soloCatalogo===true};
+    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||usuario,soloCatalogo:res.soloCatalogo===true,sinCompras:res.sinCompras===true};
     st('set','rev_data',JSON.stringify(rev)); st('del','rev_admin');
     enterApp();
   }catch(e){
@@ -962,28 +975,31 @@ async function doLogin(){
       demasiados_intentos:'Demasiados intentos. Probá de nuevo en unos minutos.',
     };
     loginErr.textContent=map[e.error]||'No pude conectar. Revisá la URL de la API.';
-  }finally{loginBtn.disabled=false;loginBtn.textContent=LOGIN_CTA.go}
+  }finally{clearTimeout(slowLoginTimer);loginBtn.disabled=false;loginBtn.textContent=LOGIN_CTA.go}
 }
 function enterApp(){
   login.classList.add('hide');
   document.getElementById('app').classList.remove('hide');
   document.getElementById('nav').classList.remove('hide');
   prepareSocioData();
-  const only=applySocioMode();
+  const restricted=applySocioMode();
   greet.textContent='Hola, '+revName();
   actualizarFechaHora();
   toggleImpBar();
   applySocioAvatar();
   catalogCategoria='';compraSels=[];compraPickerOpen=false;
-  go(only?'precios':'inicio');
+  go(restricted?'renovar':'inicio');
   loadPrecios().then(()=>{if(current==='precios')vPrecios()});
-  if(!only){
-    loadClientes();
+  loadClientes();
+  if(!restricted){
     loadAvisos();
     loadGamificacion();
   }
   clearInterval(window.__subliInboxTimer);
-  if(!only)window.__subliInboxTimer=setInterval(()=>{loadAvisos();loadGamificacion()},120000);
+  window.__subliInboxTimer=setInterval(()=>{
+    loadClientes();
+    if(!restricted){loadAvisos();loadGamificacion()}
+  },restricted?300000:120000);
 }
 /* Trae el catálogo real (lo administra Sublichat). Si falla, se queda
    con el PRECIOS de respaldo definido arriba — el socio nunca se queda
@@ -1016,7 +1032,7 @@ let admF='', admCompF='', admCompraF='', admMode='socios';
 async function enterAdmin(){
   socioEpoch++;
   clearInterval(window.__subliInboxTimer);
-  document.body.classList.remove('catalog-only');
+  document.body.classList.remove('geisell-mode');
   impersonating=false;
   login.classList.add('hide');
   document.getElementById('app').classList.remove('hide');
@@ -1131,17 +1147,19 @@ function onboardMsg(nombre,user,pin){
   const pinLinea=pin?`🔐 PIN de configuración (solo la primera vez): ${pin}\n`:'';
   return `¡Hola ${nombre}! 👋 Ya podés entrar a tu panel de Sublicuentas:\n\n🔗 ${PANEL_URL}\n👤 Usuario: ${user}\n${pinLinea}🔑 Clave: la primera vez que entrés, además del PIN, escribí la clave que querés usar de ahora en más — esa queda guardada como la tuya.\n\nCualquier duda, escribime. 🤝`;
 }
+function adminSocioNombre(r){return ['geissel','geisell'].includes(norm(r?.nombre_norm||r?.nombre||''))?'Geisell':(r?.nombre||r?.id||'Socio')}
+function adminSocioUsuario(r){return ['geissel','geisell'].includes(norm(r?.nombre_norm||''))?'geisell':(r?.nombre_norm||'')}
 function usrCard(r){
-  const ini=(r.nombre[0]||'?').toUpperCase();
+  const nombre=adminSocioNombre(r),usuario=adminSocioUsuario(r),ini=(nombre[0]||'?').toUpperCase();
   return `<div class="usr-card">
     <div class="usr-top">
       <div class="rav ${r.activo?'':'off'}">${ini}</div>
-      <div class="usr-nm">${r.nombre}${r.activo?'':' <span class="rev-off-tag">inactivo</span>'}</div>
+      <div class="usr-nm">${nombre}${r.activo?'':' <span class="rev-off-tag">inactivo</span>'}</div>
     </div>
-    <div class="usr-user"><span class="k">Usuario</span><span class="v">${r.nombre_norm}</span></div>
+    <div class="usr-user"><span class="k">Usuario</span><span class="v">${usuario}</span></div>
     <div class="usr-btns">
-      <button class="cp" onclick='copyUser(${JSON.stringify(r.nombre_norm)},this)'>Copiar usuario</button>
-      <button class="wa" onclick='waOnboard(${JSON.stringify(r.nombre)},${JSON.stringify(r.nombre_norm)})'>WhatsApp</button>
+      <button class="cp" onclick='copyUser(${JSON.stringify(usuario)},this)'>Copiar usuario</button>
+      <button class="wa" onclick='waOnboard(${JSON.stringify(nombre)},${JSON.stringify(usuario)})'>WhatsApp</button>
     </div>
   </div>`;
 }
@@ -1153,18 +1171,18 @@ function waOnboard(nombre,user){
   window.open('https://wa.me/?text='+encodeURIComponent(onboardMsg(nombre,user,pin)),'_blank');
 }
 function copyAllUsers(btn){
-  const t=adminRevs.map(r=>`${r.nombre}: ${r.nombre_norm}`).join('\n');
+  const t=adminRevs.map(r=>`${adminSocioNombre(r)}: ${adminSocioUsuario(r)}`).join('\n');
   navigator.clipboard?.writeText(t);
   const o=btn.textContent;btn.textContent='¡Copiado!';setTimeout(()=>btn.textContent=o,1300);
 }
 function revCard(r){
-  const ini=(r.nombre[0]||'?').toUpperCase();
+  const nombre=adminSocioNombre(r),usuario=adminSocioUsuario(r),ini=(nombre[0]||'?').toUpperCase();
   const parts=[`${r.clientes} ${r.clientes===1?'cliente':'clientes'}`];
   if(r.vencidos)parts.push(`<span class="x">${r.vencidos} vencidos</span>`);
   if(r.porVencer)parts.push(`<span class="w">${r.porVencer} por vencer</span>`);
-  return `<div class="rev-card" onclick='verComo(${JSON.stringify(r.id)},${JSON.stringify(r.nombre_norm)},${JSON.stringify(r.nombre)})'>
+  return `<div class="rev-card" onclick='verComo(${JSON.stringify(r.id)},${JSON.stringify(usuario)},${JSON.stringify(nombre)})'>
     <div class="rav ${r.activo?'':'off'}">${ini}</div>
-    <div class="ri"><div class="rn">${r.nombre}${r.activo?'':' <span class="rev-off-tag">inactivo</span>'}</div>
+    <div class="ri"><div class="rn">${nombre}${r.activo?'':' <span class="rev-off-tag">inactivo</span>'}</div>
       <div class="rs">${parts.join('<span style="opacity:.4">·</span>')}</div></div>
     <div class="go"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
   </div>`;
@@ -1173,7 +1191,7 @@ async function verComo(id,nombre_norm,nombre){
   try{
     const res=await API.call('/rev/admin/impersonate',{method:'POST',body:JSON.stringify({id,nombre_norm}),headers:{Authorization:'Bearer '+adminToken}});
     API.token=res.token;                 // token del socio solo en memoria
-    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||res.nombre_norm,soloCatalogo:res.soloCatalogo===true};
+    rev={nombre:res.nombre,nombre_norm:res.nombre_norm,usuario:res.usuario||res.nombre_norm,soloCatalogo:res.soloCatalogo===true,sinCompras:res.sinCompras===true};
     impersonating=true;
     enterApp();
   }catch(e){
@@ -1258,24 +1276,24 @@ function tiempoDesde(ts){
 /* nav */
 const content=document.getElementById('content');
 function go(v){
-  const only=socioSoloCatalogo();
-  if(only&&v!=='precios')v='precios';
+  const restricted=socioSinCompras();
+  if(restricted&&!vistaGeisellPermitida(v))v='renovar';
   current=v;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   window.scrollTo(0,0);
   const views={inicio:vInicio,compras:vCompras,clientes:vClientes,renovar:vRenovar,precios:vPrecios,buzon:vSugerencias,aula:vAula,perfil:vPerfil,recompensas:vRecompensas};
   (views[v]||vInicio)();
-  if(!only&&['inicio','clientes','renovar'].includes(v)&&!dataFresh('clientes'))loadClientes();
-  if(!only&&v==='buzon'&&!dataFresh('avisos'))loadAvisos();
+  if(['inicio','clientes','renovar'].includes(v)&&!dataFresh('clientes'))loadClientes();
+  if(!restricted&&v==='buzon'&&!dataFresh('avisos'))loadAvisos();
   if(v==='precios'){
     const jobs=[];
     if(!dataFresh('precios'))jobs.push(loadPrecios());
-    if(!only&&!dataFresh('gamificacion'))jobs.push(loadGamificacion());
+    if(!restricted&&!dataFresh('gamificacion'))jobs.push(loadGamificacion());
     if(jobs.length)Promise.allSettled(jobs).then(()=>{if(current==='precios')vPrecios()});
   }
   actualizarBadgeBuzon();
 }
-function openPartnerQuick(){document.getElementById('partnerQuick')?.classList.add('show')}
+function openPartnerQuick(){if(!socioSinCompras())document.getElementById('partnerQuick')?.classList.add('show')}
 function closePartnerQuick(){document.getElementById('partnerQuick')?.classList.remove('show')}
 
 /* INICIO */
@@ -1516,7 +1534,7 @@ function compraDatosHtml(items){
   </div>`).join('');
 }
 function vCompras(){
-  if(socioSoloCatalogo()){go('precios');return}
+  if(socioSinCompras()){go('renovar');return}
   compraEnsureSel();if(!compraSels.length)compraPickerOpen=true;
   content.innerHTML=`<section class="operations-hero"><h2>Nueva compra</h2><p>Seleccione servicios, arme un combo y envíe el comprobante directamente al equipo.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section><div id="compraForm"></div>`;
   renderCompraForm();
@@ -1657,6 +1675,7 @@ async function enviarSugerencia(){
 let cliF='';
 let cliEstado='todos';
 function vClientes(){
+  const geisell=socioGeisell();
   const fs=flat();
   const semana=fs.filter(s=>s.est.n>=0&&s.est.n<=7);
   const mes=fs.filter(s=>s.est.n>=0&&s.est.n<=30);
@@ -1670,13 +1689,13 @@ function vClientes(){
   const cartera=vigentes.reduce((a,s)=>a+(s.precio||0),0);
   const max=Math.max(montoMes,montoSemana,montoVencido,cartera,1);
   content.innerHTML=`
-  <section class="operations-hero clients"><h2>Clientes</h2><p>Consulte su cartera, encuentre cualquier cliente y envíe cobros en segundos.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section>
+  <section class="operations-hero clients"><h2>Clientes</h2><p>${geisell?'Consulte sus clientes y prepare mensajes de renovación en segundos.':'Consulte su cartera, encuentre cualquier cliente y envíe cobros en segundos.'}</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section>
   <div class="finance-card">
-    <div class="finance-head"><h2>Resumen de cobros</h2><span>${fs.length} servicios</span></div>
+    <div class="finance-head"><h2>${geisell?'Resumen de renovaciones':'Resumen de cobros'}</h2><span>${fs.length} servicios</span></div>
     <div class="finance-grid">
       <div class="finance-mini good"><b>${cliVig}</b><span>👤 Clientes vigentes · en fecha</span></div>
       <div class="finance-mini exp"><b>${cliNoVig}</b><span>🚫 No vigentes · dejaron de contratar</span></div>
-      <div class="finance-mini"><b>${semana.length}</b><span>Cobrar esta semana · ${money(montoSemana)}</span></div>
+      <div class="finance-mini"><b>${semana.length}</b><span>${geisell?'Renuevan':'Cobrar'} esta semana · ${money(montoSemana)}</span></div>
       <div class="finance-mini"><b>${vencidos.length}</b><span>Vencidos · ${money(montoVencido)}</span></div>
     </div>
     <div class="bar-row"><div class="lab"><span>Semana</span><b>${money(montoSemana)}</b></div><div class="bar"><i style="width:${Math.max(4,Math.round((montoSemana/max)*100))}%"></i></div></div>
@@ -1719,7 +1738,7 @@ function cliCard(c){
       <span class="pill ${peor.c}">${svcs.length} ${svcs.length===1?'servicio':'servicios'}</span>
     </div>
     ${svcs.length?`<div class="svc-list">${svcs.map((s,ix)=>svcRow(s,c.id,ix)).join('')}</div>`:''}
-    <div class="cli-actions"><button class="act primary" onclick='openCobro("${c.id}","")'>Mensaje de cobro</button>${waBtn(c)}</div>
+    <div class="cli-actions"><button class="act primary" onclick='openCobro("${c.id}","")'>${etiquetaMensajeRenovacion()}</button>${waBtn(c)}</div>
   </div>`;
 }
 function svcRow(s,cid,ix){
@@ -1742,8 +1761,8 @@ let renF='todos';
 function vRenovar(){
   const corte=flat().filter(s=>s.est.n<0);
   content.innerHTML=`
-  <section class="operations-hero renew"><h2>Renovaciones</h2><p>Priorice vencidos, cobre a tiempo y registre la nueva fecha sin salir del panel.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section>
-  ${corte.length?`<div class="cut-alert"><b>🚨 ${corte.length} alerta${corte.length===1?'':'s'} de corte</b><span>Estos clientes ya pasaron del día de pago. Puede enviar mensaje de cobro o renovar la fecha desde aquí.</span></div>`:''}
+  <section class="operations-hero renew"><h2>Renovaciones</h2><p>Priorice vencidos, envíe mensajes y registre la nueva fecha sin salir del panel.</p><img src="assets/robot-socios.png" alt="Mascota Sublicuentas"></section>
+  ${corte.length?`<div class="cut-alert"><b>🚨 ${corte.length} alerta${corte.length===1?'':'s'} de corte</b><span>Estos clientes ya pasaron del día de pago. Puede enviar mensaje de renovación o actualizar la fecha desde aquí.</span></div>`:''}
   <div class="seg">
     ${[['todos','Todos'],['vencidos','Corte/Vencidos'],['porvencer','Por vencer']].map(([k,l])=>
       `<button class="${renF===k?'on':''}" onclick="renF='${k}';renderRen()">${l}</button>`).join('')}
@@ -1765,7 +1784,7 @@ function renderRen(){
           <div><div class="cli-name">${nombreCli(s.cliente)}</div><div class="cli-tel">${s.nombre}</div></div>
           <span class="pill ${s.est.c}">${s.est.t}</span></div>
         <div class="cli-actions">
-          <button class="act primary" onclick='openCobro("${s.cliente.id}","${enc(s.nombre)}")'>Mensaje de cobro</button>
+          <button class="act primary" onclick='openCobro("${s.cliente.id}","${enc(s.nombre)}")'>${etiquetaMensajeRenovacion()}</button>
           <button class="act ghost" style="flex:none;min-width:92px;padding:12px 10px" title="Renovar / comprobante" onclick='openComprobante("${s.cliente.id}","${enc(s.nombre)}",${s.servicioIndex})'>🔄 Renovar</button>
         </div></div>`).join('')
     : `<div class="card"><div class="empty"><div class="ico">✅</div><b>Todo en orden</b>No hay nada en este filtro.</div></div>`;
@@ -1900,14 +1919,14 @@ function catalogIcon(cat,i){const t=norm(cat);if(/stream|pelicula|series/.test(t
 function catalogAppStyle(i){const a=[['linear-gradient(145deg,#ffad43,#f07827)','rgba(240,120,39,.25)'],['linear-gradient(145deg,#24d9bd,#0aa58d)','rgba(10,165,141,.25)'],['linear-gradient(145deg,#ed66df,#b944d6)','rgba(185,68,214,.25)'],['linear-gradient(145deg,#40c8f2,#248be0)','rgba(36,139,224,.25)'],['linear-gradient(145deg,#8969ee,#6741ce)','rgba(103,65,206,.25)']];return a[i%a.length]}
 function openCatalogCategory(ix){catalogCategoria=String(ix);vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function closeCatalogCategory(){catalogCategoria='';vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
-function buyFromCatalog(ix){if(socioSoloCatalogo())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){compraSels=[found.id];compraPickerOpen=false;go('compras')}}
+function buyFromCatalog(ix){if(socioSinCompras())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){compraSels=[found.id];compraPickerOpen=false;go('compras')}}
 function vPrecios(){
-  const only=socioSoloCatalogo();
+  const restricted=socioSinCompras();
   const me=gamificacion.perfil||{ventas:0,nivel:'Sin nivel'},ventas=Number(me.ventas||0);
   const siguiente=ventas<1?1:ventas<10?10:ventas<26?26:26;
   const progreso=ventas>=26?100:Math.min(100,Math.round((ventas/siguiente)*100));
   const faltan=Math.max(0,siguiente-ventas);
-  const oferta=only?'':`<div class="reward-card">
+  const oferta=restricted?'':`<div class="reward-card">
       <div class="reward-top"><span>🎁</span><b>Recompensas de socio</b></div>
       <h3>${me.nivel==='Sin nivel'?'Complete su primera venta para alcanzar Diamante.':`${me.nivel} · ${ventas} ventas registradas`}</h3>
       <p>${ventas>=26?'Ya alcanzó el nivel máximo. Puede escoger una recompensa Inmortal.':`Le faltan ${faltan} venta${faltan===1?'':'s'} para ${ventas<1?'Diamante':ventas<10?'Leyenda':'Inmortal'}.`}</p>
@@ -1916,16 +1935,16 @@ function vPrecios(){
       <button class="ask-copy" style="margin-top:12px" onclick="go('recompensas')">Ver y escoger premios</button>
     </div>`;
   const catMs=Number(gamificacion.catalogoActualizadoAt||syncAt.precios||0),catTxt=catMs?new Date(catMs).toLocaleString('es-HN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'sincronizado ahora';
-  const rewardMini=!only&&(gamificacion.recompensas||[]).length?`<button class="reward-open" style="margin:0 0 16px" onclick="go('recompensas')">🎁 ${gamificacion.perfil?.nivel}: escoja su recompensa <span>›</span></button>`:'';
-  const onlyNote=only?`<div class="catalog-only-note">👀 Este usuario es solo catálogo: aquí puede consultar y copiar sus precios personalizados.</div>`:'';
+  const rewardMini=!restricted&&(gamificacion.recompensas||[]).length?`<button class="reward-open" style="margin:0 0 16px" onclick="go('recompensas')">🎁 ${gamificacion.perfil?.nivel}: escoja su recompensa <span>›</span></button>`:'';
+  const accessNote=restricted?`<div class="geisell-access-note">👀 Consulte y copie sus precios personalizados. Para gestionar vencimientos y mensajes, abra Renovaciones.</div>`:'';
   if(catalogCategoria!==''&&PRECIOS[Number(catalogCategoria)]){
     const ix=Number(catalogCategoria),g=PRECIOS[ix],t=catalogTheme(ix),ico=catalogIcon(g.cat,ix);
-    const apps=g.items.map((it,i)=>{const [grad,glow]=catalogAppStyle(i),copy=String(`${it.n} · ${it.p==null?'Por comisión':'Lps. '+it.p}`).replace(/'/g,"\\'"),actions=only?`<button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button>`:`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button><button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button>`;return `<article class="catalog-app"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${it.n}</b><small>${it.s||'Servicio disponible'}</small></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+it.p}</strong></div><div class="catalog-app-desc">${it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.'}</div><div class="catalog-app-actions">${actions}</div></article>`}).join('');
-    content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${g.cat}</h2><p>${g.sub||`${g.items.length} opciones disponibles para sus clientes`}</p></div>${onlyNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div>${politicasHTML()}</div>`;
+    const apps=g.items.map((it,i)=>{const [grad,glow]=catalogAppStyle(i),copy=String(`${it.n} · ${it.p==null?'Por comisión':'Lps. '+it.p}`).replace(/'/g,"\\'"),actions=restricted?`<button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button>`:`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button><button onclick="navigator.clipboard?.writeText('${copy}')">📋 Copiar precio</button>`;return `<article class="catalog-app"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${it.n}</b><small>${it.s||'Servicio disponible'}</small></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+it.p}</strong></div><div class="catalog-app-desc">${it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.'}</div><div class="catalog-app-actions">${actions}</div></article>`}).join('');
+    content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${g.cat}</h2><p>${g.sub||`${g.items.length} opciones disponibles para sus clientes`}</p></div>${accessNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div>${politicasHTML()}</div>`;
     return;
   }
   const categorias=PRECIOS.map((g,i)=>{const t=catalogTheme(i),ico=catalogIcon(g.cat,i);return `<button class="catalog-category" style="background:${t.g};--cat-shadow:${t.s}" onclick="openCatalogCategory(${i})"><span class="cat-arrow">›</span><span class="cat-icon">${ico}</span><b>${g.cat}</b><small>${g.items.length} producto${g.items.length===1?'':'s'}${g.sub?' · '+g.sub:''}</small></button>`}).join('');
-  content.innerHTML=`<div class="scr-title">${only?'Catálogo de Geisell':'Catálogo mayorista'}</div>${onlyNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div>${rewardMini}<p class="catalog-intro">Seleccione una categoría para consultar aplicaciones, precios y condiciones. Este es su costo mayorista.</p>${oferta}<div class="catalog-section-title"><h2>Categorías</h2><span>${PRECIOS.length} secciones</span></div><div class="catalog-categories">${categorias}</div>${politicasHTML()}`;
+  content.innerHTML=`<div class="scr-title">${socioGeisell()?'Catálogo de Geisell':'Catálogo mayorista'}</div>${accessNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div>${rewardMini}<p class="catalog-intro">Seleccione una categoría para consultar aplicaciones, precios y condiciones. Este es su costo mayorista.</p>${oferta}<div class="catalog-section-title"><h2>Categorías</h2><span>${PRECIOS.length} secciones</span></div><div class="catalog-categories">${categorias}</div>${politicasHTML()}`;
 }
 
 /* AULA */
@@ -2043,6 +2062,7 @@ let cobroCtx=null;
 function openCobro(id,servicio){
   const c=clientes.find(x=>x.id===id);if(!c)return;
   const svcs=Array.isArray(c.servicios)?c.servicios:[];
+  const title=document.getElementById('cobroTitle');if(title)title.textContent=etiquetaMensajeRenovacion();
   cobroSub.textContent=nombreCli(c)+' · variedad infinita · 🎲 Otra para más';
   cobroTel=(c.telefono||c.telefono_norm||'').toString().replace(/\D/g,'');
   cobroWa.style.opacity=cobroTel?'1':'.5'; cobroWa.style.pointerEvents=cobroTel?'auto':'none';
@@ -2385,8 +2405,8 @@ function startIntro(){
 }
 startIntro();
 
-/* ── Sesión: persiste hasta cerrar usuario o 1h de inactividad ── */
-const IDLE_MS=60*60*1000; // 1 hora
+/* ── Sesión: persiste hasta cerrar usuario o 30 días de inactividad ── */
+const IDLE_MS=30*24*60*60*1000; // 30 días: solo vuelve a pedir clave al vencer sesión o cerrar usuario
 let idleTimer=null;
 function expireIdle(){ if(API.token){ API.clear(); st('del','rev_admin'); st('del','rev_last'); location.reload(); } }
 function resetIdle(){ clearTimeout(idleTimer); idleTimer=setTimeout(expireIdle,IDLE_MS); }
