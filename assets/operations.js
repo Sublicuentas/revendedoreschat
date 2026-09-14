@@ -20,11 +20,14 @@ function vInicio(){
   const ventasMes=Number(m.ventasMes??m.ventas_mes??m.ingresosMes??NaN);
   const utilidadMes=Number(m.utilidadMes??m.utilidad_mes??m.gananciaMes??NaN);
   const ticketProm=Number(m.ticketPromedio??m.ticket_promedio??NaN);
+  const ventaCobertura=Number(m.ventasCoberturaPct??NaN);
+  const utilidadCobertura=Number(m.utilidadCoberturaPct??m.coberturaUtilidad??NaN);
+  const pendientes=Number(m.pedidosPendientes??NaN);
   const hasRealMetrics=[ventasMes,utilidadMes,ticketProm].some(Number.isFinite);
   const metricCards=hasRealMetrics?[
-    ['Ventas del mes',Number.isFinite(ventasMes)?money(ventasMes):'—','Dato del servidor'],
-    ['Utilidad estimada',Number.isFinite(utilidadMes)?money(utilidadMes):'—','Ventas menos costo'],
-    ['Ticket promedio',Number.isFinite(ticketProm)?money(ticketProm):'—','Promedio por operación']
+    ['Ventas registradas',Number.isFinite(ventasMes)?money(ventasMes):'—',Number.isFinite(ventaCobertura)?`${Math.round(ventaCobertura)}% de operaciones con precio de venta`:'Solo operaciones con venta registrada'],
+    ['Utilidad estimada',Number.isFinite(utilidadMes)?money(utilidadMes):'—',Number.isFinite(utilidadCobertura)?`${Math.round(utilidadCobertura)}% con venta y costo registrados`:'Requiere venta y costo registrados'],
+    ['Ticket promedio',Number.isFinite(ticketProm)?money(ticketProm):'—',Number.isFinite(pendientes)?`${pendientes} pedido${pendientes===1?'':'s'} pendiente${pendientes===1?'':'s'}`:'Promedio por operación']
   ]:[
     ['Por recuperar',money(carteraVencida),`${vencidos.length} servicios vencidos`],
     ['Cartera activa',`${activaPct}%`,`${cliVigentes} de ${clientes.length||0} clientes`],
@@ -79,7 +82,7 @@ async function vPerfil(){
   const me=gamificacion.perfil||{ventas:0,score:0,nivel:'Sin nivel',racha:0,cursos:0,avatar:''};
   const avatar=safeImageSrc(me.avatar,ROBOT_IMG),nombre=me.nombreMostrar||revName(),nivel=me.nivel||'Sin nivel';
   const insignias=(gamificacion.insignias||[]).map(b=>`<div class="sales-badge ${b.activa?'on':''}" title="${escAttr(b.detalle||'')}"><i>${escHtml(b.icon||'🏅')}</i><b>${escHtml(b.nombre||'Insignia')}</b></div>`).join('');
-  content.innerHTML=`<div class="scr-title">Mi perfil</div><div class="profile-layout"><section class="profile-hero"><div class="profile-photo-wrap"><img class="profile-photo" src="${escAttr(avatar)}" alt="Foto de ${escAttr(nombre)}"><button class="profile-photo-edit" onclick="document.getElementById('socioPhoto').click()">📷</button><input id="socioPhoto" type="file" accept="image/*" hidden onchange="saveSocioPhoto(this)"></div><h2>${escHtml(nombre)}</h2><button class="ask-copy" onclick="toggleEditSocio()">✏️ Editar perfil</button><div id="editSocioBox" style="display:none;margin-top:12px"><input class="comp-in" id="socioNombre" maxlength="45" value="${escAttr(nombre)}" placeholder="Nombre visible"><button class="act primary" style="margin-top:8px" onclick="saveSocioProfile()">Guardar cambios</button></div><p>Progreso personal del socio</p><div class="profile-level">${nivel==='Inmortal'?'👑':nivel==='Leyenda'?'🏆':nivel==='Diamante'?'💎':'⭐'} ${escHtml(nivel)}</div><div class="level-track"><div class="level-chip ${nivel==='Diamante'?'on':''}">💎 Diamante<br>1–9 ventas</div><div class="level-chip ${nivel==='Leyenda'?'on':''}">🏆 Leyenda<br>10–25 ventas</div><div class="level-chip ${nivel==='Inmortal'?'on':''}">👑 Inmortal<br>26+ ventas</div></div></section><div><div class="profile-stats"><div class="profile-stat"><b>${Number(me.ventas||0)}</b><span>Ventas</span></div><div class="profile-stat"><b>${Number(me.score||0)}</b><span>Score</span></div><div class="profile-stat"><b>${Number(me.racha||0)}🔥</b><span>Racha renovaciones</span></div></div><div class="card"><div class="card-h"><h2>Insignias</h2><span>${Number(me.cursos||0)} cursos</span></div><div class="badge-grid">${insignias}</div></div><button class="reward-open" onclick="go('recompensas')">🎁 Ver recompensas de mi nivel <span>›</span></button></div></div>`;
+  content.innerHTML=`<div class="scr-title">Mi perfil</div><div class="profile-layout"><section class="profile-hero"><div class="profile-photo-wrap"><img class="profile-photo" src="${escAttr(avatar)}" alt="Foto de ${escAttr(nombre)}"><button class="profile-photo-edit" onclick="document.getElementById('socioPhoto').click()">📷</button><input id="socioPhoto" type="file" accept="image/*" hidden onchange="saveSocioPhoto(this)"></div><h2>${escHtml(nombre)}</h2><button class="ask-copy" onclick="toggleEditSocio()">✏️ Editar perfil</button><div id="editSocioBox" style="display:none;margin-top:12px"><input class="comp-in" id="socioNombre" maxlength="45" value="${escAttr(nombre)}" placeholder="Nombre visible"><button class="act primary" style="margin-top:8px" onclick="saveSocioProfile()">Guardar cambios</button></div><p>Progreso personal del socio</p><div class="profile-level">${nivel==='Inmortal'?'👑':nivel==='Leyenda'?'🏆':nivel==='Diamante'?'💎':'⭐'} ${escHtml(nivel)}</div><div class="level-track"><div class="level-chip ${nivel==='Diamante'?'on':''}">💎 Diamante<br>1–9 ventas</div><div class="level-chip ${nivel==='Leyenda'?'on':''}">🏆 Leyenda<br>10–25 ventas</div><div class="level-chip ${nivel==='Inmortal'?'on':''}">👑 Inmortal<br>26+ ventas</div></div></section><div><div class="profile-stats"><div class="profile-stat"><b>${Number(me.ventas||0)}</b><span>Ventas</span></div><div class="profile-stat"><b>${Number(me.score||0)}</b><span>Score</span></div><div class="profile-stat"><b>${Number(me.racha||0)}🔥</b><span>Racha renovaciones</span></div></div><div class="card"><div class="card-h"><h2>Insignias</h2><span>${Number(me.cursos||0)} cursos</span></div><div class="badge-grid">${insignias}</div></div><button class="reward-open" onclick="go('recompensas')">🎁 Ver recompensas de mi nivel <span>›</span></button>${typeof Notification!=='undefined'?`<button class="reward-open" onclick="enablePartnerNotifications()">🔔 ${Notification.permission==='granted'?'Notificaciones activadas':'Activar notificaciones'} <span>›</span></button>`:''}</div></div>`;
 }
 async function saveSocioPhoto(input){const f=input.files?.[0];if(!f)return;try{const avatarData=await compressImage(f,520,.78);await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({avatarData})});await loadGamificacion();vPerfil()}catch(e){alert(e?.error==='foto_invalida'?'La foto no es válida o pesa demasiado.':'No se pudo guardar la foto.')}}
 function toggleEditSocio(){const el=document.getElementById('editSocioBox');if(el)el.style.display=el.style.display==='none'?'block':'none'}
@@ -266,7 +269,9 @@ function misComprasHtml(){
     const nombre=o.servicio||o.producto||o.descripcion||o.nombre||'Compra';
     const fecha=parseFecha(o.ts||o.createdAt||o.fecha||o.creadoEn);
     const detalle=o.detalleEstado||o.mensaje||o.destinoLabel||o.destino||'';
-    return `<div class="order-row"><div><b>${escHtml(nombre)}</b><small>${fecha?fmtFecha(fecha):'Pedido reciente'}${detalle?' · '+escHtml(detalle):''}</small></div><span class="order-status ${cls}">${label}</span></div>`;
+    const costo=Number(o.monto??o.costo??NaN), venta=Number(o.ventaCliente??NaN), utilidad=Number(o.utilidadEstimada??NaN);
+    const financiero=[Number.isFinite(costo)?`Costo ${money(costo)}`:'',Number.isFinite(venta)&&venta>0?`Venta ${money(venta)}`:'',Number.isFinite(utilidad)&&venta>0?`Utilidad ${money(utilidad)}`:''].filter(Boolean).join(' · ');
+    return `<div class="order-row"><div><b>${escHtml(nombre)}</b><small>${fecha?fmtFecha(fecha):'Pedido reciente'}${detalle?' · '+escHtml(detalle):''}${financiero?' · '+escHtml(financiero):''}</small></div><span class="order-status ${cls}">${label}</span></div>`;
   }).join('');
   return `<div class="order-panel"><div class="order-panel-head"><b>Mis pedidos recientes</b><span>Seguimiento</span></div>${rows}</div>`;
 }
@@ -302,7 +307,8 @@ function renderCompraForm(){
     </div>
     <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
     ${compraDatosHtml(items)}
-    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto pagado" value="${m.total||''}">
+    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Costo pagado a Sublicuentas" value="${m.total||''}">
+    <input class="comp-in" id="buyVentaCliente" type="number" inputmode="decimal" placeholder="Precio cobrado al cliente (opcional)">
     <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: método de pago, urgencia o detalle del cliente…"></textarea>
     <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
     <div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()">
@@ -353,6 +359,7 @@ async function enviarCompra(){
       descuentoCombo:m.descuento,
       totalCombo:m.total,
       monto:val('buyMonto')||m.total,
+      ventaCliente:val('buyVentaCliente')||0,
       comentario:val('buyComentario'), imagen:compraImg
     })});
     msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';
@@ -361,7 +368,7 @@ async function enviarCompra(){
     setTimeout(()=>renderCompraForm(),900);
   }catch(e){
     msg.style.color='#e54848';
-    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',falta_servicio:'Seleccione un servicio.'};
+    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',falta_servicio:'Seleccione un servicio.',sin_permiso_comprar:'Su usuario no tiene permiso para registrar compras.'};
     msg.textContent=map[e&&e.error]||('No se pudo enviar la compra. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
   }finally{btn.disabled=false;btn.textContent='Enviar compra'}
 }

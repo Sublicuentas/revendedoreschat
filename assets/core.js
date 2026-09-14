@@ -133,8 +133,26 @@ function applySocioMode(){
   const restricted=socioSinCompras();
   document.body.classList.toggle('geisell-mode',restricted);
   applyNavPermissions();
+  document.querySelectorAll('[data-qv]').forEach(b=>b.classList.toggle('permission-hidden',!vistaGeisellPermitida(b.dataset.qv)));
   if(restricted)closePartnerQuick();
   return restricted;
+}
+function renderTop(){
+  if(typeof greet!=='undefined'&&greet)greet.textContent='Hola, '+revName();
+  try{applySocioAvatar()}catch(_){}
+}
+function firstAllowedView(){return ['inicio','clientes','renovar','precios','compras','aula','perfil','recompensas','buzon'].find(v=>vistaGeisellPermitida(v))||'precios'}
+async function loadSocioSession(){
+  if(!API.token||isAdmin&&!impersonating)return rev;
+  try{
+    const data=await API.call('/rev/me?_='+Date.now(),{cache:'no-store',timeoutMs:12000});
+    if(!data||typeof data!=='object')return rev;
+    rev={...(rev||{}),...data,capabilities:data.capabilities||data.permisos||rev?.capabilities||null,priceTier:data.priceTier||data.tarifaId||rev?.priceTier||null};
+    st('set','rev_data',JSON.stringify(rev));
+    applySocioMode();renderTop();
+    if(current&&!vistaGeisellPermitida(current))go(firstAllowedView());
+    return rev;
+  }catch(e){return rev}
 }
 function prepareSocioData(){
   socioEpoch++;
@@ -352,12 +370,12 @@ function enterApp(){
   document.getElementById('nav').classList.remove('hide');
   prepareSocioData();
   const restricted=applySocioMode();
-  greet.textContent='Hola, '+revName();
+  renderTop();
   actualizarFechaHora();
   toggleImpBar();
-  applySocioAvatar();
   catalogCategoria='';compraSels=[];compraPickerOpen=false;
-  go(restricted?'renovar':'inicio');
+  go(vistaGeisellPermitida('inicio')?'inicio':firstAllowedView());
+  loadSocioSession();
   loadPrecios().then(()=>{if(current==='precios')vPrecios()});
   loadClientes();
   loadMetricas();
@@ -369,9 +387,13 @@ function enterApp(){
   }
   clearInterval(window.__subliInboxTimer);
   window.__subliInboxTimer=setInterval(()=>{
-    loadClientes();loadMetricas();loadInventario();
-    if(!restricted){loadAvisos();loadGamificacion();loadMisCompras()}
-  },restricted?300000:120000);
+    loadSocioSession();
+    if(vistaGeisellPermitida('clientes'))loadClientes();
+    loadMetricas();loadInventario();
+    if(vistaGeisellPermitida('buzon'))loadAvisos();
+    if(vistaGeisellPermitida('recompensas'))loadGamificacion();
+    if(vistaGeisellPermitida('compras'))loadMisCompras();
+  },120000);
 }
 /* Trae el catálogo real (lo administra Sublichat). Si falla, se queda
    con el PRECIOS de respaldo definido arriba — el socio nunca se queda
@@ -617,9 +639,14 @@ function applySocioAvatar(){const img=document.getElementById('brandLogo');if(im
 async function loadAvisos(){
   return runSocioRequest('avisos',async(epoch)=>{
     try{
+      const prevTs=maxAvisoTs();
       const data=await API.call('/rev/avisos');
       if(epoch!==socioEpoch)return avisos;
       avisos=Array.isArray(data)?data:[];writeSocioCache('avisos',avisos);
+      if(prevTs>0&&typeof notifyPartnerAvisos==='function'){
+        const nuevos=avisos.filter(a=>(a.ts||0)>prevTs);
+        if(nuevos.length)notifyPartnerAvisos(nuevos);
+      }
       if(current==='inicio')vInicio();
       else if(current==='buzon')vSugerencias();
     }catch(e){}
@@ -673,8 +700,9 @@ function inventoryState(item){
   const x=inventoryEntry(item);if(!x)return {key:'unknown',label:'Consultar',available:true};
   const raw=norm(x.estado||x.status||x.disponibilidad||(x.stock===0?'agotado':'disponible'));
   if(['agotado','sin stock','out','unavailable'].includes(raw))return {key:'out',label:'Agotado',available:false};
-  if(['bajo','poco','low','limitado'].includes(raw))return {key:'low',label:'Poco inventario',available:true};
-  return {key:'ok',label:'Disponible',available:true};
+  if(['bajo','poco','low','limitado'].includes(raw))return {key:'low',label:x.stock!=null?`Poco · ${x.stock}`:'Poco inventario',available:true};
+  if(['consultar','unknown','sin_bodega'].includes(raw))return {key:'unknown',label:'Consultar',available:true};
+  return {key:'ok',label:x.stock!=null?`Disponible · ${x.stock}`:'Disponible',available:true};
 }
 function orderStatusLabel(v){
   const s=norm(v||'pendiente');

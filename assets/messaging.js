@@ -222,12 +222,13 @@ function openComprobante(id,servicio,servicioIndex){
   const idxOriginal=originalIndex(svc)>=0?originalIndex(svc):ix;
   const nm=pick(svc,CONFIG.campos.servicio)||servicio||'Servicio';
   const f=parseFecha(pick(svc,CONFIG.campos.vencimiento));
-  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:idxOriginal, compraId:String(svc.compraId||''), fecha:f, servicios:svcs.map((s,i)=>({servicioIndex:originalIndex(s)>=0?originalIndex(s):i,compraId:String(s.compraId||''),servicio:pick(s,CONFIG.campos.servicio)||`Servicio ${i+1}`,fecha:parseFecha(pick(s,CONFIG.campos.vencimiento))}))};
+  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:idxOriginal, compraId:String(svc.compraId||''), fecha:f, precioCliente:precioServicio(svc), servicios:svcs.map((s,i)=>({servicioIndex:originalIndex(s)>=0?originalIndex(s):i,compraId:String(s.compraId||''),servicio:pick(s,CONFIG.campos.servicio)||`Servicio ${i+1}`,fecha:parseFecha(pick(s,CONFIG.campos.vencimiento)),precioCliente:precioServicio(s)}))};
   compImg='';
   document.getElementById('compSub').textContent=compCtx.cliente+' · '+compCtx.servicio;
   const sel=document.getElementById('compServices');
-  sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===idxOriginal?'on':''}"><input type="checkbox" value="${Number(s.servicioIndex)}" ${s.servicioIndex===idxOriginal?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)"><span><b>${escHtml(s.servicio)}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
-  ['compQuien','compCom','compMonto','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
+  sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===idxOriginal?'on':''}"><input type="checkbox" value="${Number(s.servicioIndex)}" ${s.servicioIndex===idxOriginal?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);syncCompVentaCliente()"><span><b>${escHtml(s.servicio)}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
+  ['compQuien','compCom','compMonto','compVentaCliente','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
+  syncCompVentaCliente();
   const prev=document.getElementById('compPrev'), ph=document.getElementById('compPh');
   prev.style.display='none'; prev.src=''; ph.style.display='flex';
   const info=document.getElementById('compFechaInfo');
@@ -235,8 +236,9 @@ function openComprobante(id,servicio,servicioIndex){
   document.getElementById('compMsg').textContent='';
   document.getElementById('compOverlay').classList.add('show');
 }
-function toggleAllCompServices(btn){const checks=[...document.querySelectorAll('#compServices input[type=checkbox]')],all=checks.every(x=>x.checked);checks.forEach(x=>{x.checked=!all;x.parentElement.classList.toggle('on',!all)});btn.textContent=all?'Seleccionar todos':'Quitar todos'}
+function toggleAllCompServices(btn){const checks=[...document.querySelectorAll('#compServices input[type=checkbox]')],all=checks.every(x=>x.checked);checks.forEach(x=>{x.checked=!all;x.parentElement.classList.toggle('on',!all)});btn.textContent=all?'Seleccionar todos':'Quitar todos';syncCompVentaCliente()}
 function selectedCompServices(){return [...document.querySelectorAll('#compServices input[type=checkbox]:checked')].map(x=>compCtx.servicios.find(s=>s.servicioIndex===Number(x.value))).filter(Boolean)}
+function syncCompVentaCliente(){const el=document.getElementById('compVentaCliente');if(!el||!compCtx)return;const total=selectedCompServices().reduce((a,s)=>a+(Number(s?.precioCliente)||0),0);el.value=total>0?String(total):''}
 function closeComprobante(){document.getElementById('compOverlay').classList.remove('show')}
 function compressImage(file,maxDim,q){
   return new Promise((resolve,reject)=>{
@@ -284,6 +286,7 @@ async function enviarComprobante(){
       comentario:document.getElementById('compCom').value.trim(),
       quien:document.getElementById('compQuien').value.trim(),
       monto:document.getElementById('compMonto').value||0,
+      ventaCliente:document.getElementById('compVentaCliente').value||0,
       nuevaFecha,
       imagen:compImg
     })});
@@ -292,7 +295,7 @@ async function enviarComprobante(){
     setTimeout(closeComprobante,1100);
   }catch(e){
     msg.style.color='#e54848';
-    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',servicio_no_permitido:'Esa cuenta no pertenece a este socio.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.'};
+    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',servicio_no_permitido:'Esa cuenta no pertenece a este socio.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.',sin_permiso_renovar:'Su usuario no tiene permiso para registrar renovaciones.'};
     msg.textContent=map[e&&e.error]||('No se pudo guardar. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
   }finally{ btn.disabled=false; btn.textContent='Guardar'; }
 }
@@ -312,6 +315,34 @@ document.getElementById('introRobot').src=ROBOT_IMG;
 
 /* ===== PWA + ESTADO DE CONEXIÓN ===== */
 let deferredInstallPrompt=null,netHideTimer=null;
+async function enablePartnerNotifications(){
+  if(typeof Notification==='undefined')return alert('Este dispositivo no admite notificaciones web.');
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission==='granted'){
+      await showPartnerNotification('Sublicuentas','Notificaciones activadas. Le avisaremos de cambios importantes mientras la app pueda recibirlos.');
+      if(current==='perfil')vPerfil();
+    }else alert('Las notificaciones no quedaron autorizadas en este dispositivo.');
+  }catch(_){alert('No se pudieron activar las notificaciones en este dispositivo.')}
+}
+async function showPartnerNotification(title,body){
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  try{
+    if('serviceWorker' in navigator){
+      const reg=await navigator.serviceWorker.ready;
+      if(reg?.showNotification)return reg.showNotification(title,{body,icon:'./assets/icon-192.png',badge:'./assets/icon-192.png',tag:'sublicuentas-socio',renotify:true});
+    }
+    new Notification(title,{body,icon:'./assets/icon-192.png'});
+  }catch(_){}
+}
+function notifyPartnerAvisos(rows=[]){
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  const relevantes=rows.filter(a=>['pedido_estado','promocion','aviso'].includes(String(a.tipo||'aviso')));
+  if(!relevantes.length)return;
+  const a=relevantes[0];
+  showPartnerNotification(a.tipo==='pedido_estado'?'Actualización de pedido':'Sublicuentas',String(a.texto||'Tiene una novedad en su panel.').slice(0,180));
+}
+
 function setNetworkStatus(online,announce=true){
   const el=document.getElementById('netStatus');if(!el)return;
   clearTimeout(netHideTimer);
