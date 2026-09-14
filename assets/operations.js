@@ -17,17 +17,16 @@ function vInicio(){
   const tituloHoy=hoy.length?`${hoy.length} ${hoy.length===1?'cuenta vence':'cuentas vencen'} hoy`:'Hoy no tiene vencimientos';
   const detalleHoy=`${hoy.length} hoy · ${semana.length} esta semana · ${vencidos.length} vencidas · ${money(carteraHoy)}`;
   const m=metricasNegocio&&typeof metricasNegocio==='object'?metricasNegocio:{};
-  const ventasMes=Number(m.ventasMes??m.ventas_mes??m.ingresosMes??NaN);
-  const utilidadMes=Number(m.utilidadMes??m.utilidad_mes??m.gananciaMes??NaN);
-  const ticketProm=Number(m.ticketPromedio??m.ticket_promedio??NaN);
-  const ventaCobertura=Number(m.ventasCoberturaPct??NaN);
-  const utilidadCobertura=Number(m.utilidadCoberturaPct??m.coberturaUtilidad??NaN);
+  const operadoMes=Number(m.operadoMes??m.costoMes??NaN);
+  const operacionesMes=Number(m.operacionesMes??NaN);
+  const comprasMes=Number(m.comprasMes??NaN);
+  const renovacionesMes=Number(m.renovacionesMes??NaN);
   const pendientes=Number(m.pedidosPendientes??NaN);
-  const hasRealMetrics=[ventasMes,utilidadMes,ticketProm].some(Number.isFinite);
-  const metricCards=hasRealMetrics?[
-    ['Ventas registradas',Number.isFinite(ventasMes)?money(ventasMes):'—',Number.isFinite(ventaCobertura)?`${Math.round(ventaCobertura)}% de operaciones con precio de venta`:'Solo operaciones con venta registrada'],
-    ['Utilidad estimada',Number.isFinite(utilidadMes)?money(utilidadMes):'—',Number.isFinite(utilidadCobertura)?`${Math.round(utilidadCobertura)}% con venta y costo registrados`:'Requiere venta y costo registrados'],
-    ['Ticket promedio',Number.isFinite(ticketProm)?money(ticketProm):'—',Number.isFinite(pendientes)?`${pendientes} pedido${pendientes===1?'':'s'} pendiente${pendientes===1?'':'s'}`:'Promedio por operación']
+  const hasOpsMetrics=[operadoMes,operacionesMes,comprasMes,renovacionesMes,pendientes].some(Number.isFinite);
+  const metricCards=hasOpsMetrics?[
+    ['Pagado a Sublicuentas',Number.isFinite(operadoMes)?money(operadoMes):'—','Compras y renovaciones registradas este mes'],
+    ['Operaciones del mes',Number.isFinite(operacionesMes)?String(operacionesMes):'—',`${Number.isFinite(comprasMes)?comprasMes:0} compras · ${Number.isFinite(renovacionesMes)?renovacionesMes:0} renovaciones`],
+    ['Pedidos pendientes',Number.isFinite(pendientes)?String(pendientes):'—','Solicitudes que todavía no han sido entregadas']
   ]:[
     ['Por recuperar',money(carteraVencida),`${vencidos.length} servicios vencidos`],
     ['Cartera activa',`${activaPct}%`,`${cliVigentes} de ${clientes.length||0} clientes`],
@@ -269,8 +268,8 @@ function misComprasHtml(){
     const nombre=o.servicio||o.producto||o.descripcion||o.nombre||'Compra';
     const fecha=parseFecha(o.ts||o.createdAt||o.fecha||o.creadoEn);
     const detalle=o.detalleEstado||o.mensaje||o.destinoLabel||o.destino||'';
-    const costo=Number(o.monto??o.costo??NaN), venta=Number(o.ventaCliente??NaN), utilidad=Number(o.utilidadEstimada??NaN);
-    const financiero=[Number.isFinite(costo)?`Costo ${money(costo)}`:'',Number.isFinite(venta)&&venta>0?`Venta ${money(venta)}`:'',Number.isFinite(utilidad)&&venta>0?`Utilidad ${money(utilidad)}`:''].filter(Boolean).join(' · ');
+    const costo=Number(o.monto??o.costo??NaN);
+    const financiero=Number.isFinite(costo)&&costo>0?`Pagado a Sublicuentas ${money(costo)}`:'';
     return `<div class="order-row"><div><b>${escHtml(nombre)}</b><small>${fecha?fmtFecha(fecha):'Pedido reciente'}${detalle?' · '+escHtml(detalle):''}${financiero?' · '+escHtml(financiero):''}</small></div><span class="order-status ${cls}">${label}</span></div>`;
   }).join('');
   return `<div class="order-panel"><div class="order-panel-head"><b>Mis pedidos recientes</b><span>Seguimiento</span></div>${rows}</div>`;
@@ -307,8 +306,7 @@ function renderCompraForm(){
     </div>
     <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
     ${compraDatosHtml(items)}
-    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Costo pagado a Sublicuentas" value="${m.total||''}">
-    <input class="comp-in" id="buyVentaCliente" type="number" inputmode="decimal" placeholder="Precio cobrado al cliente (opcional)">
+    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto pagado a Sublicuentas" value="${m.total||''}">
     <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: método de pago, urgencia o detalle del cliente…"></textarea>
     <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
     <div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()">
@@ -359,7 +357,6 @@ async function enviarCompra(){
       descuentoCombo:m.descuento,
       totalCombo:m.total,
       monto:val('buyMonto')||m.total,
-      ventaCliente:val('buyVentaCliente')||0,
       comentario:val('buyComentario'), imagen:compraImg
     })});
     msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';

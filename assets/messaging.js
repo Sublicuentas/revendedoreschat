@@ -222,13 +222,12 @@ function openComprobante(id,servicio,servicioIndex){
   const idxOriginal=originalIndex(svc)>=0?originalIndex(svc):ix;
   const nm=pick(svc,CONFIG.campos.servicio)||servicio||'Servicio';
   const f=parseFecha(pick(svc,CONFIG.campos.vencimiento));
-  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:idxOriginal, compraId:String(svc.compraId||''), fecha:f, precioCliente:precioServicio(svc), servicios:svcs.map((s,i)=>({servicioIndex:originalIndex(s)>=0?originalIndex(s):i,compraId:String(s.compraId||''),servicio:pick(s,CONFIG.campos.servicio)||`Servicio ${i+1}`,fecha:parseFecha(pick(s,CONFIG.campos.vencimiento)),precioCliente:precioServicio(s)}))};
+  compCtx={id, cliente:nombreCli(c), servicio:nm, servicioIndex:idxOriginal, compraId:String(svc.compraId||''), fecha:f, servicios:svcs.map((s,i)=>({servicioIndex:originalIndex(s)>=0?originalIndex(s):i,compraId:String(s.compraId||''),servicio:pick(s,CONFIG.campos.servicio)||`Servicio ${i+1}`,fecha:parseFecha(pick(s,CONFIG.campos.vencimiento))}))};
   compImg='';
   document.getElementById('compSub').textContent=compCtx.cliente+' · '+compCtx.servicio;
   const sel=document.getElementById('compServices');
-  sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===idxOriginal?'on':''}"><input type="checkbox" value="${Number(s.servicioIndex)}" ${s.servicioIndex===idxOriginal?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);syncCompVentaCliente()"><span><b>${escHtml(s.servicio)}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
-  ['compQuien','compCom','compMonto','compVentaCliente','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
-  syncCompVentaCliente();
+  sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===idxOriginal?'on':''}"><input type="checkbox" value="${Number(s.servicioIndex)}" ${s.servicioIndex===idxOriginal?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)"><span><b>${escHtml(s.servicio)}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
+  ['compQuien','compCom','compMonto','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
   const prev=document.getElementById('compPrev'), ph=document.getElementById('compPh');
   prev.style.display='none'; prev.src=''; ph.style.display='flex';
   const info=document.getElementById('compFechaInfo');
@@ -236,9 +235,8 @@ function openComprobante(id,servicio,servicioIndex){
   document.getElementById('compMsg').textContent='';
   document.getElementById('compOverlay').classList.add('show');
 }
-function toggleAllCompServices(btn){const checks=[...document.querySelectorAll('#compServices input[type=checkbox]')],all=checks.every(x=>x.checked);checks.forEach(x=>{x.checked=!all;x.parentElement.classList.toggle('on',!all)});btn.textContent=all?'Seleccionar todos':'Quitar todos';syncCompVentaCliente()}
+function toggleAllCompServices(btn){const checks=[...document.querySelectorAll('#compServices input[type=checkbox]')],all=checks.every(x=>x.checked);checks.forEach(x=>{x.checked=!all;x.parentElement.classList.toggle('on',!all)});btn.textContent=all?'Seleccionar todos':'Quitar todos'}
 function selectedCompServices(){return [...document.querySelectorAll('#compServices input[type=checkbox]:checked')].map(x=>compCtx.servicios.find(s=>s.servicioIndex===Number(x.value))).filter(Boolean)}
-function syncCompVentaCliente(){const el=document.getElementById('compVentaCliente');if(!el||!compCtx)return;const total=selectedCompServices().reduce((a,s)=>a+(Number(s?.precioCliente)||0),0);el.value=total>0?String(total):''}
 function closeComprobante(){document.getElementById('compOverlay').classList.remove('show')}
 function compressImage(file,maxDim,q){
   return new Promise((resolve,reject)=>{
@@ -286,7 +284,6 @@ async function enviarComprobante(){
       comentario:document.getElementById('compCom').value.trim(),
       quien:document.getElementById('compQuien').value.trim(),
       monto:document.getElementById('compMonto').value||0,
-      ventaCliente:document.getElementById('compVentaCliente').value||0,
       nuevaFecha,
       imagen:compImg
     })});
