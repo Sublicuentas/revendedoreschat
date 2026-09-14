@@ -507,18 +507,37 @@ function waBtn(c){const u=waUrl(c.telefono||c.telefono_norm||'');
   return u?`<a class="act ghost" href="${escAttr(u)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:''}
 
 /* RENOVAR */
-let renF='todos';
+let renF='todos',renewGroups=[];
+function renewDateKey(d){if(!d)return 'sin-fecha';return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function groupRenewServices(rows){
+  const map=new Map();
+  (rows||[]).forEach(s=>{
+    const key=`${s.cliente.id}::${renewDateKey(s.fecha)}`;
+    if(!map.has(key))map.set(key,{key,cliente:s.cliente,fecha:s.fecha,est:s.est,servicios:[]});
+    map.get(key).servicios.push(s);
+  });
+  return [...map.values()].sort((a,b)=>(a.est?.n??9999)-(b.est?.n??9999)||nombreCli(a.cliente).localeCompare(nombreCli(b.cliente),'es'));
+}
 function vRenovar(){
-  const corte=flat().filter(s=>s.est.n<0);
+  const corte=groupRenewServices(flat().filter(s=>s.est.n<0));
   content.innerHTML=`
-  <section class="operations-hero renew"><h2>Renovaciones</h2><p>Priorice vencidos, envíe mensajes y registre la nueva fecha sin salir del panel.</p><img src="${ROBOT_IMG}" alt="Mascota Sublicuentas"></section>
-  ${corte.length?`<div class="cut-alert"><b>🚨 ${corte.length} alerta${corte.length===1?'':'s'} de corte</b><span>Estos clientes ya pasaron del día de pago. Puede enviar mensaje de renovación o actualizar la fecha desde aquí.</span></div>`:''}
+  <section class="operations-hero renew"><h2>Renovaciones</h2><p>Una sola tarjeta por cliente y fecha. Si tiene varias cuentas, usted elige cuáles renovar.</p><img src="${ROBOT_IMG}" alt="Mascota Sublicuentas"></section>
+  ${corte.length?`<div class="cut-alert"><b>🚨 ${corte.length} cliente${corte.length===1?'':'s'} con renovación vencida</b><span>Las cuentas del mismo cliente y la misma fecha aparecen unificadas para evitar renovarlas una por una.</span></div>`:''}
   <div class="seg">
     ${[['todos','Todos'],['vencidos','Corte/Vencidos'],['porvencer','Por vencer']].map(([k,l])=>
       `<button class="${renF===k?'on':''}" onclick="renF='${k}';renderRen()">${l}</button>`).join('')}
   </div>
   <div id="renList"></div>`;
   renderRen();
+}
+function openRenewGroup(index){
+  const g=renewGroups[Number(index)];if(!g||!g.servicios?.length)return;
+  const ids=g.servicios.map(s=>Number(s.servicioIndex));
+  openComprobanteGrupo(g.cliente.id,ids);
+}
+function openCobroRenewGroup(index){
+  const g=renewGroups[Number(index)];if(!g||!g.servicios?.length)return;
+  openCobroGrupo(g.cliente.id,g.servicios.map(s=>Number(s.servicioIndex)));
 }
 function renderRen(){
   document.querySelectorAll('.seg button').forEach(b=>{
@@ -528,14 +547,22 @@ function renderRen(){
   let fs=flat().filter(s=>s.est.n<9999);
   if(renF==='vencidos')fs=fs.filter(s=>s.est.c==='exp'||s.est.c==='due');
   if(renF==='porvencer')fs=fs.filter(s=>s.est.c==='soon');
-  document.getElementById('renList').innerHTML= fs.length
-    ? fs.map(s=>`<div class="cli-card">
-        <div class="cli-top">
-          <div><div class="cli-name">${escHtml(nombreCli(s.cliente))}</div><div class="cli-tel">${escHtml(s.nombre)}</div></div>
-          <span class="pill ${s.est.c}">${s.est.t}</span></div>
-        <div class="cli-actions">
-          <button class="act primary" onclick='openCobro("${s.cliente.id}","${enc(s.nombre)}")'>${etiquetaMensajeRenovacion()}</button>
-          <button class="act ghost" style="flex:none;min-width:92px;padding:12px 10px" title="Renovar / comprobante" onclick='openComprobante("${s.cliente.id}","${enc(s.nombre)}",${s.servicioIndex})'>🔄 Renovar</button>
-        </div></div>`).join('')
-    : `<div class="card"><div class="empty"><div class="ico">✅</div><b>Todo en orden</b>No hay nada en este filtro.</div></div>`;
+  renewGroups=groupRenewServices(fs);
+  const host=document.getElementById('renList');if(!host)return;
+  host.innerHTML=renewGroups.length?renewGroups.map((g,i)=>{
+    const names=g.servicios.map(s=>s.nombre);
+    const chips=names.map(n=>`<span class="renew-svc-chip">${escHtml(n)}</span>`).join('');
+    const count=g.servicios.length;
+    return `<div class="cli-card renew-group-card">
+      <div class="cli-top">
+        <div><div class="cli-name">${escHtml(nombreCli(g.cliente))}</div><div class="cli-tel">${count>1?`${count} servicios · `:''}${g.fecha?`Renueva ${escHtml(fmtFecha(g.fecha))}`:'Sin fecha'}</div></div>
+        <span class="pill ${g.est.c}">${g.est.t}</span>
+      </div>
+      <div class="renew-svc-list">${chips}</div>
+      <div class="cli-actions">
+        <button class="act primary" onclick="openCobroRenewGroup(${i})">${etiquetaMensajeRenovacion()}</button>
+        <button class="act ghost" style="flex:none;min-width:${count>1?'148':'105'}px;padding:12px 10px" onclick="openRenewGroup(${i})">${count>1?'🔄 Elegir qué renovar':'🔄 Renovar'}</button>
+      </div>
+    </div>`;
+  }).join(''):`<div class="card"><div class="empty"><div class="ico">✅</div><b>Todo en orden</b>No hay nada en este filtro.</div></div>`;
 }

@@ -26,6 +26,26 @@ function openCobro(id,servicio){
   else fillCobro(id,servicio||(pick(svcs[0]||{},CONFIG.campos.servicio)||''));
   cobroOverlay.classList.add('show');
 }
+function openCobroGrupo(id,servicioIndices=[]){
+  const c=clientes.find(x=>x.id===id);if(!c)return;
+  const wanted=new Set((servicioIndices||[]).map(Number));
+  const svcs=(Array.isArray(c.servicios)?c.servicios:[]).filter((s,i)=>{
+    const original=Number(s?.servicioIndexOriginal??s?._servicioIndexOriginal??i);
+    return wanted.has(Number.isInteger(original)?original:i);
+  });
+  if(!svcs.length)return openCobro(id,'');
+  const title=document.getElementById('cobroTitle');if(title)title.textContent=etiquetaMensajeRenovacion();
+  cobroSub.textContent=nombreCli(c)+(svcs.length>1?` · ${svcs.length} servicios juntos`:` · ${pick(svcs[0],CONFIG.campos.servicio)||'Servicio'}`);
+  cobroTel=(c.telefono||c.telefono_norm||'').toString().replace(/\D/g,'');
+  cobroWa.style.opacity=cobroTel?'1':'.5';cobroWa.style.pointerEvents=cobroTel?'auto':'none';
+  const seg=document.getElementById('cobroSeg');
+  seg.innerHTML=`<div class="seg variant-seg" style="margin-bottom:12px">${['amable','hoy','vencido','ultimo','gracias'].map((v,i)=>`<button class="${i===0?'on':''}" onclick="setCobroVariante('${v}',this)">${({amable:'Amable',hoy:'Hoy vence',vencido:'Vencido',ultimo:'Último aviso',gracias:'Gracias'})[v]}</button>`).join('')}</div>`;
+  const list=svcs.map((s,i)=>{const f=parseFecha(pick(s,CONFIG.campos.vencimiento));return {nm:pick(s,CONFIG.campos.servicio)||('Servicio '+(i+1)),fecha:f,dias:dias(f),precio:precioServicio(s)};});
+  if(list.length===1)cobroCtx={id,cliente:c,servicio:list[0].nm,fecha:list[0].fecha,dias:list[0].dias,precio:list[0].precio};
+  else cobroCtx={id,cliente:c,multi:list};
+  setCobroVariante('amable');
+  cobroOverlay.classList.add('show');
+}
 function fillCobroAll(id,btn){
   if(btn&&btn.closest('.service-seg')){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
   const c=clientes.find(x=>x.id===id);const svcs=Array.isArray(c?.servicios)?c.servicios:[];
@@ -234,6 +254,22 @@ function openComprobante(id,servicio,servicioIndex){
   if(info)info.textContent=f?`Fecha actual: ${fmtFecha(f)}. Elija +1m/+3m o ponga una fecha manual.`:'Sin fecha actual. Ponga la nueva fecha si desea renovar.';
   document.getElementById('compMsg').textContent='';
   document.getElementById('compOverlay').classList.add('show');
+}
+function openComprobanteGrupo(id,servicioIndices=[]){
+  const c=clientes.find(x=>x.id===id);if(!c)return;
+  const svcs=Array.isArray(c.servicios)?c.servicios:[];
+  const wanted=new Set((servicioIndices||[]).map(Number));
+  const first=svcs.find((s,i)=>{const original=Number(s?.servicioIndexOriginal??s?._servicioIndexOriginal??i);return wanted.has(Number.isInteger(original)?original:i);});
+  const firstIx=first?Number(first.servicioIndexOriginal??first._servicioIndexOriginal??svcs.indexOf(first)):0;
+  const firstName=first?(pick(first,CONFIG.campos.servicio)||'Servicio'):'Servicio';
+  openComprobante(id,firstName,firstIx);
+  document.querySelectorAll('#compServices input[type=checkbox]').forEach(ch=>{
+    ch.checked=wanted.has(Number(ch.value));
+    ch.parentElement.classList.toggle('on',ch.checked);
+  });
+  const chosen=selectedCompServices();
+  const sub=document.getElementById('compSub');
+  if(sub)sub.textContent=`${nombreCli(c)} · ${chosen.length} servicio${chosen.length===1?'':'s'} seleccionado${chosen.length===1?'':'s'}`;
 }
 function toggleAllCompServices(btn){const checks=[...document.querySelectorAll('#compServices input[type=checkbox]')],all=checks.every(x=>x.checked);checks.forEach(x=>{x.checked=!all;x.parentElement.classList.toggle('on',!all)});btn.textContent=all?'Seleccionar todos':'Quitar todos'}
 function selectedCompServices(){return [...document.querySelectorAll('#compServices input[type=checkbox]:checked')].map(x=>compCtx.servicios.find(s=>s.servicioIndex===Number(x.value))).filter(Boolean)}

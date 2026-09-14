@@ -515,3 +515,9 @@ body.geisell-mode .nav{justify-content:center}
 @media(max-width:620px){.business-grid{grid-template-columns:1fr 1fr}.business-card:last-child{grid-column:1/-1}.business-card b{font-size:19px}}
 .nav-btn.permission-hidden{display:none!important}
 .catalog-app.is-out{opacity:.62}.catalog-app-actions button:disabled{opacity:.55;cursor:not-allowed;box-shadow:none!important}
+
+/* Renovaciones agrupadas · mismo cliente + misma fecha */
+.renew-group-card .renew-svc-list{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 4px}
+.renew-group-card .renew-svc-chip{display:inline-flex;align-items:center;max-width:100%;padding:6px 9px;border-radius:999px;background:#f3f7fb;border:1px solid #d9e5ef;color:#34516b;font-size:12px;font-weight:900;line-height:1.1}
+.renew-group-card .cli-tel{margin-top:4px}
+@media(max-width:520px){.renew-group-card .cli-actions{gap:8px}.renew-group-card .cli-actions .act{font-size:12px}.renew-group-card .renew-svc-chip{font-size:11px}}
