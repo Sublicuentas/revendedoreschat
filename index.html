@@ -128,13 +128,13 @@ const ROBOT_IMG = "assets/robot-socios.webp";
 
 <div class="quick-overlay" id="partnerQuick" onclick="if(event.target===this)closePartnerQuick()">
   <div class="quick-sheet"><div class="grab"></div><h3>¿Qué desea hacer?</h3><div class="quick-sheet-grid">
-    <button onclick="closePartnerQuick();go('compras')">🛒 Nueva compra</button>
-    <button onclick="closePartnerQuick();go('renovar')">🔄 Renovar cliente</button>
-    <button onclick="closePartnerQuick();go('clientes')">👥 Buscar cliente</button>
-    <button onclick="closePartnerQuick();go('aula')">✨ Abrir Subli IA</button>
-    <button onclick="closePartnerQuick();go('recompensas')">🎁 Recompensas</button>
-    <button onclick="closePartnerQuick();go('precios')">📋 Ver catálogo</button>
-    <button onclick="closePartnerQuick();go('buzon')">📬 Abrir buzón</button>
+    <button data-qv="compras" onclick="closePartnerQuick();go('compras')">🛒 Nueva compra</button>
+    <button data-qv="renovar" onclick="closePartnerQuick();go('renovar')">🔄 Renovar cliente</button>
+    <button data-qv="clientes" onclick="closePartnerQuick();go('clientes')">👥 Buscar cliente</button>
+    <button data-qv="aula" onclick="closePartnerQuick();go('aula')">✨ Abrir Subli IA</button>
+    <button data-qv="recompensas" onclick="closePartnerQuick();go('recompensas')">🎁 Recompensas</button>
+    <button data-qv="precios" onclick="closePartnerQuick();go('precios')">📋 Ver catálogo</button>
+    <button data-qv="buzon" onclick="closePartnerQuick();go('buzon')">📬 Abrir buzón</button>
   </div></div>
 </div>
 
@@ -168,7 +168,8 @@ const ROBOT_IMG = "assets/robot-socios.webp";
     </div>
     <input class="comp-in" id="compQuien" placeholder="¿Quién renovó? (ej. el cliente, yo…)">
     <textarea class="cobro-text" id="compCom" style="min-height:90px" placeholder="Comentario (método de pago, detalle, lo que sea)"></textarea>
-    <input class="comp-in" id="compMonto" type="number" inputmode="decimal" placeholder="Monto (opcional)">
+    <input class="comp-in" id="compMonto" type="number" inputmode="decimal" placeholder="Costo pagado a Sublicuentas (opcional)">
+    <input class="comp-in" id="compVentaCliente" type="number" inputmode="decimal" placeholder="Cobrado al cliente (para calcular utilidad)">
     <div class="comp-renew-box">
       <div class="comp-renew-title">🔄 Renovar fecha del cliente aquí mismo</div>
       <input class="comp-in" id="compNuevaFecha" type="date" placeholder="Nueva fecha de vencimiento">
