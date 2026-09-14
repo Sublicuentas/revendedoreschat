@@ -521,3 +521,9 @@ body.geisell-mode .nav{justify-content:center}
 .renew-group-card .renew-svc-chip{display:inline-flex;align-items:center;max-width:100%;padding:6px 9px;border-radius:999px;background:#f3f7fb;border:1px solid #d9e5ef;color:#34516b;font-size:12px;font-weight:900;line-height:1.1}
 .renew-group-card .cli-tel{margin-top:4px}
 @media(max-width:520px){.renew-group-card .cli-actions{gap:8px}.renew-group-card .cli-actions .act{font-size:12px}.renew-group-card .renew-svc-chip{font-size:11px}}
+
+/* WEB · menú limpio: sin Acciones y Perfil siempre al final */
+@media(min-width:900px){
+  .nav .nav-btn.main-plus{display:none!important}
+  .nav .nav-btn[data-v="perfil"]{order:99!important;margin-top:8px!important}
+}

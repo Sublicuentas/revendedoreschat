@@ -83,9 +83,39 @@ async function vPerfil(){
   const insignias=(gamificacion.insignias||[]).map(b=>`<div class="sales-badge ${b.activa?'on':''}" title="${escAttr(b.detalle||'')}"><i>${escHtml(b.icon||'🏅')}</i><b>${escHtml(b.nombre||'Insignia')}</b></div>`).join('');
   content.innerHTML=`<div class="scr-title">Mi perfil</div><div class="profile-layout"><section class="profile-hero"><div class="profile-photo-wrap"><img class="profile-photo" src="${escAttr(avatar)}" alt="Foto de ${escAttr(nombre)}"><button class="profile-photo-edit" onclick="document.getElementById('socioPhoto').click()">📷</button><input id="socioPhoto" type="file" accept="image/*" hidden onchange="saveSocioPhoto(this)"></div><h2>${escHtml(nombre)}</h2><button class="ask-copy" onclick="toggleEditSocio()">✏️ Editar perfil</button><div id="editSocioBox" style="display:none;margin-top:12px"><input class="comp-in" id="socioNombre" maxlength="45" value="${escAttr(nombre)}" placeholder="Nombre visible"><button class="act primary" style="margin-top:8px" onclick="saveSocioProfile()">Guardar cambios</button></div><p>Progreso personal del socio</p><div class="profile-level">${nivel==='Inmortal'?'👑':nivel==='Leyenda'?'🏆':nivel==='Diamante'?'💎':'⭐'} ${escHtml(nivel)}</div><div class="level-track"><div class="level-chip ${nivel==='Diamante'?'on':''}">💎 Diamante<br>1–9 ventas</div><div class="level-chip ${nivel==='Leyenda'?'on':''}">🏆 Leyenda<br>10–25 ventas</div><div class="level-chip ${nivel==='Inmortal'?'on':''}">👑 Inmortal<br>26+ ventas</div></div></section><div><div class="profile-stats"><div class="profile-stat"><b>${Number(me.ventas||0)}</b><span>Ventas</span></div><div class="profile-stat"><b>${Number(me.score||0)}</b><span>Score</span></div><div class="profile-stat"><b>${Number(me.racha||0)}🔥</b><span>Racha renovaciones</span></div></div><div class="card"><div class="card-h"><h2>Insignias</h2><span>${Number(me.cursos||0)} cursos</span></div><div class="badge-grid">${insignias}</div></div><button class="reward-open" onclick="go('recompensas')">🎁 Ver recompensas de mi nivel <span>›</span></button>${typeof Notification!=='undefined'?`<button class="reward-open" onclick="enablePartnerNotifications()">🔔 ${Notification.permission==='granted'?'Notificaciones activadas':'Activar notificaciones'} <span>›</span></button>`:''}</div></div>`;
 }
-async function saveSocioPhoto(input){const f=input.files?.[0];if(!f)return;try{const avatarData=await compressImage(f,520,.78);await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({avatarData})});await loadGamificacion();vPerfil()}catch(e){alert(e?.error==='foto_invalida'?'La foto no es válida o pesa demasiado.':'No se pudo guardar la foto.')}}
+async function saveSocioPhoto(input){
+  const f=input.files?.[0];if(!f)return;
+  const editBtn=document.querySelector('.profile-photo-edit');
+  const oldTxt=editBtn?.textContent||'📷';if(editBtn){editBtn.disabled=true;editBtn.textContent='⏳';}
+  try{
+    let avatarData=await compressImage(f,420,.72);
+    if(avatarData.length>700000)avatarData=await compressImage(f,320,.66);
+    if(avatarData.length>740000)throw {error:'foto_invalida'};
+    const j=await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({avatarData})});
+    gamificacion.perfil=gamificacion.perfil||{};
+    gamificacion.perfil.avatar=j?.avatar||avatarData;
+    writeSocioCache('gamificacion',gamificacion);applySocioAvatar();
+    if(typeof dataRequests==='object')dataRequests.gamificacion=null;
+    if(typeof syncAt==='object')syncAt.gamificacion=0;
+    await loadGamificacion();
+    if(current==='perfil')await vPerfil();
+  }catch(e){
+    alert(e?.error==='foto_invalida'?'La foto no es válida o pesa demasiado.':'No se pudo guardar la foto. Revise su conexión e intente nuevamente.');
+  }finally{if(editBtn){editBtn.disabled=false;editBtn.textContent=oldTxt;}if(input)input.value='';}
+}
 function toggleEditSocio(){const el=document.getElementById('editSocioBox');if(el)el.style.display=el.style.display==='none'?'block':'none'}
-async function saveSocioProfile(){const nombreMostrar=(document.getElementById('socioNombre')?.value||'').trim();if(nombreMostrar.length<2)return alert('Escriba un nombre válido.');try{await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({nombreMostrar})});rev.nombreMostrar=nombreMostrar;await loadGamificacion();renderTop();vPerfil()}catch(e){alert('No se pudo actualizar el perfil.')}}
+async function saveSocioProfile(){
+  const nombreMostrar=(document.getElementById('socioNombre')?.value||'').trim();if(nombreMostrar.length<2)return alert('Escriba un nombre válido.');
+  try{
+    const j=await API.call('/rev/perfil',{method:'POST',body:JSON.stringify({nombreMostrar})});
+    rev.nombreMostrar=j?.nombreMostrar||nombreMostrar;
+    gamificacion.perfil=gamificacion.perfil||{};gamificacion.perfil.nombreMostrar=rev.nombreMostrar;
+    writeSocioCache('gamificacion',gamificacion);
+    if(typeof dataRequests==='object')dataRequests.gamificacion=null;
+    if(typeof syncAt==='object')syncAt.gamificacion=0;
+    await loadGamificacion();renderTop();if(current==='perfil')await vPerfil();
+  }catch(e){alert('No se pudo actualizar el perfil.');}
+}
 async function vRecompensas(){
   content.innerHTML='<div class="spin"></div>';await loadGamificacion();if(current!=='recompensas')return;
   const me=gamificacion.perfil||{nivel:'Sin nivel',ventas:0},opts=gamificacion.recompensas||[],claims=gamificacion.solicitudes||[];
