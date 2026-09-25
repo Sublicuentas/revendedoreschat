@@ -119,6 +119,34 @@ function purgeSensitiveCaches(){
 /* helpers */
 function pick(o,keys){for(const k of keys){if(o&&o[k]!=null&&o[k]!=='')return o[k]}return null}
 function norm(s){return(s||'').toString().trim().toLowerCase()}
+function catalogCategoryKey(value){
+  return (value||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+function mergeCatalogCategories(groups){
+  if(!Array.isArray(groups))return [];
+  const merged=[],byKey=new Map();
+  for(const raw of groups){
+    if(!raw||typeof raw!=='object')continue;
+    const cat=String(raw.cat||raw.categoria||'Catálogo').trim()||'Catálogo';
+    const key=catalogCategoryKey(cat)||cat.toLowerCase();
+    let target=byKey.get(key);
+    if(!target){
+      target={...raw,cat,items:[]};
+      merged.push(target);byKey.set(key,target);
+    }else{
+      const currentSub=String(target.sub||'').trim(), incomingSub=String(raw.sub||'').trim();
+      if(!currentSub&&incomingSub)target.sub=incomingSub;
+      else if(currentSub&&incomingSub&&catalogCategoryKey(currentSub)!==catalogCategoryKey(incomingSub))target.sub='';
+    }
+    const seen=new Set(target.items.map(it=>String(it?.id||'').trim()||`${norm(it?.n)}|${norm(it?.s)}`));
+    for(const item of Array.isArray(raw.items)?raw.items:[]){
+      const itemKey=String(item?.id||'').trim()||`${norm(item?.n)}|${norm(item?.s)}`;
+      if(seen.has(itemKey))continue;
+      target.items.push(item);seen.add(itemKey);
+    }
+  }
+  return merged;
+}
 function escHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function escAttr(s){return escHtml(s)}
 function normalizeHnPhone(raw){
@@ -217,7 +245,7 @@ function prepareSocioData(){
     syncAt[tipo]=Number(c.at||0);
     if(tipo==='clientes'&&Array.isArray(c.data))clientes=c.data;
     if(tipo==='avisos'&&Array.isArray(c.data))avisos=c.data;
-    if(tipo==='precios'&&Array.isArray(c.data)&&c.data.length)PRECIOS=c.data;
+    if(tipo==='precios'&&Array.isArray(c.data)&&c.data.length)PRECIOS=mergeCatalogCategories(c.data);
     if(tipo==='gamificacion'&&c.data&&typeof c.data==='object')gamificacion=c.data;
     if(tipo==='metricas'&&c.data&&typeof c.data==='object')metricasNegocio=c.data;
     if(tipo==='inventario'&&c.data&&typeof c.data==='object')inventario=c.data;
@@ -446,7 +474,7 @@ async function loadPrecios(){
     try{
       const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
       if(epoch!==socioEpoch)return false;
-      if(Array.isArray(data)&&data.length){PRECIOS=data;writeSocioCache('precios',data)}
+      if(Array.isArray(data)&&data.length){PRECIOS=mergeCatalogCategories(data);writeSocioCache('precios',PRECIOS)}
       return true;
     }catch(e){
       if(epoch!==socioEpoch)return false;
