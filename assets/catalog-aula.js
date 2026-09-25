@@ -200,7 +200,7 @@ function vAula(){
         <div class="ask-grid">${plantillas.map((p,ix)=>`<div class="ask-item"><div class="ai">${p.i}</div><div style="min-width:0"><b>${p.t}</b><p id="askp_${ix}">${p.m}</p><div class="ask-tools"><button onclick='copyAskId("askp_${ix}",event)'>Copiar</button><button onclick='iaVarianteId("askp_${ix}",event)'>✨ IA</button></div></div></div>`).join('')}</div>
       </div>
       <div class="card">
-        <div class="card-h"><h2>Centro de entrenamiento</h2><a onclick="go('clientes')">Finanzas</a></div>
+        <div class="card-h"><h2>Centro de entrenamiento</h2><a onclick="go('clientes')">Clientes</a></div>
         <p style="color:var(--muted);font-weight:800;font-family:var(--fn);font-size:13.5px;line-height:1.45">Cursos rápidos para socios: atención, renovaciones, instalación y cierre de ventas.</p>
         <div class="aula-grid">
           <div class="aula-item"><div class="ai">💬</div><div><b>Atención al cliente</b><p>Responda corto, claro y siempre de usted. Confirme dispositivo antes de vender IPTV.</p><button class="ask-copy" onclick="completarCurso('atencion',this)">✓ Marcar completado</button></div></div>

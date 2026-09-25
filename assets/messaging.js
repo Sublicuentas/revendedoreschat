@@ -384,7 +384,7 @@ function setNetworkStatus(online,announce=true){
   if(online&&announce)netHideTimer=setTimeout(()=>el.classList.remove('show'),2200);
 }
 window.addEventListener('offline',()=>setNetworkStatus(false,false));
-window.addEventListener('online',()=>{setNetworkStatus(true,true);if(API.token){loadClientes();loadPrecios();loadMetricas();loadInventario();if(!socioSinCompras())loadMisCompras()}});
+window.addEventListener('online',()=>{setNetworkStatus(true,true);if(API.token)refreshCurrentData(true)});
 if(typeof navigator!=='undefined'&&!navigator.onLine)setNetworkStatus(false,false);
 window.addEventListener('beforeinstallprompt',e=>{
   e.preventDefault();deferredInstallPrompt=e;
@@ -397,8 +397,19 @@ async function installPwa(){
   try{await deferredInstallPrompt.userChoice}catch(_){}
   deferredInstallPrompt=null;document.getElementById('installAppBtn')?.classList.add('hide');
 }
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){smartRefreshAfterResume();window.__subliSwReg?.update?.().catch(()=>{})}});
+window.addEventListener('focus',()=>{smartRefreshAfterResume();window.__subliSwReg?.update?.().catch(()=>{})});
+
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-  navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  const hadController=!!navigator.serviceWorker.controller;
+  let reloadingForUpdate=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(hadController&&!reloadingForUpdate){reloadingForUpdate=true;location.reload()}
+  });
+  navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(reg=>{
+    window.__subliSwReg=reg;
+    reg.update().catch(()=>{});
+  }).catch(()=>{});
 }
 
 /* ===== INTRO ===== */

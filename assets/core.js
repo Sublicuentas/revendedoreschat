@@ -3,9 +3,58 @@ let isAdmin=false, adminToken=null, adminRevs=[], adminComps=[], adminCompras=[]
 let socioEpoch=0;
 let metricasNegocio=null, inventario={}, misCompras=[];
 let syncAt={clientes:0,avisos:0,precios:0,gamificacion:0,metricas:0,inventario:0,compras:0};
-const DATA_TTL={clientes:60000,avisos:120000,precios:300000,gamificacion:120000,metricas:120000,inventario:60000,compras:45000};
+const DATA_TTL={clientes:15000,avisos:30000,precios:60000,gamificacion:60000,metricas:30000,inventario:20000,compras:20000};
 const dataRequests={clientes:null,avisos:null,precios:null,gamificacion:null,metricas:null,inventario:null,compras:null};
 const optionalUnavailable=new Set();
+let syncBusyCount=0,lastResumeRefresh=0;
+
+function syncTypesForView(v=current){
+  const restricted=socioSinCompras();
+  const map={
+    inicio:['clientes','metricas','avisos'],
+    clientes:['clientes'],
+    renovar:['clientes'],
+    precios:['precios','inventario','gamificacion'],
+    compras:['compras','inventario','precios'],
+    buzon:['avisos'],
+    perfil:['gamificacion'],
+    recompensas:['gamificacion'],
+    aula:[]
+  };
+  return (map[v]||['clientes']).filter(t=>!(restricted&&['avisos','gamificacion','compras'].includes(t)));
+}
+function syncAgeText(ms){
+  if(!ms)return 'Sin sincronizar';
+  const sec=Math.max(0,Math.floor((Date.now()-ms)/1000));
+  if(sec<5)return 'Actualizado ahora';
+  if(sec<60)return `Actualizado hace ${sec} s`;
+  const min=Math.floor(sec/60);return `Actualizado hace ${min} min`;
+}
+function updateSyncStatus(){
+  const el=document.getElementById('syncStatus'),btn=document.getElementById('syncBtn');
+  if(!el)return;
+  if(syncBusyCount>0){el.textContent='Actualizando…';el.classList.add('busy');btn?.classList.add('spinning');return}
+  el.classList.remove('busy');btn?.classList.remove('spinning');
+  const times=syncTypesForView().map(t=>Number(syncAt[t]||0)).filter(Boolean);
+  el.textContent=syncAgeText(times.length?Math.min(...times):0);
+}
+function setSyncBusy(delta){syncBusyCount=Math.max(0,syncBusyCount+delta);updateSyncStatus()}
+function markSyncStale(types){(types||[]).forEach(t=>{syncAt[t]=0})}
+function refreshCurrentData(force=false){
+  if(!API.token||isAdmin&&!impersonating)return Promise.resolve([]);
+  const types=syncTypesForView();if(force)markSyncStale(types);
+  const jobs=[];
+  const add=(t,fn)=>{if(types.includes(t)&&(force||!dataFresh(t)))jobs.push(fn())};
+  add('clientes',loadClientes);add('avisos',loadAvisos);add('precios',loadPrecios);add('gamificacion',loadGamificacion);add('metricas',loadMetricas);add('inventario',loadInventario);add('compras',loadMisCompras);
+  if(!jobs.length){updateSyncStatus();return Promise.resolve([])}
+  return Promise.allSettled(jobs).finally(updateSyncStatus);
+}
+function smartRefreshAfterResume(){
+  if(!API.token||document.visibilityState==='hidden')return;
+  const now=Date.now();if(now-lastResumeRefresh<2500)return;lastResumeRefresh=now;
+  refreshCurrentData(false);
+}
+setInterval(updateSyncStatus,10000);
 
 /* API · timeout + reintento seguro para lecturas */
 const API={
@@ -116,13 +165,15 @@ function readSocioCache(tipo){
 function writeSocioCache(tipo,data){
   const at=Date.now();syncAt[tipo]=at;
   try{sst('set',socioCacheKey(tipo),JSON.stringify({at,data}))}catch(_){}
+  updateSyncStatus();
 }
 function dataFresh(tipo){return Date.now()-Number(syncAt[tipo]||0)<Number(DATA_TTL[tipo]||0)}
 function runSocioRequest(tipo,runner){
   const epoch=socioEpoch,active=dataRequests[tipo];
   if(active&&active.epoch===epoch)return active.promise;
   const holder={epoch,promise:null};
-  holder.promise=Promise.resolve().then(()=>runner(epoch)).finally(()=>{if(dataRequests[tipo]===holder)dataRequests[tipo]=null});
+  setSyncBusy(1);
+  holder.promise=Promise.resolve().then(()=>runner(epoch)).finally(()=>{if(dataRequests[tipo]===holder)dataRequests[tipo]=null;setSyncBusy(-1)});
   dataRequests[tipo]=holder;
   return holder.promise;
 }
@@ -188,7 +239,7 @@ function estado(d){const n=dias(d);
   if(n===null)return{c:'mut',t:'Sin fecha',n:9999};
   if(n<0)return{c:'exp',t:`Corte hace ${Math.abs(n)}d`,n};
   if(n===0)return{c:'due',t:'Pago hoy',n};
-  if(n<=CONFIG.avisoDias)return{c:'soon',t:`En ${n}d`,n};
+  if(n<=Number(CONFIG.avisoDias??7))return{c:'soon',t:`En ${n}d`,n};
   return{c:'ok',t:`En ${n}d`,n};
 }
 function nombreCli(c){return c.nombrePerfil||c.nombre||c.nombre_norm||'Cliente'}
@@ -292,8 +343,10 @@ function clienteTieneVigente(c){return (Array.isArray(c.servicios)?c.servicios:[
 function esClienteVigente(c){return clienteTieneVigente(c)}
 function esClienteNoVigente(c){return !clienteTieneVigente(c)}
 function estadoCliente(c){
-  return esClienteVigente(c)?{c:'ok',t:'Vigente'}:{c:'exp',t:'No vigente'};
+  return esClienteVigente(c)?{c:'ok',t:'Vigente'}:{c:'exp',t:'Sin servicio vigente'};
 }
+function clientIdentity(c){return String(c?.id||c?.uid||normalizeHnPhone(c?.telefono||c?.telefono_norm||'')||norm(nombreCli(c))||'sin-id')}
+function uniqueClientCount(rows){return new Set((rows||[]).map(r=>clientIdentity(r?.cliente||r)).filter(Boolean)).size}
 
 function flat(){const out=[];
   clientes.forEach(c=>(Array.isArray(c.servicios)?c.servicios:[]).forEach((s,ix)=>{
@@ -373,27 +426,17 @@ function enterApp(){
   renderTop();
   actualizarFechaHora();
   toggleImpBar();
-  catalogCategoria='';compraSels=[];compraPickerOpen=false;
+  catalogCategoria='';compraSels=[];compraPickerOpen=false;if(typeof resetCompraDraft==='function')resetCompraDraft();
   go(vistaGeisellPermitida('inicio')?'inicio':firstAllowedView());
   loadSocioSession();
-  loadPrecios().then(()=>{if(current==='precios')vPrecios()});
+  // Inicio prioriza los datos que realmente usa. Catálogo, inventario y compras
+  // se actualizan al entrar a esas vistas para no frenar la apertura del panel.
   loadClientes();
   loadMetricas();
-  loadInventario();
-  if(!restricted){
-    loadAvisos();
-    loadGamificacion();
-    loadMisCompras();
-  }
+  if(!restricted){loadAvisos();loadGamificacion()}
   clearInterval(window.__subliInboxTimer);
-  window.__subliInboxTimer=setInterval(()=>{
-    loadSocioSession();
-    if(vistaGeisellPermitida('clientes'))loadClientes();
-    loadMetricas();loadInventario();
-    if(vistaGeisellPermitida('buzon'))loadAvisos();
-    if(vistaGeisellPermitida('recompensas'))loadGamificacion();
-    if(vistaGeisellPermitida('compras'))loadMisCompras();
-  },120000);
+  window.__subliInboxTimer=setInterval(()=>{loadSocioSession();refreshCurrentData(false)},60000);
+  updateSyncStatus();
 }
 /* Trae el catálogo real (lo administra Sublichat). Si falla, se queda
    con el PRECIOS de respaldo definido arriba — el socio nunca se queda
@@ -610,7 +653,7 @@ function volverAdmin(){
 async function loadClientes(){
   return runSocioRequest('clientes',async(epoch)=>{
     try{
-      const data=await API.call('/rev/clientes');
+      const data=await API.call('/rev/clientes?_='+Date.now(),{cache:'no-store',timeoutMs:12000});
       if(epoch!==socioEpoch)return clientes;
       clientes=Array.isArray(data)?data:[];writeSocioCache('clientes',clientes);
       if(current==='inicio')vInicio();
@@ -640,7 +683,7 @@ async function loadAvisos(){
   return runSocioRequest('avisos',async(epoch)=>{
     try{
       const prevTs=maxAvisoTs();
-      const data=await API.call('/rev/avisos');
+      const data=await API.call('/rev/avisos?_='+Date.now(),{cache:'no-store',timeoutMs:12000});
       if(epoch!==socioEpoch)return avisos;
       avisos=Array.isArray(data)?data:[];writeSocioCache('avisos',avisos);
       if(prevTs>0&&typeof notifyPartnerAvisos==='function'){
@@ -745,6 +788,7 @@ function go(v){
   (views[v]||vInicio)();
   if(['inicio','clientes','renovar'].includes(v)&&!dataFresh('clientes'))loadClientes();
   if(v==='inicio'&&!dataFresh('metricas'))loadMetricas();
+  if(!restricted&&v==='inicio'&&!dataFresh('avisos'))loadAvisos();
   if(!restricted&&v==='compras'&&!dataFresh('compras'))loadMisCompras();
   if(['precios','compras'].includes(v)&&!dataFresh('inventario'))loadInventario();
   if(!restricted&&v==='buzon'&&!dataFresh('avisos'))loadAvisos();
@@ -754,7 +798,7 @@ function go(v){
     if(!restricted&&!dataFresh('gamificacion'))jobs.push(loadGamificacion());
     if(jobs.length)Promise.allSettled(jobs).then(()=>{if(current==='precios')vPrecios()});
   }
-  actualizarBadgeBuzon();
+  actualizarBadgeBuzon();updateSyncStatus();
 }
 function openPartnerQuick(){if(!socioSinCompras())document.getElementById('partnerQuick')?.classList.add('show')}
 function closePartnerQuick(){document.getElementById('partnerQuick')?.classList.remove('show')}

@@ -5,6 +5,7 @@ function vInicio(){
   const hoy=fs.filter(s=>s.est.n===0);
   const semana=fs.filter(s=>s.est.n>=0&&s.est.n<=7);
   const vencidos=fs.filter(s=>s.est.n<0);
+  const clientesVencidos=uniqueClientCount(vencidos);
   const ok=fs.filter(s=>s.est.c==='ok').length;
   const vigentes=fs.filter(s=>esVigente(s.est));
   const cliVigentes=clientes.filter(clienteTieneVigente).length;
@@ -14,8 +15,8 @@ function vInicio(){
   const carteraSemana=semana.reduce((a,s)=>a+(s.precio||0),0);
   const activaPct=clientes.length?Math.round((cliVigentes/clientes.length)*100):0;
   const prox=fs.filter(s=>s.est.n<9999).slice(0,4);
-  const tituloHoy=hoy.length?`${hoy.length} ${hoy.length===1?'cuenta vence':'cuentas vencen'} hoy`:'Hoy no tiene vencimientos';
-  const detalleHoy=`${hoy.length} hoy · ${semana.length} esta semana · ${vencidos.length} vencidas · ${money(carteraHoy)}`;
+  const tituloHoy=hoy.length?`${hoy.length} ${hoy.length===1?'servicio vence':'servicios vencen'} hoy`:'Hoy no tiene vencimientos';
+  const detalleHoy=`${hoy.length} hoy · ${semana.length} esta semana · ${vencidos.length} servicios vencidos · ${money(carteraHoy)}`;
   const m=metricasNegocio&&typeof metricasNegocio==='object'?metricasNegocio:{};
   const operadoMes=Number(m.operadoMes??m.costoMes??NaN);
   const operacionesMes=Number(m.operacionesMes??NaN);
@@ -43,7 +44,7 @@ function vInicio(){
     <img class="partner-mascot" src="${ROBOT_IMG}" alt="Mascota Sublicuentas" decoding="async">
   </section>
   ${avisos.length?`<div class="aviso-card"><div class="ah">📣 AVISOS</div>${avisos.slice(0,3).map(a=>`<div class="aviso-item"><div class="at">${escHtml(a.texto)}</div><div class="am">${escHtml(a.autor||'Sublicuentas')} · hace ${tiempoDesde(a.ts)}</div></div>`).join('')}</div>`:''}
-  ${vencidos.length?`<div class="cut-alert"><b>🚨 ${vencidos.length} cliente${vencidos.length===1?'':'s'} con pago vencido</b><span>Hay ${money(carteraVencida)} por recuperar. Puede cobrar o registrar la renovación desde Renovaciones.</span></div>`:''}
+  ${clientesVencidos?`<div class="cut-alert"><b>🚨 ${clientesVencidos} cliente${clientesVencidos===1?'':'s'} con pago vencido</b><span>${vencidos.length} servicio${vencidos.length===1?'':'s'} vencido${vencidos.length===1?'':'s'} · ${money(carteraVencida)} por recuperar. Puede cobrar o registrar la renovación desde Renovaciones.</span></div>`:''}
   <div class="today-card">
     <div class="bell">🔔</div>
     <div class="txt"><h2>${tituloHoy}</h2><p>${detalleHoy}</p></div>
@@ -63,9 +64,9 @@ function vInicio(){
   </div>
 
   <div class="grid3">
-    <div class="stat"><div class="si3 exp">⛔</div><div class="sv">${vencidos.length}</div><div class="sl">Vencidos</div></div>
-    <div class="stat"><div class="si3 warn">⏰</div><div class="sv">${semana.length}</div><div class="sl">Esta semana</div></div>
-    <div class="stat"><div class="si3 good">✅</div><div class="sv">${ok}</div><div class="sl">Al día</div></div>
+    <div class="stat"><div class="si3 exp">⛔</div><div class="sv">${vencidos.length}</div><div class="sl">Serv. vencidos</div></div>
+    <div class="stat"><div class="si3 warn">⏰</div><div class="sv">${semana.length}</div><div class="sl">Serv. semana</div></div>
+    <div class="stat"><div class="si3 good">✅</div><div class="sv">${ok}</div><div class="sl">Serv. al día</div></div>
   </div>
 
   <div class="motiva-card"><div class="spark">✨</div><p>${motivacionDelDia()}</p></div>
@@ -137,7 +138,24 @@ function renRow(s){
 
 /* COMPRAS NUEVAS · conectadas al catálogo + combos */
 let compraSels=[], compraDestino='sublicuentas', compraImg='', compraPickerOpen=false;
+let compraDraft={fields:{},monto:'',montoManual:false,comentario:''};
 let catalogCategoria='';
+function resetCompraDraft(){compraDraft={fields:{},monto:'',montoManual:false,comentario:''}}
+function compraDraftVal(id,def=''){const v=compraDraft.fields?.[id];return v==null?def:String(v)}
+function captureCompraDraft(){
+  const host=document.getElementById('compraForm');if(!host)return;
+  host.querySelectorAll('input[id^="buy_"],textarea[id^="buy_"]').forEach(el=>{
+    if(el.type==='file')return;
+    if(el.id==='buyMonto'){compraDraft.monto=el.value;const base=Number(el.dataset.defaultTotal||0),actual=Number(el.value||0);compraDraft.montoManual=Number.isFinite(actual)&&Math.abs(actual-base)>.001;return}
+    if(el.id==='buyComentario'){compraDraft.comentario=el.value;return}
+    compraDraft.fields[el.id]=el.value;
+  });
+}
+function markCompraMontoManual(el){const base=Number(el?.dataset?.defaultTotal||0),actual=Number(el?.value||0);compraDraft.monto=el?.value||'';compraDraft.montoManual=Number.isFinite(actual)&&Math.abs(actual-base)>.001;const note=document.getElementById('buyMontoNote');if(note){note.textContent=compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Monto igual al total calculado';note.classList.toggle('warn',compraDraft.montoManual)}}
+function restoreCompraReceiptPreview(){
+  if(!compraImg)return;const prev=document.getElementById('buyPrev'),ph=document.getElementById('buyPh');if(prev){prev.src=compraImg;prev.style.display='block'}if(ph)ph.style.display='none';
+}
+
 function compraSlug(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'producto'}
 function compraEmoji(nombre,cat){
   const t=norm((nombre||'')+' '+(cat||''));
@@ -232,32 +250,32 @@ function compraResumenTxt(){
   if(m.items.length<=1)return `${m.items.length} producto · ${m.items[0]?.precioTxt||''}`;
   return `${m.items.length} productos · Subtotal Lps. ${m.subtotal} · Descuento Lps. ${m.descuento} · Total Lps. ${m.total}${m.items.length>5?' · descuento máximo aplicado':''}${m.hayComision?' + comisión':''}`;
 }
-function setCompraProducto(id){compraSels=[id];compraImg='';compraPickerOpen=false;renderCompraForm()}
+function setCompraProducto(id){captureCompraDraft();compraSels=[id];compraPickerOpen=false;renderCompraForm()}
 function toggleCompraProducto(id){
-  compraEnsureSel();
+  captureCompraDraft();compraEnsureSel();
   if(compraSels.includes(id)){
     compraSels=compraSels.filter(x=>x!==id);
   }else{
     compraSels.push(id);
   }
-  compraImg=''; renderCompraForm();
+  renderCompraForm();
 }
-function toggleCompraPicker(){compraPickerOpen=!compraPickerOpen;renderCompraForm()}
+function toggleCompraPicker(){captureCompraDraft();compraPickerOpen=!compraPickerOpen;renderCompraForm()}
 function setCompraDestino(d){compraDestino=d;document.querySelectorAll('.destino-seg button').forEach(b=>b.classList.toggle('on',b.dataset.dest===d))}
 function buyFid(p,field){return `buy_${field}_${p.id}`}
 // ✅ NUEVO: selector de dispositivo (TV/Celular/Tablet/Computadora) — solo
 // para las 6 plataformas que lo piden (ver compraPideDispositivo).
 function compraDispositivoHtml(p){
-  const opciones=[['tv','📺 TV'],['celular','📱 Celular'],['tablet','📱 Tablet'],['computadora','💻 Computadora']];
+  const opciones=[['tv','📺 TV'],['celular','📱 Celular'],['tablet','📱 Tablet'],['computadora','💻 Computadora']],selected=compraDraftVal(buyFid(p,'dispositivo'));
   return `<div class="buy-dispositivo">
     <small class="buy-disp-label">¿En qué dispositivo va este perfil?</small>
-    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt" data-disp="${v}" onclick="setCompraDispositivo('${p.id}','${v}',this);return false">${l}</button>`).join('')}</div>
-    <input type="hidden" id="${buyFid(p,'dispositivo')}" value="">
+    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt ${selected===v?'on':''}" data-disp="${v}" onclick="setCompraDispositivo('${p.id}','${v}',this);return false">${l}</button>`).join('')}</div>
+    <input type="hidden" id="${buyFid(p,'dispositivo')}" value="${escAttr(selected)}">
   </div>`;
 }
 function compraMarcaTvHtml(p){
-  const opciones=[['samsung','Samsung'],['lg','LG'],['tcl','TCL'],['roku','Roku TV'],['otro','Otra']];
-  return `<div class="buy-dispositivo"><small class="buy-disp-label">¿En qué marca o sistema de TV usará IPTV?</small><div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt" data-marca="${v}" onclick="setCompraMarcaTv('${p.id}','${v}',this);return false">📺 ${l}</button>`).join('')}</div><input type="hidden" id="${buyFid(p,'marcaTv')}" value=""><input class="comp-in" id="${buyFid(p,'marcaTvOtra')}" placeholder="Especifique marca y modelo" style="display:none;margin-top:9px"></div>`;
+  const opciones=[['samsung','Samsung'],['lg','LG'],['tcl','TCL'],['roku','Roku TV'],['otro','Otra']],selected=compraDraftVal(buyFid(p,'marcaTv')),otra=compraDraftVal(buyFid(p,'marcaTvOtra'));
+  return `<div class="buy-dispositivo"><small class="buy-disp-label">¿En qué marca o sistema de TV usará IPTV?</small><div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt ${selected===v?'on':''}" data-marca="${v}" onclick="setCompraMarcaTv('${p.id}','${v}',this);return false">📺 ${l}</button>`).join('')}</div><input type="hidden" id="${buyFid(p,'marcaTv')}" value="${escAttr(selected)}"><input class="comp-in" id="${buyFid(p,'marcaTvOtra')}" value="${escAttr(otra)}" placeholder="Especifique marca y modelo" style="display:${selected==='otro'?'block':'none'};margin-top:9px"></div>`;
 }
 function setCompraMarcaTv(pid,val,btn){const input=document.getElementById(`buy_marcaTv_${pid}`);if(input)input.value=val;btn?.parentElement?.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.marca===val));const otro=document.getElementById(`buy_marcaTvOtra_${pid}`);if(otro)otro.style.display=val==='otro'?'block':'none'}
 function setCompraDispositivo(pid,val){
@@ -267,13 +285,12 @@ function setCompraDispositivo(pid,val){
 }
 function compraCampos(p){
   if(p.tipo==='perfil'){
-    const base=`<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" placeholder="Apellido del perfil"></div>`;
+    const base=`<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" value="${escAttr(compraDraftVal(buyFid(p,'perfilNombre')))}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" value="${escAttr(compraDraftVal(buyFid(p,'perfilApellido')))}" placeholder="Apellido del perfil"></div>`;
     return p.pideDispositivo ? base+compraDispositivoHtml(p) : base;
   }
-  // ✅ Gemini y Canva: es invitación al correo, no perfil con clave — se pide
-  // el correo Y el nombre del cliente (para saber a quién se le invitó).
-  if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'nombreCliente')}" placeholder="Nombre del cliente" style="margin-bottom:8px"><input class="comp-in" id="${buyFid(p,'correo')}" type="email" placeholder="Correo del cliente">`;
-  if(p.tipo==='detalle')return `<input class="comp-in" id="${buyFid(p,'detalle')}" placeholder="Detalle requerido: ID, número, plan o indicación del cliente">`;
+  // Gemini y Canva: invitación al correo + nombre del cliente.
+  if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'nombreCliente')}" value="${escAttr(compraDraftVal(buyFid(p,'nombreCliente')))}" placeholder="Nombre del cliente" style="margin-bottom:8px"><input class="comp-in" id="${buyFid(p,'correo')}" value="${escAttr(compraDraftVal(buyFid(p,'correo')))}" type="email" placeholder="Correo del cliente">`;
+  if(p.tipo==='detalle')return `<input class="comp-in" id="${buyFid(p,'detalle')}" value="${escAttr(compraDraftVal(buyFid(p,'detalle')))}" placeholder="Detalle requerido: ID, número, plan o indicación del cliente">`;
   if(p.tipo==='acceso')return `${compraEsIptv(p)?compraMarcaTvHtml(p):''}<div class="buy-note"><b>Entrega:</b> este producto se entrega con acceso. Adjunte comprobante; use comentario si necesita dejar una indicación.</div>`;
   if(p.tipo==='serial_key')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con key / serial. El encargado lo entrega después de revisar el comprobante.</div>`;
   if(p.tipo==='serial')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con serial/licencia. El encargado lo entrega después de revisar el comprobante.</div>`;
@@ -318,6 +335,7 @@ function vCompras(){
   renderCompraForm();
 }
 function renderCompraForm(){
+  captureCompraDraft();
   const items=compraSeleccionados(), p=compraProducto(), m=compraMath();
   const el=document.getElementById('compraForm'); if(!el)return;
   const pickedNames=items.length?items.map(x=>`${x.emoji} ${x.nombre}`).join(' + '):'Toque aquí para elegir del catálogo';
@@ -336,8 +354,10 @@ function renderCompraForm(){
     </div>
     <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
     ${compraDatosHtml(items)}
-    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto pagado a Sublicuentas" value="${m.total||''}">
-    <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: método de pago, urgencia o detalle del cliente…"></textarea>
+    <div class="buy-money-summary"><span>Total calculado</span><b>${money(m.total)}</b></div>
+    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto realmente pagado a Sublicuentas" data-default-total="${m.total}" value="${escAttr(compraDraft.montoManual?compraDraft.monto:(m.total||''))}" oninput="markCompraMontoManual(this)">
+    <div class="buy-monto-note ${compraDraft.montoManual?'warn':''}" id="buyMontoNote">${compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Monto igual al total calculado'}</div>
+    <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: método de pago, urgencia o detalle del cliente…">${escHtml(compraDraft.comentario||'')}</textarea>
     <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
     <div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()">
       <div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small style="display:block;margin-top:4px;color:#7890AA;font-weight:900">Seleccione la captura guardada, no cámara.</small></div>
@@ -346,6 +366,7 @@ function renderCompraForm(){
     <button class="act primary buy-submit" id="buyBtn" onclick="enviarCompra()" ${items.length?'':'disabled'}>${items.length?'Enviar compra':'Seleccione un producto'}</button>
     <div id="buyMsg" style="text-align:center;font-weight:900;font-size:13px;margin-top:10px;min-height:16px;font-family:var(--fn)"></div>
   </div>`;
+  restoreCompraReceiptPreview();
 }
 async function pickCompra(input){
   const f=input.files&&input.files[0]; if(!f)return;
@@ -376,6 +397,9 @@ async function enviarCompra(){
     });
   }
   if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
+  const montoReal=num(val('buyMonto')||m.total),montoModificado=Math.abs(montoReal-Number(m.total||0))>.001;
+  let comentario=val('buyComentario');
+  if(montoModificado){const nota=`Monto modificado manualmente: calculado ${money(m.total)} → pagado ${money(montoReal)}`;comentario=comentario?`${comentario} · ${nota}`:nota}
   const btn=document.getElementById('buyBtn'); btn.disabled=true; btn.textContent='Enviando…';
   try{
     const r=await API.call('/rev/compra',{method:'POST',body:JSON.stringify({
@@ -386,11 +410,11 @@ async function enviarCompra(){
       subtotalCatalogo:m.subtotal,
       descuentoCombo:m.descuento,
       totalCombo:m.total,
-      monto:val('buyMonto')||m.total,
-      comentario:val('buyComentario'), imagen:compraImg
+      monto:montoReal, montoCalculado:m.total, montoModificado,
+      comentario, imagen:compraImg
     })});
     msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';
-    compraImg=''; compraSels=[]; compraPickerOpen=true;
+    compraImg=''; compraSels=[]; compraPickerOpen=true;resetCompraDraft();
     loadMisCompras();
     setTimeout(()=>renderCompraForm(),900);
   }catch(e){
@@ -474,7 +498,7 @@ function vClientes(){
     <div class="finance-head"><h2>${geisell?'Resumen de renovaciones':'Resumen de cobros'}</h2><span>${fs.length} servicios</span></div>
     <div class="finance-grid">
       <div class="finance-mini good"><b>${cliVig}</b><span>👤 Clientes vigentes · en fecha</span></div>
-      <div class="finance-mini exp"><b>${cliNoVig}</b><span>🚫 No vigentes · dejaron de contratar</span></div>
+      <div class="finance-mini exp"><b>${cliNoVig}</b><span>🚫 Sin servicio vigente</span></div>
       <div class="finance-mini"><b>${semana.length}</b><span>${geisell?'Renuevan':'Cobrar'} esta semana · ${money(montoSemana)}</span></div>
       <div class="finance-mini"><b>${vencidos.length}</b><span>Vencidos · ${money(montoVencido)}</span></div>
     </div>
@@ -483,7 +507,7 @@ function vClientes(){
     <div class="bar-row"><div class="lab"><span>Cartera vigente</span><b>${money(cartera)}</b></div><div class="bar"><i style="width:${Math.max(4,Math.round((cartera/max)*100))}%"></i></div></div>
   </div>
   <div class="seg" id="cliSeg" style="margin:0 0 12px">
-    ${[['todos','Todos',clientes.length],['vigentes','Vigentes',cliVig],['novigentes','No vigentes',cliNoVig]].map(([k,l,n])=>
+    ${[['todos','Todos',clientes.length],['vigentes','Vigentes',cliVig],['novigentes','Sin servicio vigente',cliNoVig]].map(([k,l,n])=>
       `<button class="${cliEstado===k?'on':''}" onclick="cliEstado='${k}';renderCli()">${l} · ${n}</button>`).join('')}
   </div>
   <div class="search">
