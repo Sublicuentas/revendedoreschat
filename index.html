@@ -26,7 +26,9 @@ const CONFIG = {
   // Intro de video al abrir. Poné la URL de tu .mp4 (o dejá "" para usar la animación de marca).
   introVideo: "",
   // Intro corta solo en la primera visita de la pestaña. Las sesiones activas la omiten.
-  introDuracion: 900
+  introDuracion: 900,
+  // Días que se consideran "Por vencer" en renovaciones.
+  avisoDias: 7
 };
 const LOGO = "assets/robot-socios.webp";
 const ROBOT_IMG = "assets/robot-socios.webp";
@@ -102,7 +104,9 @@ const ROBOT_IMG = "assets/robot-socios.webp";
       <h1>Sublicuentas</h1>
       <span class="greet" id="greet">Panel de socios</span>
       <span class="fecha-hora" id="fechaHora"></span>
+      <span class="sync-status" id="syncStatus">Sin sincronizar</span>
     </div>
+    <button class="icon-btn sync-btn" id="syncBtn" onclick="refreshCurrentData(true)" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
     <button class="icon-btn hide" id="installAppBtn" onclick="installPwa()" aria-label="Instalar aplicación" title="Instalar aplicación">📲</button>
     <button class="icon-btn partner-inbox-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
     <button class="icon-btn" onclick="logout()" aria-label="Salir">
