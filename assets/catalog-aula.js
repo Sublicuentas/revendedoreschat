@@ -127,6 +127,16 @@ function catalogIcon(cat,i){const t=norm(cat);if(/stream|pelicula|series/.test(t
 function catalogAppStyle(i){const a=[['linear-gradient(145deg,#ffad43,#f07827)','rgba(240,120,39,.25)'],['linear-gradient(145deg,#24d9bd,#0aa58d)','rgba(10,165,141,.25)'],['linear-gradient(145deg,#ed66df,#b944d6)','rgba(185,68,214,.25)'],['linear-gradient(145deg,#40c8f2,#248be0)','rgba(36,139,224,.25)'],['linear-gradient(145deg,#8969ee,#6741ce)','rgba(103,65,206,.25)']];return a[i%a.length]}
 function openCatalogCategory(ix){catalogCategoria=String(ix);vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function closeCatalogCategory(){catalogCategoria='';vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
+function catalogDetailIcon(line){
+  const x=String(line||'').trim();if(!x)return'';if(/^[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u.test(x))return x;
+  const t=norm(x);let i='ℹ️';if(/perfil/.test(t))i='👤';else if(/dispositivo|pantalla|reproduce/.test(t))i='📱';else if(/bot|codigo/.test(t))i='🤖';else if(/garant|caida/.test(t))i='🛡️';else if(/invitacion/.test(t))i='✉️';else if(/correo/.test(t))i='📧';else if(/pin/.test(t))i='🔐';else if(/iptv|tv digital|usuario/.test(t))i='📡';else if(/serial|key|licencia/.test(t))i='🔑';else if(/acceso/.test(t))i='🔐';return `${i} ${x}`;
+}
+function catalogDetailHtml(raw){const lines=String(raw||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(!lines.length)return '<span>ℹ️ Consulte disponibilidad y condiciones antes de confirmar la venta.</span>';return lines.map(x=>`<span>${escHtml(catalogDetailIcon(x))}</span>`).join('')}
+function catalogDeliveryBadge(it){
+  const c=String(it?.entregaCanal||'manual');
+  const labels={bot_tg:'🤖 Activación por código',inventario:'⚡ Entrega desde inventario',invitacion:'✉️ Invitación al correo',iptv:'📡 Entrega TV Digital'};
+  return labels[c]?`<div class="catalog-delivery-badge">${labels[c]}</div>`:'';
+}
 function copyCatalogPrice(btn){const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)}
 function buyFromCatalog(ix){if(socioSinCompras())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');compraSels=[found.id];compraPickerOpen=false;go('compras')}}
 function vPrecios(){
@@ -156,7 +166,7 @@ function vPrecios(){
       const copyBtn=`<button data-copy="${escAttr(copy)}" onclick="copyCatalogPrice(this)">📋 Copiar precio</button>`;
       const buyBtn=stock.available?`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button>`:`<button disabled aria-disabled="true">⛔ Agotado</button>`;
       const actions=restricted?copyBtn:buyBtn+copyBtn;
-      return `<article class="catalog-app ${!stock.available?'is-out':''}"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${escHtml(it.n)}</b><small>${escHtml(it.s||'Servicio disponible')}</small><em class="stock-badge ${stock.key}">${escHtml(stock.label)}</em></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="catalog-app-desc">${escHtml(it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.')}</div><div class="catalog-app-actions">${actions}</div></article>`;
+      return `<article class="catalog-app ${!stock.available?'is-out':''}"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${escHtml(it.n)}</b><small>${escHtml(it.s||'Servicio disponible')}</small><em class="stock-badge ${stock.key}">${escHtml(stock.label)}</em></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="catalog-app-desc catalog-detail-lines">${catalogDetailHtml(it.d)}</div>${catalogDeliveryBadge(it)}<div class="catalog-app-actions">${actions}</div></article>`;
     }).join('');
     content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${escHtml(g.cat)}</h2><p>${g.sub?escHtml(g.sub):`${g.items.length} opciones disponibles para sus clientes`}</p></div>${accessNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div></div>`;
     return;

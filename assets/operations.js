@@ -179,6 +179,8 @@ function compraEmoji(nombre,cat){
   return '🛒';
 }
 function compraTipoDesdeCatalogo(it,cat){
+  const explicito=String(it?.entregaTipo||'').toLowerCase();
+  if(['perfil','correo','acceso','serial','serial_key','detalle'].includes(explicito))return explicito;
   const t=norm([it.n,it.s,it.d,cat].filter(Boolean).join(' '));
   if(/netflix|disney|max|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
   if(/canva|gemini|office personal|microsoft 365|invitacion al correo|invitacion al gmail|gmail del cliente|al correo del cliente|a correo del cliente/.test(t))return 'correo';
@@ -196,12 +198,14 @@ function compraPideDispositivo(it,cat){
 }
 function compraEsIptv(p){return /iptv|liontv|latintv|latin tv|lion tv/.test(norm([p.base,p.nombre,p.categoria].join(' ')))}
 function compraAyudaDesdeTipo(p){
-  if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.';
-  if(p.tipo==='correo')return 'Pedir solo el correo del cliente.';
-  if(p.tipo==='acceso')return 'Este servicio se entrega con acceso. El encargado hará la entrega.';
-  if(p.tipo==='serial_key')return 'Este producto se entrega con key / serial. El encargado hará la entrega.';
-  if(p.tipo==='serial')return 'Este producto se entrega con serial/licencia. El encargado hará la entrega.';
-  return 'Pedir el detalle necesario para procesar la compra.';
+  const canal=String(p.canal||'manual');
+  const flujo={bot_tg:' Flujo configurado: Bot TG / código.',inventario:' Flujo configurado: Inventario Sublichat.',invitacion:' Flujo configurado: invitación al correo.',iptv:' Flujo configurado: TV Digital / IPTV.'}[canal]||'';
+  if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.'+flujo;
+  if(p.tipo==='correo')return 'Pedir solo el correo del cliente.'+flujo;
+  if(p.tipo==='acceso')return 'Este servicio se entrega con acceso. El encargado hará la entrega.'+flujo;
+  if(p.tipo==='serial_key')return 'Este producto se entrega con key / serial. El encargado hará la entrega.'+flujo;
+  if(p.tipo==='serial')return 'Este producto se entrega con serial/licencia. El encargado hará la entrega.'+flujo;
+  return 'Pedir el detalle necesario para procesar la compra.'+flujo;
 }
 function compraProductosCatalogo(){
   const out=[];
@@ -220,8 +224,9 @@ function compraProductosCatalogo(){
         precioTxt:it.p==null?'Por comisión':`Lps. ${it.p}`,
         tipo,
         pideDispositivo:tipo==='perfil'&&compraPideDispositivo(it,g.cat),
-        ayuda:compraAyudaDesdeTipo({tipo}),
+        ayuda:compraAyudaDesdeTipo({tipo,canal:it.entregaCanal||'manual'}),
         detalleCatalogo:it.d||'',
+        entregaCanal:String(it.entregaCanal||'manual'),
         categoria:g.cat||'Catálogo',
         grupo:g.cat||'Catálogo'
       });
@@ -393,7 +398,7 @@ async function enviarCompra(){
     if(compraEsIptv(p) && marcaTv==='otro' && !marcaTvOtra){msg.style.color='#e54848';msg.textContent='Especifique la marca y modelo del TV.';return}
     productos.push({
       id:p.id, catalogId:p.catalogId, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
-      precioCatalogo:p.precio, entregaTipo:p.tipo, perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
+      precioCatalogo:p.precio, entregaTipo:p.tipo, entregaCanal:p.entregaCanal||'manual', perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
     });
   }
   if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
