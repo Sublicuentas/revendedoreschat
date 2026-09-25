@@ -36,12 +36,13 @@ const ROBOT_IMG = "assets/robot-socios.webp";
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 
 
 
 <link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/panel-web-20260925.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#E2231A">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -106,7 +107,6 @@ const ROBOT_IMG = "assets/robot-socios.webp";
       <span class="fecha-hora" id="fechaHora"></span>
       <span class="sync-status" id="syncStatus">Sin sincronizar</span>
     </div>
-    <button class="admin-back-btn hide" id="adminBackBtn" onclick="volverAdmin()" aria-label="Volver a administración">← Administración</button>
     <button class="icon-btn sync-btn" id="syncBtn" onclick="refreshCurrentData(true)" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
     <button class="icon-btn hide" id="installAppBtn" onclick="installPwa()" aria-label="Instalar aplicación" title="Instalar aplicación">📲</button>
     <button class="icon-btn partner-inbox-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
@@ -118,18 +118,7 @@ const ROBOT_IMG = "assets/robot-socios.webp";
   <div id="content"><div class="spin"></div></div>
 </div>
 
-<nav class="nav hide" id="nav">
-  <button class="nav-btn on" data-v="inicio" onclick="go('inicio')"><span class="nav-ico">🏠</span><span>Inicio</span></button>
-  <button class="nav-btn" data-v="clientes" onclick="go('clientes')"><span class="nav-ico">👥</span><span>Clientes</span></button>
-  <button class="nav-btn main-plus" type="button" onclick="openPartnerQuick()"><span class="nav-ico">＋</span><span>Acciones</span></button>
-  <button class="nav-btn" data-v="precios" onclick="go('precios')"><span class="nav-ico">📋</span><span>Catálogo</span></button>
-  <button class="nav-btn" data-v="perfil" onclick="go('perfil')"><span class="nav-ico">👤</span><span>Perfil</span></button>
-  <button class="nav-btn desktop-nav-extra" data-v="compras" onclick="go('compras')"><span class="nav-ico">🛒</span><span>Compras</span></button>
-  <button class="nav-btn desktop-nav-extra" data-v="renovar" onclick="go('renovar')"><span class="nav-ico">🔄</span><span>Renovación</span></button>
-  <button class="nav-btn desktop-nav-extra" data-v="aula" onclick="go('aula')"><span class="nav-ico">✨</span><span>Subli Aula</span></button>
-  <button class="nav-btn desktop-nav-extra" data-v="recompensas" onclick="go('recompensas')"><span class="nav-ico">🎁</span><span>Recompensas</span></button>
-  <button class="nav-btn desktop-nav-extra" data-v="buzon" onclick="go('buzon')"><span class="nav-ico">📬</span><span>Buzón</span></button>
-</nav>
+<nav class="nav hide" id="nav"></nav>
 
 <div class="quick-overlay" id="partnerQuick" onclick="if(event.target===this)closePartnerQuick()">
   <div class="quick-sheet"><div class="grab"></div><h3>¿Qué desea hacer?</h3><div class="quick-sheet-grid">
@@ -197,6 +186,7 @@ const ROBOT_IMG = "assets/robot-socios.webp";
 <script src="assets/core.js" defer></script>
 <script src="assets/operations.js" defer></script>
 <script src="assets/catalog-aula.js" defer></script>
+<script src="assets/panel-web-20260925.js" defer></script>
 <script src="assets/messaging.js" defer></script>
 </body>
 </html>
