@@ -6,12 +6,6 @@
    - Reutiliza globals/endpoints del panel actual.
    ======================================================================== */
 
-/* IMPORTANTE: este archivo implementa SOLO el rediseño WEB DE ESCRITORIO.
-   En móvil/tablet (<900px) se conserva intacta la interfaz responsive original
-   de app.css + core/operations/catalog-aula/messaging. */
-const PANEL_WEB_DESKTOP = window.matchMedia('(min-width: 900px)').matches;
-if (PANEL_WEB_DESKTOP) {
-
 /* ---------- Navegación única ---------- */
 const WEB_NAV_ITEMS = [
   {v:'inicio',label:'Inicio',tone:'blue',icon:'home'},
@@ -295,4 +289,3 @@ go = function(v){webBaseGo(v);renderUnifiedSidebar();if(v==='buzon')setTimeout(a
 const webBaseRefreshPostRenew=refreshClientesPostRenew;
 refreshClientesPostRenew = async function(){await webBaseRefreshPostRenew();markSyncStale(['clientes','metricas']);await Promise.allSettled([loadClientes(),loadMetricas()]);if(current==='inicio')vInicio();};
 
-} // fin PANEL_WEB_DESKTOP
