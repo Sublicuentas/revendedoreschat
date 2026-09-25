@@ -1,4 +1,4 @@
-const CACHE='sublicuentas-socios-v8-catalogo-entrega-20260925-1';
+const CACHE='sublicuentas-socios-v9-professional-web-20260925-1';
 const SHELL=['./','./index.html','./assets/app.css','./assets/core.js','./assets/operations.js','./assets/catalog-aula.js','./assets/messaging.js','./assets/robot-socios.webp','./assets/icon-192.png','./assets/icon-512.png','./manifest.webmanifest'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

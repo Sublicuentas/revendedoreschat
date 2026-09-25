@@ -36,8 +36,8 @@ const ROBOT_IMG = "assets/robot-socios.webp";
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
 
 
 
@@ -106,6 +106,7 @@ const ROBOT_IMG = "assets/robot-socios.webp";
       <span class="fecha-hora" id="fechaHora"></span>
       <span class="sync-status" id="syncStatus">Sin sincronizar</span>
     </div>
+    <button class="admin-back-btn hide" id="adminBackBtn" onclick="volverAdmin()" aria-label="Volver a administración">← Administración</button>
     <button class="icon-btn sync-btn" id="syncBtn" onclick="refreshCurrentData(true)" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
     <button class="icon-btn hide" id="installAppBtn" onclick="installPwa()" aria-label="Instalar aplicación" title="Instalar aplicación">📲</button>
     <button class="icon-btn partner-inbox-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
