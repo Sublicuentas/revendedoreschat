@@ -115,16 +115,24 @@ function politicasHTML(){
 }
 
 const CAT_THEMES=[
-  {g:'linear-gradient(145deg,#8560f2,#6437d3)',s:'#5429b6',i:'🎬'},
-  {g:'linear-gradient(145deg,#20c9a1,#0c9c7f)',s:'#087c65',i:'📺'},
-  {g:'linear-gradient(145deg,#ffad43,#f07827)',s:'#c65b13',i:'🎵'},
-  {g:'linear-gradient(145deg,#36b9ef,#177bdc)',s:'#1162b3',i:'💼'},
-  {g:'linear-gradient(145deg,#ff5c83,#db3268)',s:'#b52250',i:'🎮'},
-  {g:'linear-gradient(145deg,#8f9caf,#65758b)',s:'#4b596d',i:'🛡️'}
+  {g:'#6B4FD8',s:'#5137B4',i:'🎬'},
+  {g:'#149C83',s:'#0E7564',i:'📺'},
+  {g:'#E98221',s:'#B86113',i:'🎵'},
+  {g:'#187FB9',s:'#0F6190',i:'💼'},
+  {g:'#D83B68',s:'#A9284C',i:'🎮'},
+  {g:'#65758B',s:'#4B596D',i:'🛡️'}
 ];
 function catalogTheme(i){return CAT_THEMES[i%CAT_THEMES.length]}
-function catalogIcon(cat,i){const t=norm(cat);if(/stream|pelicula|series/.test(t))return'🎬';if(/iptv|television/.test(t))return'📡';if(/music|musica/.test(t))return'🎵';if(/herramient|productiv|office|ia/.test(t))return'✨';if(/juego|gamer|recarga/.test(t))return'🎮';if(/seguridad|antivirus/.test(t))return'🛡️';return catalogTheme(i).i}
-function catalogAppStyle(i){const a=[['linear-gradient(145deg,#ffad43,#f07827)','rgba(240,120,39,.25)'],['linear-gradient(145deg,#24d9bd,#0aa58d)','rgba(10,165,141,.25)'],['linear-gradient(145deg,#ed66df,#b944d6)','rgba(185,68,214,.25)'],['linear-gradient(145deg,#40c8f2,#248be0)','rgba(36,139,224,.25)'],['linear-gradient(145deg,#8969ee,#6741ce)','rgba(103,65,206,.25)']];return a[i%a.length]}
+function catalogIcon(cat,i){const t=norm(cat);if(/stream|pelicula|series/.test(t))return'🎬';if(/iptv|television|tv digital/.test(t))return'📡';if(/music|musica/.test(t))return'🎵';if(/herramient|productiv|office|ia/.test(t))return'✨';if(/juego|gamer|recarga/.test(t))return'🎮';if(/seguridad|antivirus/.test(t))return'🛡️';return catalogTheme(i).i}
+function catalogAppStyle(i){const a=[['#E98221','rgba(233,130,33,.18)'],['#149C83','rgba(20,156,131,.18)'],['#B94BC8','rgba(185,75,200,.18)'],['#218EC6','rgba(33,142,198,.18)'],['#6B4FD8','rgba(107,79,216,.18)']];return a[i%a.length]}
+function catalogCacheFresh(){return catalogDataMode==='cache'&&Date.now()-Number(syncAt.precios||0)<=5*60*1000}
+function catalogCanTransact(){return catalogDataMode==='live'||catalogCacheFresh()}
+function catalogTrustBanner(){
+  if(dataRequests.precios)return '<div class="catalog-trust checking">↻ Validando precios e inventario con Sublichat…</div>';
+  if(catalogDataMode==='live')return '<div class="catalog-trust live">● Catálogo verificado con Sublichat</div>';
+  if(catalogCacheFresh())return '<div class="catalog-trust cache">● Mostrando la última copia verificada de esta sesión. Puede comprar; se actualizará en segundo plano.</div>';
+  return `<div class="catalog-trust blocked">⚠️ No se pudo validar el catálogo actual. Puede consultar la referencia, pero Comprar y Copiar precio quedan bloqueados para evitar vender con precios desactualizados. <button onclick="loadPrecios().then(()=>{if(current==='precios')vPrecios()})">Reintentar</button></div>`;
+}
 function openCatalogCategory(ix){catalogCategoria=String(ix);vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function closeCatalogCategory(){catalogCategoria='';vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function catalogDetailIcon(line){
@@ -137,9 +145,13 @@ function catalogDeliveryBadge(it){
   const labels={bot_tg:'🤖 Activación por código',inventario:'⚡ Entrega desde inventario',invitacion:'✉️ Invitación al correo',iptv:'📡 Entrega TV Digital'};
   return labels[c]?`<div class="catalog-delivery-badge">${labels[c]}</div>`:'';
 }
-function copyCatalogPrice(btn){const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)}
-function buyFromCatalog(ix){if(socioSinCompras())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');compraSels=[found.id];compraPickerOpen=false;go('compras')}}
+function copyCatalogPrice(btn){if(!catalogCanTransact())return alert('Primero valide el catálogo con Sublichat para evitar copiar un precio desactualizado.');const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)}
+function buyFromCatalog(ix){if(socioSinCompras())return;if(!catalogCanTransact())return alert('No se puede registrar una compra hasta validar el catálogo actual con Sublichat.');const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');compraSels=[found.id];compraPickerOpen=false;go('compras')}}
 function vPrecios(){
+  if(!catalogAttempted && catalogDataMode==='fallback' && !syncAt.precios){
+    content.innerHTML='<div class="catalog-loading"><div class="spin"></div><b>Validando catálogo</b><span>Comprobando precios, disponibilidad y condiciones antes de mostrar opciones de venta.</span></div>';
+    return;
+  }
   const restricted=socioSinCompras();
   const me=gamificacion.perfil||{ventas:0,nivel:'Sin nivel'},ventas=Number(me.ventas||0);
   const siguiente=ventas<1?1:ventas<10?10:ventas<26?26:26;
@@ -163,19 +175,20 @@ function vPrecios(){
       const copy=String(`${it.n} · ${it.p==null?'Por comisión':'Lps. '+it.p}`);
       const invItem={catalogId:it.id||'',id:it.id||'',nombre:it.n,base:it.n};
       const stock=inventoryState(invItem);
-      const copyBtn=`<button data-copy="${escAttr(copy)}" onclick="copyCatalogPrice(this)">📋 Copiar precio</button>`;
-      const buyBtn=stock.available?`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button>`:`<button disabled aria-disabled="true">⛔ Agotado</button>`;
+      const trusted=catalogCanTransact();
+      const copyBtn=`<button ${trusted?'':'disabled aria-disabled="true"'} data-copy="${escAttr(copy)}" onclick="copyCatalogPrice(this)">📋 Copiar precio</button>`;
+      const buyBtn=(stock.available&&trusted)?`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button>`:stock.available?`<button disabled aria-disabled="true">🔒 Validar catálogo</button>`:`<button disabled aria-disabled="true">⛔ Agotado</button>`;
       const actions=restricted?copyBtn:buyBtn+copyBtn;
       return `<article class="catalog-app ${!stock.available?'is-out':''}"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${escHtml(it.n)}</b><small>${escHtml(it.s||'Servicio disponible')}</small><em class="stock-badge ${stock.key}">${escHtml(stock.label)}</em></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="catalog-app-desc catalog-detail-lines">${catalogDetailHtml(it.d)}</div>${catalogDeliveryBadge(it)}<div class="catalog-app-actions">${actions}</div></article>`;
     }).join('');
-    content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${escHtml(g.cat)}</h2><p>${g.sub?escHtml(g.sub):`${g.items.length} opciones disponibles para sus clientes`}</p></div>${accessNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div></div>`;
+    content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${escHtml(g.cat)}</h2><p>${g.sub?escHtml(g.sub):`${g.items.length} opciones disponibles para sus clientes`}</p></div>${accessNote}${catalogTrustBanner()}<div class="catalog-fresh">Última sincronización · ${catTxt}</div><div class="catalog-app-list">${apps}</div></div>`;
     return;
   }
   const categorias=PRECIOS.map((g,i)=>{
     const t=catalogTheme(i),ico=catalogIcon(g.cat,i);
     return `<button class="catalog-category" style="background:${t.g};--cat-shadow:${t.s}" onclick="openCatalogCategory(${i})"><span class="cat-arrow">›</span><span class="cat-icon">${ico}</span><b>${escHtml(g.cat)}</b><small>${g.items.length} producto${g.items.length===1?'':'s'}${g.sub?' · '+escHtml(g.sub):''}</small></button>`;
   }).join('');
-  content.innerHTML=`<div class="scr-title">${socioGeisell()?'Catálogo de Geisell':'Catálogo mayorista'}</div>${accessNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div>${rewardMini}<p class="catalog-intro">Seleccione una categoría para consultar aplicaciones, precios y condiciones. Este es su costo mayorista.</p>${oferta}<div class="catalog-section-title"><h2>Categorías</h2><span>${PRECIOS.length} secciones</span></div><div class="catalog-categories">${categorias}</div>${politicasHTML()}`;
+  content.innerHTML=`<div class="scr-title">${socioGeisell()?'Catálogo de Geisell':'Catálogo mayorista'}</div>${accessNote}${catalogTrustBanner()}<div class="catalog-fresh">Última sincronización · ${catTxt}</div>${rewardMini}<p class="catalog-intro">Seleccione una categoría para consultar aplicaciones, precios y condiciones. Este es su costo mayorista.</p>${oferta}<div class="catalog-section-title"><h2>Categorías</h2><span>${PRECIOS.length} secciones</span></div><div class="catalog-categories">${categorias}</div>${politicasHTML()}`;
 }
 
 /* AULA */

@@ -7,6 +7,7 @@ const DATA_TTL={clientes:15000,avisos:30000,precios:60000,gamificacion:60000,met
 const dataRequests={clientes:null,avisos:null,precios:null,gamificacion:null,metricas:null,inventario:null,compras:null};
 const optionalUnavailable=new Set();
 let syncBusyCount=0,lastResumeRefresh=0;
+let catalogDataMode='fallback',catalogAttempted=false,catalogSyncError='';
 
 function syncTypesForView(v=current){
   const restricted=socioSinCompras();
@@ -111,9 +112,17 @@ function purgeSensitiveCaches(){
     try{for(let i=store.length-1;i>=0;i--){const k=store.key(i);if(prefixes.some(p=>k?.startsWith(p)))store.removeItem(k)}}catch(_){}
   }
 }
-// Borra cachés sensibles de versiones anteriores que podían quedar en localStorage.
+// Borra cachés sensibles de versiones anteriores. Esta versión cambia el DTO
+// de clientes para que credenciales internas nunca viajen al navegador.
 (function migrateSensitiveCache(){
-  try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&(k.startsWith('socios_cache_')||k.startsWith('catalogo_personal_')))localStorage.removeItem(k)}}catch(_){}
+  const schema='panel_socios_safe_dto_v2';
+  try{
+    for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&(k.startsWith('socios_cache_')||k.startsWith('catalogo_personal_')))localStorage.removeItem(k)}
+    if(sessionStorage.getItem('socios_cache_schema')!==schema){
+      for(let i=sessionStorage.length-1;i>=0;i--){const k=sessionStorage.key(i);if(k&&(k.startsWith('socios_cache_')||k.startsWith('catalogo_personal_')))sessionStorage.removeItem(k)}
+      sessionStorage.setItem('socios_cache_schema',schema);
+    }
+  }catch(_){}
 })();
 
 /* helpers */
@@ -239,13 +248,14 @@ function prepareSocioData(){
   clientes=[];avisos=[];metricasNegocio=null;inventario={};misCompras=[];
   gamificacion={perfil:null,ranking:[],insignias:[],catalogoActualizadoAt:0,recompensas:[],solicitudes:[]};
   PRECIOS=JSON.parse(JSON.stringify(esTarifaEspecial(rev)?PRECIOS_ESPECIALES:PRECIOS_BASE));
+  catalogDataMode='fallback';catalogAttempted=false;catalogSyncError='';
   const tipos=['clientes','avisos','precios','gamificacion','metricas','inventario','compras'];
   tipos.forEach(tipo=>{
     const c=readSocioCache(tipo);if(!c)return;
     syncAt[tipo]=Number(c.at||0);
     if(tipo==='clientes'&&Array.isArray(c.data))clientes=c.data;
     if(tipo==='avisos'&&Array.isArray(c.data))avisos=c.data;
-    if(tipo==='precios'&&Array.isArray(c.data)&&c.data.length)PRECIOS=mergeCatalogCategories(c.data);
+    if(tipo==='precios'&&Array.isArray(c.data)&&c.data.length){PRECIOS=mergeCatalogCategories(c.data);catalogDataMode='cache';catalogAttempted=true;}
     if(tipo==='gamificacion'&&c.data&&typeof c.data==='object')gamificacion=c.data;
     if(tipo==='metricas'&&c.data&&typeof c.data==='object')metricasNegocio=c.data;
     if(tipo==='inventario'&&c.data&&typeof c.data==='object')inventario=c.data;
@@ -470,25 +480,35 @@ function enterApp(){
    con el PRECIOS de respaldo definido arriba — el socio nunca se queda
    sin ver precios, aunque estén desactualizados. */
 async function loadPrecios(){
+  catalogAttempted=true;
   return runSocioRequest('precios',async(epoch)=>{
     try{
       const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store'});
       if(epoch!==socioEpoch)return false;
-      if(Array.isArray(data)&&data.length){PRECIOS=mergeCatalogCategories(data);writeSocioCache('precios',PRECIOS)}
-      return true;
+      if(Array.isArray(data)&&data.length){
+        PRECIOS=mergeCatalogCategories(data);
+        catalogDataMode='live';catalogSyncError='';
+        writeSocioCache('precios',PRECIOS);
+      } else {
+        catalogSyncError='El servidor respondió sin productos.';
+      }
+      return catalogDataMode==='live';
     }catch(e){
       if(epoch!==socioEpoch)return false;
+      catalogSyncError=e?.detail||e?.error||'No se pudo validar el catálogo con el servidor.';
+      if(catalogDataMode==='live')catalogDataMode='cache';else if(catalogDataMode!=='cache')catalogDataMode='fallback';
       if(!Array.isArray(PRECIOS)||!PRECIOS.length)PRECIOS=JSON.parse(JSON.stringify(esTarifaEspecial(rev)?PRECIOS_ESPECIALES:PRECIOS_BASE));
       return false;
     }
   });
 }
 function toggleImpBar(){
+  // La suplantación sigue funcionando, pero no ocupa una franja permanente
+  // dentro del Panel de Socios. Solo el admin ve un control compacto de regreso.
   const b=document.getElementById('impBar');
-  if(impersonating){
-    b.className='imp-bar';
-    b.innerHTML=`<div class="lbl">👁 Viendo como <b>${escHtml(revName())}</b></div><button onclick="volverAdmin()">Volver</button>`;
-  } else { b.className='hide'; b.innerHTML=''; }
+  if(b){b.className='hide';b.innerHTML=''}
+  const back=document.getElementById('adminBackBtn');
+  if(back)back.classList.toggle('hide',!impersonating);
 }
 function logout(){clearInterval(window.__subliInboxTimer);API.clear();st('del','rev_admin');st('del','rev_last');location.reload()}
 
@@ -503,6 +523,7 @@ async function enterAdmin(){
   document.getElementById('app').classList.remove('hide');
   document.getElementById('nav').classList.add('hide');
   document.getElementById('impBar').className='hide';
+  document.getElementById('adminBackBtn')?.classList.add('hide');
   greet.textContent='Modo administrador';
   actualizarFechaHora();
   content.innerHTML='<div class="spin"></div>';
@@ -515,7 +536,7 @@ async function enterAdmin(){
     adminRevs=revs; adminComps=comps; adminCompras=compras; renderAdmin();
   }
   catch(e){ if(e.code==='auth'){location.reload();return}
-    content.innerHTML=`<div class="card"><div class="empty"><div class="ico">⚠️</div><b>No pude cargar el Panel Dios</b>Revisá la API.</div></div>`; }
+    content.innerHTML=`<div class="card"><div class="empty"><div class="ico">⚠️</div><b>No pude cargar la administración de socios</b>Revisá la API.</div></div>`; }
 }
 function renderAdmin(){
   const totCli=adminRevs.reduce((a,r)=>a+(r.clientes||0),0);
@@ -525,7 +546,7 @@ function renderAdmin(){
   const comprasFoto=adminCompras.filter(c=>c.imagenUrl).length;
   content.innerHTML=`
   <div class="hero">
-    <div class="hl">PANEL DIOS</div>
+    <div class="hl">ADMINISTRACIÓN DE SOCIOS</div>
     <div class="hv">${adminRevs.length}</div>
     <div class="hs">${activos} socios activos · ${totCli} clientes · ${totVenc} cortes/vencidos · ${adminComps.length} comprobantes · ${adminCompras.length} compras</div>
   </div>
@@ -673,6 +694,7 @@ async function verComo(id,nombre_norm,nombre){
   }
 }
 function volverAdmin(){
+  document.getElementById('adminBackBtn')?.classList.add('hide');
   API.token=adminToken;
   impersonating=false; rev=null;
   enterAdmin();

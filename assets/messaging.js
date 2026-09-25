@@ -449,10 +449,10 @@ function startIntro(){
 }
 startIntro();
 
-/* ── Sesión: persiste hasta cerrar usuario o 30 días de inactividad ── */
-const IDLE_MS=30*24*60*60*1000; // 30 días: solo vuelve a pedir clave al vencer sesión o cerrar usuario
+/* ── Sesión: nunca pretende durar más que el JWT del servidor (14 días) ── */
+const IDLE_MS=14*24*60*60*1000; // la API emite sesiones de socio por 14 días
 // Los navegadores limitan setTimeout a ~24.8 días. Si se manda directamente
-// 30 días, algunos lo convierten en 1 ms y cierran la sesión apenas entra.
+// periodos largos, algunos navegadores pueden desbordar el temporizador.
 const MAX_TIMEOUT_MS=2147483000;
 let idleTimer=null;
 function expireIdle(){ if(API.token){ API.clear(); st('del','rev_admin'); st('del','rev_last'); location.reload(); } }
@@ -463,7 +463,7 @@ function resetIdle(){
   const remaining=IDLE_MS-(Date.now()-last);
   if(remaining<=0){expireIdle();return}
   // Al llegar al máximo permitido se vuelve a calcular lo que falta; de esta
-  // forma la sesión sí dura 30 días sin desbordar el temporizador del navegador.
+  // forma la sesión respeta el límite sin desbordar el temporizador del navegador.
   idleTimer=setTimeout(resetIdle,Math.min(remaining,MAX_TIMEOUT_MS));
 }
 function touchActivity(){ if(API.token){ st('set','rev_last',String(Date.now())); resetIdle(); } }
