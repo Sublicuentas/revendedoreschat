@@ -179,8 +179,8 @@ function compraEmoji(nombre,cat){
   return '🛒';
 }
 function compraTipoDesdeCatalogo(it,cat){
-  const explicito=String(it?.entregaTipo||'').toLowerCase();
-  if(['perfil','correo','acceso','serial','serial_key','detalle'].includes(explicito))return explicito;
+  const explicit=norm(it?.entregaTipo||it?.entrega_tipo||'').replace(/\s+/g,'_');
+  if(['perfil','correo','acceso','serial','serial_key','detalle'].includes(explicit))return explicit;
   const t=norm([it.n,it.s,it.d,cat].filter(Boolean).join(' '));
   if(/netflix|disney|max|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
   if(/canva|gemini|office personal|microsoft 365|invitacion al correo|invitacion al gmail|gmail del cliente|al correo del cliente|a correo del cliente/.test(t))return 'correo';
@@ -226,7 +226,7 @@ function compraProductosCatalogo(){
         pideDispositivo:tipo==='perfil'&&compraPideDispositivo(it,g.cat),
         ayuda:compraAyudaDesdeTipo({tipo,canal:it.entregaCanal||'manual'}),
         detalleCatalogo:it.d||'',
-        entregaCanal:String(it.entregaCanal||'manual'),
+        entregaCanal:it.entregaCanal||it.entrega_canal||'manual',
         categoria:g.cat||'Catálogo',
         grupo:g.cat||'Catálogo'
       });
