@@ -6,6 +6,23 @@
    - Reutiliza globals/endpoints del panel actual.
    ======================================================================== */
 
+/* ---------- Corte responsive: desktop nuevo / móvil estable ---------- */
+const WEB_DESKTOP_MQ=window.matchMedia('(min-width: 900px)');
+function webDesktopMode(){return WEB_DESKTOP_MQ.matches}
+
+/*
+ * El rediseño de este archivo es EXCLUSIVO de escritorio. Guardamos las
+ * implementaciones móviles que ya existían antes de sobrescribirlas para
+ * poder delegar a ellas por debajo de 900 px. Esto evita que el HTML de
+ * escritorio se renderice sin sus estilos dentro del teléfono.
+ */
+const MOBILE_BASE={
+  toggleImpBar,renderTop,loadPrecios,copyCatalogPrice,buyFromCatalog,
+  vInicio,vClientes,renderCli,cliCard,svcRow,vPrecios,vCompras,renderCompraForm,
+  enviarCompra,vRenovar,renderRen,vAula,vRecompensas,avisosNoLeidos,
+  marcarBuzonLeido,vSugerencias,enviarSugerencia,vPerfil,go
+};
+
 /* ---------- Navegación única ---------- */
 const WEB_NAV_ITEMS = [
   {v:'inicio',label:'Inicio',tone:'blue',icon:'home'},
@@ -32,8 +49,20 @@ function webIcon(name){
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]||paths.catalog}</svg>`;
 }
+function renderMobileNav(){
+  const nav=document.getElementById('nav');if(!nav)return;
+  /* Cinco accesos directos: el botón central abre el resto de operaciones. */
+  nav.innerHTML=`
+    <button class="nav-btn ${current==='inicio'?'on':''}" data-v="inicio" onclick="go('inicio')"><span class="nav-ico">🏠</span><span>Inicio</span></button>
+    <button class="nav-btn ${current==='clientes'?'on':''}" data-v="clientes" onclick="go('clientes')"><span class="nav-ico">👥</span><span>Clientes</span></button>
+    <button class="nav-btn main-plus" type="button" onclick="openPartnerQuick()" aria-label="Más opciones"><span class="nav-ico">＋</span><span>Más</span></button>
+    <button class="nav-btn ${current==='precios'?'on':''}" data-v="precios" onclick="go('precios')"><span class="nav-ico">📋</span><span>Catálogo</span></button>
+    <button class="nav-btn ${current==='renovar'?'on':''}" data-v="renovar" onclick="go('renovar')"><span class="nav-ico">🔄</span><span>Renovar</span></button>`;
+  try{applyNavPermissions();actualizarBadgeBuzon()}catch(_){ }
+}
 function renderUnifiedSidebar(){
   const nav=document.getElementById('nav');if(!nav)return;
+  if(!webDesktopMode()){renderMobileNav();return;}
   nav.innerHTML=`<div class="web-side-brand" onclick="go('inicio')" role="button" tabindex="0"><img src="${ROBOT_IMG}" alt="Sublicuentas"><div><b>SUBLICUENTAS</b><span>PANEL DE SOCIOS</span></div></div><div class="web-side-menu">${WEB_NAV_ITEMS.map(it=>`<button class="nav-btn ${current===it.v?'on':''}" data-v="${it.v}" onclick="go('${it.v}')"><span class="nav-ico web-nav-${it.tone}">${webIcon(it.icon)}</span><span>${it.label}</span>${it.v==='buzon'?'<span class="nav-badge" id="buzonBadge"></span>':''}</button>`).join('')}</div><div class="web-side-foot"><span>Conectado a Sublichat</span><i></i></div>`;
   try{applyNavPermissions();actualizarBadgeBuzon()}catch(_){ }
 }
@@ -41,18 +70,24 @@ renderUnifiedSidebar();
 
 /* Eliminar barra de impersonación sin perder el regreso a Administración. */
 toggleImpBar = function(){
+  /* La barra de impersonación se elimina en móvil y escritorio; no deja hueco. */
   const b=document.getElementById('impBar');if(b){b.className='hide';b.innerHTML='';}
-  const top=document.querySelector('.topbar');if(!top)return;
+  const host=document.getElementById('topbarActions')||document.querySelector('.topbar');if(!host)return;
   let back=document.getElementById('webAdminReturn');
   if(impersonating){
-    if(!back){back=document.createElement('button');back.id='webAdminReturn';back.className='web-admin-return';back.onclick=volverAdmin;top.insertBefore(back,document.getElementById('syncBtn'));}
-    back.textContent='← Administración';
+    if(!back){back=document.createElement('button');back.id='webAdminReturn';back.className='web-admin-return';back.onclick=volverAdmin;host.insertBefore(back,document.getElementById('syncBtn'));}
+    back.textContent=webDesktopMode()?'← Administración':'← Admin';
+    back.setAttribute('aria-label','Volver a Administración');
   }else back?.remove();
 };
 renderTop = function(){
-  if(typeof greet!=='undefined'&&greet)greet.textContent='Hola, '+revName();
-  try{applySocioAvatar()}catch(_){ }
+  if(!webDesktopMode())MOBILE_BASE.renderTop();
+  else {
+    if(typeof greet!=='undefined'&&greet)greet.textContent='Hola, '+revName();
+    try{applySocioAvatar()}catch(_){ }
+  }
   renderUnifiedSidebar();
+  toggleImpBar();
 };
 
 /* ---------- Helpers UI ---------- */
@@ -76,6 +111,7 @@ function webClientTemporal(c,filter){const es=(c.servicios||[]).map(webServiceSt
 /* ---------- Catálogo verificado ---------- */
 let webCatalogVerified=false, webCatalogError='';
 loadPrecios = function(){
+  if(!webDesktopMode())return MOBILE_BASE.loadPrecios.apply(this,arguments);
   return runSocioRequest('precios',async(epoch)=>{
     try{
       const data=await API.call('/rev/precios?_='+Date.now(),{cache:'no-store',timeoutMs:12000});
@@ -95,8 +131,9 @@ loadPrecios = function(){
 };
 function webCatalogTrusted(){return webCatalogVerified||Number(syncAt.precios||0)>0}
 function webCatalogOperational(){return webCatalogVerified}
-copyCatalogPrice = function(btn){if(!webCatalogOperational())return alert('El catálogo todavía no está validado en vivo. Actualice antes de copiar un precio.');const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)};
+copyCatalogPrice = function(btn){if(!webDesktopMode())return MOBILE_BASE.copyCatalogPrice.apply(this,arguments);if(!webCatalogOperational())return alert('El catálogo todavía no está validado en vivo. Actualice antes de copiar un precio.');const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)};
 buyFromCatalog = function(ix){
+  if(!webDesktopMode())return MOBILE_BASE.buyFromCatalog.apply(this,arguments);
   if(socioSinCompras())return;if(!webCatalogOperational())return alert('Valide el catálogo en vivo antes de iniciar una compra.');
   const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;
   const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);
@@ -105,6 +142,7 @@ buyFromCatalog = function(ix){
 
 /* ---------- Inicio ---------- */
 vInicio = function(){
+  if(!webDesktopMode())return MOBILE_BASE.vInicio.apply(this,arguments);
   const fs=flat(),vigentes=fs.filter(s=>esVigente(s.est)),vencidos=fs.filter(s=>s.est.n<0),semana=fs.filter(s=>s.est.n>=0&&s.est.n<=7),aldia=fs.filter(s=>s.est.n>7&&s.est.n<9999);
   const cliVigentes=clientes.filter(clienteTieneVigente).length,cartera=vigentes.reduce((a,s)=>a+(s.precio||0),0);
   const prox=groupRenewServices(fs.filter(s=>s.est.n>=0&&s.est.n<=30)).slice(0,5);
@@ -127,6 +165,7 @@ vInicio = function(){
 /* ---------- Clientes ---------- */
 let webCliTemporal='todos';
 vClientes = function(){
+  if(!webDesktopMode())return MOBILE_BASE.vClientes.apply(this,arguments);
   const fs=flat(),semana=fs.filter(s=>s.est.n>=0&&s.est.n<=7),vencidos=fs.filter(s=>s.est.n<0),vigentes=fs.filter(s=>esVigente(s.est));
   const cliVig=clientes.filter(esClienteVigente).length,cliNoVig=clientes.filter(esClienteNoVigente).length;
   const cartera=vigentes.reduce((a,s)=>a+(s.precio||0),0),montoSemana=semana.reduce((a,s)=>a+(s.precio||0),0),montoVencido=vencidos.reduce((a,s)=>a+(s.precio||0),0);
@@ -144,6 +183,7 @@ vClientes = function(){
   renderCli();
 };
 renderCli = function(){
+  if(!webDesktopMode())return MOBILE_BASE.renderCli.apply(this,arguments);
   const f=norm(cliF);
   const list=clientes.filter(c=>{
     if(cliEstado==='vigentes'&&!esClienteVigente(c))return false;
@@ -155,10 +195,12 @@ renderCli = function(){
   el.innerHTML=list.length?list.map(cliCard).join(''):webEmpty('🔎','Sin resultados','Pruebe otro nombre, teléfono o filtro.');
 };
 cliCard = function(c){
+  if(!webDesktopMode())return MOBILE_BASE.cliCard.apply(this,arguments);
   const svcs=Array.isArray(c.servicios)?c.servicios:[],ec=estadoCliente(c),tel=c.telefono||c.telefono_norm||'';
   return `<article class="web-client-card" data-client-id="${escAttr(c.id||'')}"><div class="web-client-main"><span class="web-client-avatar">${escHtml(webInitials(nombreCli(c)))}</span><div><h3>${escHtml(nombreCli(c))}</h3><small>${escHtml(tel||'Sin teléfono')} · ${svcs.length} ${svcs.length===1?'servicio':'servicios'}</small></div><span class="web-client-state ${ec.c}">${escHtml(ec.t)}</span></div>${svcs.length?`<div class="web-services">${svcs.map((s,ix)=>svcRow(s,c.id,ix)).join('')}</div>`:''}<div class="web-client-actions"><button class="web-danger-soft" onclick='openCobro("${c.id}","")'>📣 ${escHtml(etiquetaMensajeRenovacion())}</button>${waBtn(c)}</div></article>`;
 };
 svcRow = function(s,cid,ix){
+  if(!webDesktopMode())return MOBILE_BASE.svcRow.apply(this,arguments);
   const nm=pick(s,CONFIG.campos.servicio)||'Servicio',f=parseFecha(pick(s,CONFIG.campos.vencimiento)),e=estado(f);
   const original=Number(s?.servicioIndexOriginal??s?._servicioIndexOriginal??ix),safeIx=Number.isInteger(original)?original:ix;
   return `<div class="web-service-row"><div><span class="dot-s ${e.c}"></span><div><b>${escHtml(nm)}</b><small>${f?`Vence ${escHtml(fmtFecha(f))}`:'Sin fecha de vencimiento'}</small></div></div><span class="pill ${e.c}">${escHtml(e.t)}</span><button onclick='openComprobante("${cid}","${enc(nm)}",${safeIx});event.stopPropagation()'>Renovar</button></div>`;
@@ -173,6 +215,7 @@ function webDetailLines(it){
   const meta=webDeliveryMeta(it);const out=raw.map(iconize);if(it?.entregaCanal&&it.entregaCanal!=='manual')out.push(`${meta[0]} ${meta[1]}`);return [...new Set(out)];
 }
 vPrecios = function(){
+  if(!webDesktopMode())return MOBILE_BASE.vPrecios.apply(this,arguments);
   const restricted=socioSinCompras(),trusted=webCatalogTrusted();
   if(!trusted){content.innerHTML=`${webPageHero('catalog','Catálogo','Aplicaciones, servicios y herramientas al precio mayorista.',{kicker:'CATÁLOGO DE SOCIOS'})}<section class="web-panel-card">${webCatalogError?webEmpty('⚠️','No pude validar el catálogo','No se mostrarán precios de respaldo. Reintente para consultar la fuente real.',"loadPrecios()",'Reintentar'):webSkeleton(6)}</section>`;return;}
   const me=gamificacion.perfil||{ventas:0,nivel:'Sin nivel'},ventas=Number(me.ventas||0),nivel=me.nivel||'Sin nivel';
@@ -195,11 +238,13 @@ function webSetCompraStep(step){captureCompraDraft();if(step>1&&!compraSeleccion
 function webCompraList(){const q=norm(webCompraSearch),cat=norm(webCompraCat);return compraProductosCatalogo().filter(p=>(cat==='todas'||norm(p.categoria)===cat)&&(!q||norm(`${p.nombre} ${p.categoria}`).includes(q)))}
 function webCompraCart(items,m){return `<aside class="web-cart"><header><span>🛍️</span><div><small>RESUMEN DE COMPRA</small><h3>${items.length?`${items.length} producto${items.length===1?'':'s'}`:'Su carrito está vacío'}</h3></div></header>${items.length?`<div class="web-cart-items">${items.map(p=>`<div><span>${p.emoji}</span><b>${escHtml(p.nombre)}</b><em>${escHtml(p.precioTxt)}</em></div>`).join('')}</div>`:`<div class="web-cart-empty">Seleccione uno o más productos del catálogo para continuar.</div>`}<dl><div><dt>Subtotal</dt><dd>${money(m.subtotal)}</dd></div><div class="discount"><dt>Descuento</dt><dd>-${money(m.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(m.total)}</dd></div></dl>${webCompraStep===1?`<button class="web-primary full" ${items.length?'':'disabled'} onclick="webSetCompraStep(2)">Continuar compra →</button>`:''}</aside>`}
 vCompras = function(){
+  if(!webDesktopMode())return MOBILE_BASE.vCompras.apply(this,arguments);
   if(socioSinCompras()){go('renovar');return}
   if(!webCatalogTrusted()){content.innerHTML=`${webPageHero('buy','Compras','Seleccione servicios, complete los datos y envíe el comprobante.',{kicker:'NUEVA COMPRA'})}<section class="web-panel-card">${webCatalogError?webEmpty('⚠️','No pude validar el catálogo','Las compras quedan bloqueadas hasta consultar precios y disponibilidad reales.',"loadPrecios()",'Reintentar'):webSkeleton(6)}</section>`;return}
   content.innerHTML=`${webPageHero('buy','Compras','Seleccione servicios, arme un combo y envíe el comprobante directamente al equipo.',{kicker:'COMPRA SERVICIOS Y ACTIVE AL INSTANTE'})}<div class="web-stepper"><div class="${webCompraStep>=1?'on':''}"><b>1</b><span>Seleccione productos</span></div><i></i><div class="${webCompraStep>=2?'on':''}"><b>2</b><span>Complete los datos</span></div><i></i><div class="${webCompraStep>=3?'on':''}"><b>3</b><span>Envíe el comprobante</span></div></div><div id="compraForm"></div>`;renderCompraForm();
 };
 renderCompraForm = function(){
+  if(!webDesktopMode())return MOBILE_BASE.renderCompraForm.apply(this,arguments);
   captureCompraDraft();const items=compraSeleccionados(),m=compraMath(),host=document.getElementById('compraForm');if(!host)return;
   if(!webCatalogOperational()){host.innerHTML=`<div class="web-stale-warning">⚠️ Para registrar una compra debe validar el catálogo en vivo. <button onclick="loadPrecios()">Actualizar ahora</button></div>${webCompraCart(items,m)}`;return}
   if(webCompraStep===1){
@@ -213,6 +258,7 @@ renderCompraForm = function(){
 };
 function webBuyVal(id){const el=document.getElementById(id);if(el)return String(el.value||'').trim();return String(compraDraft.fields?.[id]??'').trim()}
 enviarCompra = async function(){
+  if(!webDesktopMode())return MOBILE_BASE.enviarCompra.apply(this,arguments);
   captureCompraDraft();const items=compraSeleccionados(),msg=document.getElementById('buyMsg'),m=compraMath();if(!items.length){webCompraStep=1;renderCompraForm();return}if(!webCatalogOperational()){if(msg){msg.textContent='Actualice el catálogo antes de enviar.';msg.className='web-form-msg error'}return}
   const productos=[];for(const p of items){const perfilNombre=webBuyVal(buyFid(p,'perfilNombre')),perfilApellido=webBuyVal(buyFid(p,'perfilApellido')),correo=webBuyVal(buyFid(p,'correo')),detalleServicio=webBuyVal(buyFid(p,'detalle')),nombreCliente=webBuyVal(buyFid(p,'nombreCliente')),dispositivo=webBuyVal(buyFid(p,'dispositivo')),marcaTv=webBuyVal(buyFid(p,'marcaTv')),marcaTvOtra=webBuyVal(buyFid(p,'marcaTvOtra'));
     if(p.tipo==='perfil'&&(!perfilNombre||!perfilApellido)){webCompraStep=2;renderCompraForm();alert('Coloque nombre y apellido del perfil para '+p.nombre+'.');return}if(p.tipo==='perfil'&&p.pideDispositivo&&!dispositivo){webCompraStep=2;renderCompraForm();alert('Elija el dispositivo para '+p.nombre+'.');return}if(p.tipo==='correo'&&!correo){webCompraStep=2;renderCompraForm();alert('Coloque el correo para '+p.nombre+'.');return}if(p.tipo==='correo'&&!nombreCliente){webCompraStep=2;renderCompraForm();alert('Coloque el nombre del cliente para '+p.nombre+'.');return}if(p.tipo==='detalle'&&!detalleServicio){webCompraStep=2;renderCompraForm();alert('Coloque el detalle para '+p.nombre+'.');return}if(compraEsIptv(p)&&!marcaTv){webCompraStep=2;renderCompraForm();alert('Seleccione la marca o sistema del TV para '+p.nombre+'.');return}if(compraEsIptv(p)&&marcaTv==='otro'&&!marcaTvOtra){webCompraStep=2;renderCompraForm();alert('Especifique la marca y modelo del TV.');return}
@@ -226,11 +272,13 @@ enviarCompra = async function(){
 /* ---------- Renovación ---------- */
 let webRenSearch='',webRenDate='';
 vRenovar = function(){
+  if(!webDesktopMode())return MOBILE_BASE.vRenovar.apply(this,arguments);
   const fs=flat().filter(s=>s.est.n<9999),expired=fs.filter(s=>s.est.n<0),today=fs.filter(s=>s.est.n===0),week=fs.filter(s=>s.est.n>=0&&s.est.n<=7),recover=uniqueClientCount(expired);
   content.innerHTML=`${webPageHero('renew','Renovación','Una sola tarjeta por cliente y fecha. Si tiene varias cuentas, usted elige cuáles renovar.',{kicker:'CONTROL DE RENOVACIONES'})}<div class="web-kpi-grid web-kpi-four">${webKpi('⚠️','Vencidas',expired.length,`${uniqueClientCount(expired)} clientes`,'red',"renF='vencidos';renderRen()")}${webKpi('📅','Pago hoy',today.length,`${uniqueClientCount(today)} clientes`,'pink',"renF='hoy';renderRen()")}${webKpi('⏰','Próximos 7 días',week.length,`${uniqueClientCount(week)} clientes`,'amber',"renF='porvencer';renderRen()")}${webKpi('↻','Por recuperar',recover,'Clientes con vencidos','blue',"renF='vencidos';renderRen()")}</div><div class="web-toolbar renew-toolbar"><div class="web-segment">${[['todos','Todos'],['vencidos','Vencidos'],['hoy','Pago hoy'],['porvencer','Por vencer']].map(([k,l])=>`<button class="${renF===k?'on':''}" onclick="renF='${k}';renderRen()">${l}</button>`).join('')}</div><div class="web-search"><span>⌕</span><input value="${escAttr(webRenSearch)}" placeholder="Buscar cliente o teléfono" oninput="webRenSearch=this.value;renderRen()"></div><input class="web-date" type="date" value="${escAttr(webRenDate)}" onchange="webRenDate=this.value;renderRen()"></div><div id="renList" class="web-renew-grid"></div>`;renderRen();
 };
 function webViewClient(id){const c=clientes.find(x=>String(x.id)===String(id));cliEstado='todos';webCliTemporal='todos';cliF=c?nombreCli(c):'';go('clientes');setTimeout(()=>document.querySelector(`[data-client-id="${CSS.escape(String(id))}"]`)?.scrollIntoView({behavior:'smooth',block:'center'}),80)}
 renderRen = function(){
+  if(!webDesktopMode())return MOBILE_BASE.renderRen.apply(this,arguments);
   let fs=flat().filter(s=>s.est.n<9999);if(renF==='vencidos')fs=fs.filter(s=>s.est.n<0);if(renF==='hoy')fs=fs.filter(s=>s.est.n===0);if(renF==='porvencer')fs=fs.filter(s=>s.est.n>=0&&s.est.n<=7);
   const q=norm(webRenSearch);if(q)fs=fs.filter(s=>norm(nombreCli(s.cliente)).includes(q)||String(s.cliente.telefono||s.cliente.telefono_norm||'').includes(q));if(webRenDate)fs=fs.filter(s=>renewDateKey(s.fecha)===webRenDate);
   renewGroups=groupRenewServices(fs);const host=document.getElementById('renList');if(!host)return;
@@ -240,6 +288,7 @@ renderRen = function(){
 /* ---------- Aula ---------- */
 function webCourseCard(id,icon,title,text,done){return `<article class="web-course ${done?'done':''}"><span>${icon}</span><div><h3>${escHtml(title)}</h3><p>${escHtml(text)}</p><button ${done?'disabled':''} onclick="completarCurso('${id}',this)">${done?'✓ Completado':'Marcar completado'}</button></div></article>`}
 vAula = async function(){
+  if(!webDesktopMode())return MOBILE_BASE.vAula.apply(this,arguments);
   if(CONFIG.academiaUrl){content.innerHTML=`<div class="scr-title">Subli Aula</div><div class="aula-wrap"><iframe src="${escAttr(CONFIG.academiaUrl)}" allow="fullscreen"></iframe></div>`;return}
   if(!gamificacion?.perfil){content.innerHTML=webSkeleton(7);await loadGamificacion();if(current!=='aula')return}
   const plantillas=askPlantillas(),me=gamificacion.perfil||{},done=new Set(Array.isArray(me.cursosCompletados)?me.cursosCompletados:[]);
@@ -249,6 +298,7 @@ vAula = async function(){
 /* ---------- Recompensas ---------- */
 function webRewardVisual(name){const n=norm(name);if(/descuento/.test(n))return['🎟️','Descuento especial'];if(/gemini/.test(n))return['✨','Gemini Pro'];if(/netflix/.test(n))return['N','Netflix'];if(/hbo|max/.test(n))return['🎬','Streaming'];if(/disney/.test(n))return['🏰','Disney'];if(/canva/.test(n))return['🎨','Canva'];if(/prime/.test(n))return['▶️','Prime Video'];if(/duolingo/.test(n))return['🦉','Duolingo'];if(/crunchy/.test(n))return['🍥','Crunchyroll'];return['🎁','Recompensa']}
 vRecompensas = async function(){
+  if(!webDesktopMode())return MOBILE_BASE.vRecompensas.apply(this,arguments);
   content.innerHTML=webSkeleton(6);await loadGamificacion();if(current!=='recompensas')return;
   const me=gamificacion.perfil||{nivel:'Sin nivel',ventas:0},opts=gamificacion.recompensas||[],claims=[...(gamificacion.solicitudes||[])].sort((a,b)=>webTsMs(b.createdAt)-webTsMs(a.createdAt));
   const next=me.ventas<1?1:me.ventas<10?10:me.ventas<26?26:26,progress=me.ventas>=26?100:Math.min(100,Math.round((me.ventas/next)*100));
@@ -261,22 +311,24 @@ function webBuzonKey(){return `buzon_read_ids_${socioCacheId()}`}
 function webReadIds(){try{const local=JSON.parse(st('get',webBuzonKey())||'[]');const server=(avisos||[]).filter(a=>a?.leido).map((a,i)=>webMsgId(a,i));return new Set([...(Array.isArray(local)?local:[]),...server])}catch(_){return new Set((avisos||[]).filter(a=>a?.leido).map((a,i)=>webMsgId(a,i)))}}
 function webSaveReadIds(set){try{st('set',webBuzonKey(),JSON.stringify([...set].slice(-120)))}catch(_){}}
 function webMsgId(a,i=0){return String(a?.id||`${a?.ts||0}_${i}`)}
-avisosNoLeidos = function(){const read=webReadIds();return avisos.filter((a,i)=>!read.has(webMsgId(a,i))).length};
-marcarBuzonLeido = function(){/* lectura individual en webOpenBuzonMessage */};
+avisosNoLeidos = function(){if(!webDesktopMode())return MOBILE_BASE.avisosNoLeidos.apply(this,arguments);const read=webReadIds();return avisos.filter((a,i)=>!read.has(webMsgId(a,i))).length};
+marcarBuzonLeido = function(){if(!webDesktopMode())return MOBILE_BASE.marcarBuzonLeido.apply(this,arguments);/* lectura individual en webOpenBuzonMessage */};
 function webOpenBuzonMessage(id){const sid=String(id),read=webReadIds();read.add(sid);webSaveReadIds(read);const a=(avisos||[]).find((x,i)=>webMsgId(x,i)===sid);if(a)a.leido=true;API.call('/rev/avisos/leido',{method:'POST',body:JSON.stringify({id:sid}),timeoutMs:10000}).catch(()=>{});webBuzonHistoryOpen=true;webBuzonFocus=sid;actualizarBadgeBuzon();vSugerencias();setTimeout(()=>document.querySelector(`[data-msg-id="${CSS.escape(sid)}"]`)?.scrollIntoView({behavior:'smooth',block:'center'}),60)}
 function webToggleHistory(){webBuzonHistoryOpen=!webBuzonHistoryOpen;vSugerencias()}
 async function loadWebSugerencias(){if(webSugLoading)return;webSugLoading=true;try{const d=await API.call('/rev/sugerencias/mias?_='+Date.now(),{cache:'no-store',timeoutMs:12000});webSugerencias=Array.isArray(d)?d:(d?.items||[]);webSugLoaded=true;if(current==='buzon'){const draft=document.getElementById('sugTxt')?.value||'';if(!draft)vSugerencias();}}catch(_){webSugLoaded=true}finally{webSugLoading=false}}
 function webBuzonRow(a,id,read=false){return `<button class="web-message-row ${read?'read':''} ${webBuzonFocus===id?'focus':''}" data-msg-id="${escAttr(id)}" onclick="webOpenBuzonMessage('${escAttr(id)}')"><span>${webStatusIcon(a)}</span><div><b>${escHtml(a.texto||'Mensaje')}</b><small>${escHtml(a.autor||'Sublicuentas')} · hace ${tiempoDesde(a.ts||0)}</small></div><i>${read?'✓':'●'}</i></button>`}
 vSugerencias = function(){
+  if(!webDesktopMode())return MOBILE_BASE.vSugerencias.apply(this,arguments);
   if(!webSugLoaded&&!webSugLoading)loadWebSugerencias();const read=webReadIds(),sorted=[...avisos].sort((a,b)=>(b.ts||0)-(a.ts||0)),newRows=[],oldRows=[];sorted.forEach((a,i)=>{const id=webMsgId(a,i);(read.has(id)?oldRows:newRows).push({a,id})});
   content.innerHTML=`${webPageHero('inbox','Buzón','Avisos y respuestas del equipo de Sublicuentas.',{kicker:'COMUNICACIÓN'})}<section class="web-suggestion"><div class="web-suggestion-art">💌</div><div class="web-suggestion-form"><header><small>ENVIAR SUGERENCIA</small><h3>Escríbale al equipo</h3><p>Elija el destinatario y envíe su mensaje mediante la integración existente.</p></header><div class="sug-dest" id="sugDest"><button class="${sugDestino==='sublicuentas'?'on':''}" data-d="sublicuentas" onclick="setSugDestino('sublicuentas',this)">Sublicuentas</button><button class="${sugDestino==='relojes'?'on':''}" data-d="relojes" onclick="setSugDestino('relojes',this)">Relojes</button></div><textarea id="sugTxt" maxlength="1000" placeholder="Escriba su sugerencia o comentario…"></textarea><div class="web-suggestion-bottom"><small><span id="sugCount">0</span>/1000</small><button class="web-primary" id="sugBtn" onclick="enviarSugerencia()">Enviar mensaje →</button></div><div id="sugMsg" class="web-form-msg"></div></div></section><section class="web-panel-card web-inbox"><header><div><small>NUEVOS / RESPUESTAS</small><h3>Mis mensajes</h3></div><button onclick="loadAvisos();loadWebSugerencias()">Actualizar</button></header>${newRows.length?`<div class="web-message-list">${newRows.map(x=>webBuzonRow(x.a,x.id,false)).join('')}</div>`:webEmpty('✅','Está al día','No tiene mensajes nuevos por leer.')} ${webSugerencias.length?`<div class="web-sent-block"><h4>Mis sugerencias enviadas</h4>${webSugerencias.slice(0,6).map(s=>`<div class="web-sent-row"><span>💬</span><div><b>${escHtml(s.texto||'Sugerencia')}</b><small>${escHtml(s.destinoLabel||s.destino||'Sublicuentas')} · ${webDateTime(s.createdAt||s.ts)}</small>${s.respuesta?`<p><strong>Respuesta:</strong> ${escHtml(s.respuesta)}</p>`:''}</div><em>${escHtml(s.estado||'enviada')}</em></div>`).join('')}</div>`:''}</section><section class="web-panel-card web-history"><button class="web-history-toggle" onclick="webToggleHistory()"><div><small>HISTORIAL</small><h3>Historial leído <span>${oldRows.length}</span></h3></div><i>${webBuzonHistoryOpen?'⌃':'⌄'}</i></button>${webBuzonHistoryOpen?`<div class="web-message-list history">${oldRows.length?oldRows.map(x=>webBuzonRow(x.a,x.id,true)).join(''):webEmpty('📭','Historial vacío','Los mensajes leídos aparecerán aquí.')}</div>`:''}</section>`;
   const ta=document.getElementById('sugTxt');if(ta)ta.addEventListener('input',()=>{const c=document.getElementById('sugCount');if(c)c.textContent=String(ta.value.length)});
 };
 const webBaseEnviarSugerencia=enviarSugerencia;
-enviarSugerencia = async function(){await webBaseEnviarSugerencia();if(document.getElementById('sugTxt')?.value===''){webSugLoaded=false;loadWebSugerencias()}};
+enviarSugerencia = async function(){if(!webDesktopMode())return MOBILE_BASE.enviarSugerencia.apply(this,arguments);await webBaseEnviarSugerencia();if(document.getElementById('sugTxt')?.value===''){webSugLoaded=false;loadWebSugerencias()}};
 
 /* ---------- Perfil ---------- */
 vPerfil = async function(){
+  if(!webDesktopMode())return MOBILE_BASE.vPerfil.apply(this,arguments);
   content.innerHTML=webSkeleton(6);await loadGamificacion();if(current!=='perfil')return;
   const me=gamificacion.perfil||{ventas:0,score:0,nivel:'Sin nivel',racha:0,cursos:0,avatar:''},avatar=safeImageSrc(me.avatar,ROBOT_IMG),nombre=me.nombreMostrar||revName(),nivel=me.nivel||'Sin nivel';
   const insignias=(gamificacion.insignias||[]).map(b=>`<div class="web-badge ${b.activa?'on':''}" title="${escAttr(b.detalle||'')}"><span>${escHtml(b.icon||'🏅')}</span><b>${escHtml(b.nombre||'Insignia')}</b></div>`).join('');
@@ -284,8 +336,27 @@ vPerfil = async function(){
 };
 
 /* ---------- Ajustes finales de navegación/actualización ---------- */
-const webBaseGo=go;
+const webBaseGo=MOBILE_BASE.go;
 go = function(v){webBaseGo(v);renderUnifiedSidebar();if(v==='buzon')setTimeout(actualizarBadgeBuzon,0)};
-const webBaseRefreshPostRenew=refreshClientesPostRenew;
-refreshClientesPostRenew = async function(){await webBaseRefreshPostRenew();markSyncStale(['clientes','metricas']);await Promise.allSettled([loadClientes(),loadMetricas()]);if(current==='inicio')vInicio();};
+
+/* messaging.js se carga después de este archivo; no referenciar su función antes de existir. */
+setTimeout(()=>{
+  if(typeof refreshClientesPostRenew!=='function'||refreshClientesPostRenew.__webDesktopWrapped)return;
+  const base=refreshClientesPostRenew;
+  const wrapped=async function(){
+    const out=await base.apply(this,arguments);
+    if(webDesktopMode()){markSyncStale(['clientes','metricas']);await Promise.allSettled([loadClientes(),loadMetricas()]);if(current==='inicio')vInicio();}
+    return out;
+  };
+  wrapped.__webDesktopWrapped=true;
+  refreshClientesPostRenew=wrapped;
+},0);
+
+/* Si cambia el breakpoint (rotación/tablet), reconstruir la UI sin mezclar layouts. */
+WEB_DESKTOP_MQ.addEventListener?.('change',()=>{
+  const app=document.getElementById('app');
+  if(!app||app.classList.contains('hide')||(isAdmin&&!impersonating))return;
+  renderTop();
+  if(current)go(current);
+});
 
