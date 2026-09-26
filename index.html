@@ -107,12 +107,14 @@ const ROBOT_IMG = "assets/robot-socios.webp";
       <span class="fecha-hora" id="fechaHora"></span>
       <span class="sync-status" id="syncStatus">Sin sincronizar</span>
     </div>
-    <button class="icon-btn sync-btn" id="syncBtn" onclick="refreshCurrentData(true)" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
-    <button class="icon-btn hide" id="installAppBtn" onclick="installPwa()" aria-label="Instalar aplicación" title="Instalar aplicación">📲</button>
-    <button class="icon-btn partner-inbox-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
-    <button class="icon-btn" onclick="logout()" aria-label="Salir">
-      <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12"/></svg>
-    </button>
+    <div class="topbar-actions" id="topbarActions">
+      <button class="icon-btn sync-btn" id="syncBtn" onclick="refreshCurrentData(true)" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
+      <button class="icon-btn hide" id="installAppBtn" onclick="installPwa()" aria-label="Instalar aplicación" title="Instalar aplicación">📲</button>
+      <button class="icon-btn partner-inbox-btn" onclick="go('buzon')" aria-label="Buzón" style="position:relative">📬<span class="nav-badge" id="buzonBadge"></span></button>
+      <button class="icon-btn" onclick="logout()" aria-label="Salir">
+        <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12"/></svg>
+      </button>
+    </div>
   </div>
   <div id="impBar" class="hide"></div>
   <div id="content"><div class="spin"></div></div>
@@ -129,6 +131,7 @@ const ROBOT_IMG = "assets/robot-socios.webp";
     <button data-qv="recompensas" onclick="closePartnerQuick();go('recompensas')">🎁 Recompensas</button>
     <button data-qv="precios" onclick="closePartnerQuick();go('precios')">📋 Ver catálogo</button>
     <button data-qv="buzon" onclick="closePartnerQuick();go('buzon')">📬 Abrir buzón</button>
+    <button data-qv="perfil" onclick="closePartnerQuick();go('perfil')">👤 Mi perfil</button>
   </div></div>
 </div>
 
