@@ -144,7 +144,7 @@ function resetCompraDraft(){compraDraft={fields:{},monto:'',montoManual:false,co
 function compraDraftVal(id,def=''){const v=compraDraft.fields?.[id];return v==null?def:String(v)}
 function captureCompraDraft(){
   const host=document.getElementById('compraForm');if(!host)return;
-  host.querySelectorAll('input[id^="buy_"],textarea[id^="buy_"]').forEach(el=>{
+  host.querySelectorAll('input[id^="buy_"],textarea[id^="buy_"],select[id^="buy_"]').forEach(el=>{
     if(el.type==='file')return;
     if(el.id==='buyMonto'){compraDraft.monto=el.value;const base=Number(el.dataset.defaultTotal||0),actual=Number(el.value||0);compraDraft.montoManual=Number.isFinite(actual)&&Math.abs(actual-base)>.001;return}
     if(el.id==='buyComentario'){compraDraft.comentario=el.value;return}
@@ -180,6 +180,8 @@ function compraEmoji(nombre,cat){
 }
 function compraTipoDesdeCatalogo(it,cat){
   const explicit=norm(it?.entregaTipo||it?.entrega_tipo||'').replace(/\s+/g,'_');
+  const categoria=norm(cat||'');
+  if(explicit==='cuenta_completa'||/(^| )cuentas? completas?( |$)/.test(categoria))return 'cuenta_completa';
   if(['perfil','correo','acceso','serial','serial_key','detalle'].includes(explicit))return explicit;
   const t=norm([it.n,it.s,it.d,cat].filter(Boolean).join(' '));
   if(/netflix|disney|max|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
@@ -200,6 +202,7 @@ function compraEsIptv(p){return /iptv|liontv|latintv|latin tv|lion tv/.test(norm
 function compraAyudaDesdeTipo(p){
   const canal=String(p.canal||'manual');
   const flujo={bot_tg:' Flujo configurado: Bot TG / código.',inventario:' Flujo configurado: Inventario Sublichat.',invitacion:' Flujo configurado: invitación al correo.',iptv:' Flujo configurado: TV Digital / IPTV.'}[canal]||'';
+  if(p.tipo==='cuenta_completa')return 'Solo seleccione la cantidad. La cuenta completa se entrega con correo; no pide datos del cliente ni dispositivo.'+flujo;
   if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.'+flujo;
   if(p.tipo==='correo')return 'Pedir solo el correo del cliente.'+flujo;
   if(p.tipo==='acceso')return 'Este servicio se entrega con acceso. El encargado hará la entrega.'+flujo;
@@ -241,19 +244,34 @@ function compraEnsureSel(){
 }
 function compraSeleccionados(){compraEnsureSel();const arr=compraProductosCatalogo();return compraSels.map(id=>arr.find(x=>x.id===id)).filter(Boolean)}
 function compraProducto(){return compraSeleccionados()[0]||{id:'',emoji:'🛒',nombre:'Seleccione un producto',tipo:'detalle',ayuda:'Abra la lista y elija el servicio que necesita.',precio:null,precioTxt:'',categoria:'Catálogo',detalleCatalogo:''}}
-function compraTipoTxt(t){return {perfil:'Pide nombre y apellido del perfil',acceso:'Se entrega acceso',correo:'Pide correo',serial:'Se entrega serial',serial_key:'Se entrega key / serial',detalle:'Pide detalle de compra'}[t]||'Compra'}
+function compraTipoTxt(t){return {cuenta_completa:'Cuenta completa · seleccione cantidad',perfil:'Pide nombre y apellido del perfil',acceso:'Se entrega acceso',correo:'Pide correo',serial:'Se entrega serial',serial_key:'Se entrega key / serial',detalle:'Pide detalle de compra'}[t]||'Compra'}
+function compraCantidad(p){
+  if(!p||p.tipo!=='cuenta_completa')return 1;
+  const n=Math.floor(Number(compraDraftVal(buyFid(p,'cantidad'),'1'))||1);
+  return Math.min(50,Math.max(1,n));
+}
+function setCompraCantidad(pid,val){
+  const n=Math.min(50,Math.max(1,Math.floor(Number(val)||1)));
+  compraDraft.fields[`buy_cantidad_${pid}`]=String(n);
+  renderCompraForm();
+}
+function compraCantidadHtml(p){
+  const actual=compraCantidad(p),opciones=[...Array.from({length:20},(_,i)=>i+1),25,30,40,50];
+  return `<div class="buy-dispositivo"><small class="buy-disp-label">Cantidad de cuentas completas</small><select class="comp-in" id="${buyFid(p,'cantidad')}" onchange="setCompraCantidad('${p.id}',this.value)">${opciones.map(n=>`<option value="${n}" ${actual===n?'selected':''}>${n}</option>`).join('')}</select><div class="buy-note"><b>Entrega:</b> se entrega una cuenta completa con correo por cada unidad. No se solicita nombre de cliente, perfil, dispositivo ni datos de instalación.</div></div>`;
+}
 function compraMath(){
   const items=compraSeleccionados();
-  const subtotal=items.reduce((a,p)=>a+(Number.isFinite(Number(p.precio))?Number(p.precio):0),0);
-  const conPrecio=items.filter(p=>p.precio!=null).length;
+  const unidades=items.reduce((a,p)=>a+compraCantidad(p),0);
+  const subtotal=items.reduce((a,p)=>a+(Number.isFinite(Number(p.precio))?Number(p.precio)*compraCantidad(p):0),0);
+  const conPrecio=items.reduce((a,p)=>a+(p.precio!=null?compraCantidad(p):0),0);
   const descuento=Math.min(Math.max(conPrecio-1,0),4)*10;
-  return {items,subtotal,conPrecio,descuento,total:Math.max(0,subtotal-descuento),hayComision:items.some(p=>p.precio==null)};
+  return {items,unidades,subtotal,conPrecio,descuento,total:Math.max(0,subtotal-descuento),hayComision:items.some(p=>p.precio==null)};
 }
 function compraResumenTxt(){
   const m=compraMath();
   if(!m.items.length)return 'Todavía no ha seleccionado ningún producto.';
-  if(m.items.length<=1)return `${m.items.length} producto · ${m.items[0]?.precioTxt||''}`;
-  return `${m.items.length} productos · Subtotal Lps. ${m.subtotal} · Descuento Lps. ${m.descuento} · Total Lps. ${m.total}${m.items.length>5?' · descuento máximo aplicado':''}${m.hayComision?' + comisión':''}`;
+  if(m.unidades===1)return `1 producto · ${m.items[0]?.precioTxt||''}`;
+  return `${m.unidades} unidades · Subtotal Lps. ${m.subtotal} · Descuento Lps. ${m.descuento} · Total Lps. ${m.total}${m.conPrecio>5?' · descuento máximo aplicado':''}${m.hayComision?' + comisión':''}`;
 }
 function setCompraProducto(id){captureCompraDraft();compraSels=[id];compraPickerOpen=false;renderCompraForm()}
 function toggleCompraProducto(id){
@@ -289,6 +307,7 @@ function setCompraDispositivo(pid,val){
   if(wrap)wrap.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.disp===val));
 }
 function compraCampos(p){
+  if(p.tipo==='cuenta_completa')return compraCantidadHtml(p);
   if(p.tipo==='perfil'){
     const base=`<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" value="${escAttr(compraDraftVal(buyFid(p,'perfilNombre')))}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" value="${escAttr(compraDraftVal(buyFid(p,'perfilApellido')))}" placeholder="Apellido del perfil"></div>`;
     return p.pideDispositivo ? base+compraDispositivoHtml(p) : base;
@@ -343,18 +362,18 @@ function renderCompraForm(){
   captureCompraDraft();
   const items=compraSeleccionados(), p=compraProducto(), m=compraMath();
   const el=document.getElementById('compraForm'); if(!el)return;
-  const pickedNames=items.length?items.map(x=>`${x.emoji} ${x.nombre}`).join(' + '):'Toque aquí para elegir del catálogo';
+  const pickedNames=items.length?items.map(x=>`${x.emoji} ${x.nombre}${compraCantidad(x)>1?` × ${compraCantidad(x)}`:''}`).join(' + '):'Toque aquí para elegir del catálogo';
   el.innerHTML=`
   ${misComprasHtml()}
   <button class="buy-picker-btn" onclick="toggleCompraPicker();return false">
-    <span class="buy-picked"><span class="buy-emoji">🛒</span><span><span class="buy-name">${items.length>1?'Combo de '+items.length+' plataformas':p.nombre}</span><span class="buy-type">${pickedNames}</span></span></span>
+    <span class="buy-picked"><span class="buy-emoji">🛒</span><span><span class="buy-name">${items.length>1?'Combo de '+m.unidades+' unidades':(compraCantidad(p)>1?p.nombre+' × '+compraCantidad(p):p.nombre)}</span><span class="buy-type">${pickedNames}</span></span></span>
     <span class="buy-arrow">${compraPickerOpen?'▲':'▼'}</span>
   </button>
-  ${compraPickerOpen?`<div class="buy-list"><div class="buy-combo-tip">Seleccione las plataformas que necesite. Descuento automático: 2 = Lps. 10, 3 = Lps. 20, 4 = Lps. 30, 5 o más = Lps. 40 máximo.</div>${compraOpcionesHtml()}</div>`:''}
+  ${compraPickerOpen?`<div class="buy-list"><div class="buy-combo-tip">Seleccione los productos que necesite. En Cuentas completas puede elegir cantidad. Descuento automático por unidades con precio: 2 = Lps. 10, 3 = Lps. 20, 4 = Lps. 30, 5 o más = Lps. 40 máximo.</div>${compraOpcionesHtml()}</div>`:''}
   <div class="card">
     <div class="card-h"><h2>Datos de la compra</h2><a onclick="go('precios')">Catálogo</a></div>
     <div class="buy-total-box">
-      <b>${items.length>1?'Combo seleccionado':'Producto seleccionado'}</b>
+      <b>${m.unidades>1?'Compra por cantidad / combo':'Producto seleccionado'}</b>
       <span>${compraResumenTxt()}</span>
     </div>
     <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
@@ -388,7 +407,7 @@ async function enviarCompra(){
   const val=id=>(document.getElementById(id)?.value||'').trim();
   const productos=[];
   for(const p of items){
-    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo')), marcaTv=val(buyFid(p,'marcaTv')), marcaTvOtra=val(buyFid(p,'marcaTvOtra'));
+    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo')), marcaTv=val(buyFid(p,'marcaTv')), marcaTvOtra=val(buyFid(p,'marcaTvOtra')), cantidad=compraCantidad(p);
     if(p.tipo==='perfil' && (!perfilNombre||!perfilApellido)){msg.style.color='#e54848';msg.textContent='Coloque nombre y apellido del perfil para '+p.nombre+'.';return}
     if(p.tipo==='perfil' && p.pideDispositivo && !dispositivo){msg.style.color='#e54848';msg.textContent='Elija en qué dispositivo va el perfil de '+p.nombre+'.';return}
     if(p.tipo==='correo' && !correo){msg.style.color='#e54848';msg.textContent='Coloque el correo para '+p.nombre+'.';return}
@@ -398,7 +417,7 @@ async function enviarCompra(){
     if(compraEsIptv(p) && marcaTv==='otro' && !marcaTvOtra){msg.style.color='#e54848';msg.textContent='Especifique la marca y modelo del TV.';return}
     productos.push({
       id:p.id, catalogId:p.catalogId, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
-      precioCatalogo:p.precio, entregaTipo:p.tipo, entregaCanal:p.entregaCanal||'manual', perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
+      precioCatalogo:p.precio, cantidad, entregaTipo:p.tipo, entregaCanal:p.entregaCanal||'manual', perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
     });
   }
   if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
@@ -409,9 +428,9 @@ async function enviarCompra(){
   try{
     const r=await API.call('/rev/compra',{method:'POST',body:JSON.stringify({
       destino:compraDestino,
-      servicio:items.length>1?`Combo ${items.length} plataformas`:items[0].nombre,
+      servicio:m.unidades>1?`Combo ${m.unidades} unidades`:items[0].nombre,
       productos,
-      comboCantidad:items.length,
+      comboCantidad:m.unidades,
       subtotalCatalogo:m.subtotal,
       descuentoCombo:m.descuento,
       totalCombo:m.total,
