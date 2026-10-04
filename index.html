@@ -164,8 +164,9 @@ const ROBOT_IMG = "assets/robot-socios.webp";
       <img id="compPrev" style="display:none" alt="">
     </div>
     <input class="comp-in" id="compQuien" placeholder="¿Quién renovó? (ej. el cliente, yo…)">
-    <textarea class="cobro-text" id="compCom" style="min-height:90px" placeholder="Comentario (método de pago, detalle, lo que sea)"></textarea>
-    <input class="comp-in" id="compMonto" type="number" inputmode="decimal" placeholder="Costo pagado a Sublicuentas (opcional)">
+    <textarea class="cobro-text" id="compCom" style="min-height:90px" placeholder="Comentario opcional (detalle). El banco se elige arriba."></textarea>
+    <div class="buy-money-summary" id="compTotal"><span>Total (automático)</span><b>Lo calcula el sistema</b></div>
+    <div class="pago-bancos" id="compBancos"><small>¿Dónde se hizo el pago? <b>(obligatorio)</b></small><div class="pago-bancos-list">Cargando métodos…</div></div>
     <div class="comp-renew-box">
       <div class="comp-renew-title">🔄 Renovar fecha del cliente aquí mismo</div>
       <input class="comp-in" id="compNuevaFecha" type="date" placeholder="Nueva fecha de vencimiento">
