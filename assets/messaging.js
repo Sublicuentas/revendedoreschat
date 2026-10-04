@@ -247,7 +247,8 @@ function openComprobante(id,servicio,servicioIndex){
   document.getElementById('compSub').textContent=compCtx.cliente+' · '+compCtx.servicio;
   const sel=document.getElementById('compServices');
   sel.innerHTML=`<div class="multi-renew-head"><b>¿Qué servicios renovó?</b><button type="button" onclick="toggleAllCompServices(this)">Seleccionar todos</button></div>${compCtx.servicios.map(s=>`<label class="multi-service ${s.servicioIndex===idxOriginal?'on':''}"><input type="checkbox" value="${Number(s.servicioIndex)}" ${s.servicioIndex===idxOriginal?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)"><span><b>${escHtml(s.servicio)}</b><small>${s.fecha?'Vence '+fmtFecha(s.fecha):'Sin fecha'}</small></span></label>`).join('')}`;
-  ['compQuien','compCom','compMonto','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
+  ['compQuien','compCom','compFile','compNuevaFecha'].forEach(k=>{const e=document.getElementById(k);if(e)e.value=''});
+  compBancoId='';compOpId=nuevoOpId();renderCompPago(); // R108: un operationId por renovación (doble toque = sin duplicar)
   const prev=document.getElementById('compPrev'), ph=document.getElementById('compPh');
   prev.style.display='none'; prev.src=''; ph.style.display='flex';
   const info=document.getElementById('compFechaInfo');
@@ -272,6 +273,24 @@ function openComprobanteGrupo(id,servicioIndices=[]){
   if(sub)sub.textContent=`${nombreCli(c)} · ${chosen.length} servicio${chosen.length===1?'':'s'} seleccionado${chosen.length===1?'':'s'}`;
 }
 function toggleAllCompServices(btn){const checks=[...document.querySelectorAll('#compServices input[type=checkbox]')],all=checks.every(x=>x.checked);checks.forEach(x=>{x.checked=!all;x.parentElement.classList.toggle('on',!all)});btn.textContent=all?'Seleccionar todos':'Quitar todos'}
+/* R108 · Pago estructurado (Socios): banco obligatorio de los métodos activos y monto AUTOMÁTICO.
+   El total lo calcula el servidor (precio guardado de cada servicio / catálogo mayorista); aquí solo se muestra. */
+let metodosPagoCache=null, compBancoId='', compOpId='';
+function nuevoOpId(){return (crypto.randomUUID?crypto.randomUUID():('s'+Date.now().toString(36)+Math.random().toString(36).slice(2,12)))}
+async function cargarMetodosPago(){
+  if(metodosPagoCache)return metodosPagoCache;
+  try{const r=await API.call('/rev/metodos-pago');metodosPagoCache=Array.isArray(r?.metodos)?r.metodos:[];}catch(e){metodosPagoCache=null;return []}
+  return metodosPagoCache;
+}
+function bancosChipsHtml(metodos,sel,onclick){
+  if(!metodos.length)return '<span style="color:#e54848;font-weight:800">No se pudieron cargar los métodos de pago. Revise su conexión.</span>';
+  return metodos.map(m=>`<button type="button" class="pago-chip ${sel===m.id?'on':''}" onclick="${onclick}('${String(m.id).replace(/'/g,'')}');return false">${escHtml(m.nombre)}</button>`).join('');
+}
+async function renderCompPago(){
+  const box=document.querySelector('#compBancos .pago-bancos-list');if(!box)return;
+  box.innerHTML=bancosChipsHtml(await cargarMetodosPago(),compBancoId,'setCompBanco');
+}
+function setCompBanco(id){compBancoId=id;renderCompPago();}
 function selectedCompServices(){return [...document.querySelectorAll('#compServices input[type=checkbox]:checked')].map(x=>compCtx.servicios.find(s=>s.servicioIndex===Number(x.value))).filter(Boolean)}
 function closeComprobante(){document.getElementById('compOverlay').classList.remove('show')}
 function compressImage(file,maxDim,q){
@@ -310,7 +329,8 @@ async function enviarComprobante(){
   const nuevaFecha=(document.getElementById('compNuevaFecha')?.value||'').trim();
   const servicios=selectedCompServices();
   if(!servicios.length){msg.style.color='#e54848';msg.textContent='Seleccione al menos un servicio.';return}
-  if(!compImg && !nuevaFecha){ msg.style.color='#e54848'; msg.textContent='Suba una foto o elija nueva fecha para renovar.'; return }
+  if(!nuevaFecha){ msg.style.color='#e54848'; msg.textContent='Elija +1m/+2m/+3m/+6m o una fecha para renovar.'; return }
+  if(!compBancoId){ msg.style.color='#e54848'; msg.textContent='Elija dónde se hizo el pago.'; return }
   const btn=document.getElementById('compBtn'); btn.disabled=true; btn.textContent='Guardando…';
   try{
     const res=await API.call('/rev/renovacion',{method:'POST',body:JSON.stringify({
@@ -319,16 +339,17 @@ async function enviarComprobante(){
       servicios:servicios.map(s=>({servicioIndex:s.servicioIndex,compraId:s.compraId||'',servicio:s.servicio})),
       comentario:document.getElementById('compCom').value.trim(),
       quien:document.getElementById('compQuien').value.trim(),
-      monto:document.getElementById('compMonto').value||0,
+      bancoId:compBancoId, operationId:compOpId||(compOpId=nuevoOpId()), // monto: lo calcula el servidor
       nuevaFecha,
       imagen:compImg
     })});
-    msg.style.color='#1aa15a'; msg.textContent=res.renovado?(`✅ ${res.renovadosCantidad||servicios.length} servicio(s) renovado(s) hasta ${fmtFecha(parseFecha(res.nuevaFecha))}.`): `✅ Un comprobante guardado para ${servicios.length} servicio(s).`;
+    compOpId=nuevoOpId();
+    msg.style.color='#1aa15a'; msg.textContent=res.duplicate?'✅ Esa renovación ya estaba registrada.':res.renovado?(`✅ ${res.renovadosCantidad||servicios.length} servicio(s) renovado(s) hasta ${fmtFecha(parseFecha(res.nuevaFecha))}.`): `✅ Un comprobante guardado para ${servicios.length} servicio(s).`;
     if(res.renovado) await refreshClientesPostRenew();
     setTimeout(closeComprobante,1100);
   }catch(e){
     msg.style.color='#e54848';
-    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',servicio_no_permitido:'Esa cuenta no pertenece a este socio.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.',sin_permiso_renovar:'Su usuario no tiene permiso para registrar renovaciones.'};
+    const map={falta_banco:'Elija dónde se hizo el pago.',precio_no_resuelto:(e&&e.detail)||'Ese servicio no tiene precio guardado. Avise a Sublicuentas.',falta_operation_id:'Actualice el panel (recargue la página).',imagen_muy_grande:'La foto pesa mucho, probá otra.',servicio_no_existe:'No encontré ese servicio del cliente.',servicio_no_permitido:'Esa cuenta no pertenece a este socio.',cliente_no_permitido:'Ese cliente no pertenece a este socio.',fecha_invalida:'La fecha no es válida.',sin_permiso_renovar:'Su usuario no tiene permiso para registrar renovaciones.'};
     msg.textContent=map[e&&e.error]||('No se pudo guardar. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
   }finally{ btn.disabled=false; btn.textContent='Guardar'; }
 }

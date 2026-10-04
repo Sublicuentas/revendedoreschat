@@ -140,7 +140,8 @@ function renRow(s){
 let compraSels=[], compraDestino='sublicuentas', compraImg='', compraPickerOpen=false;
 let compraDraft={fields:{},monto:'',montoManual:false,comentario:''};
 let catalogCategoria='';
-function resetCompraDraft(){compraDraft={fields:{},monto:'',montoManual:false,comentario:''}}
+function resetCompraDraft(){compraDraft={fields:{},monto:'',montoManual:false,comentario:'',bancoId:'',requestId:''}}
+function setCompraBanco(id){compraDraft.bancoId=id;const b=document.querySelector('#buyBancos .pago-bancos-list');if(b)cargarMetodosPago().then(ms=>{b.innerHTML=bancosChipsHtml(ms,compraDraft.bancoId,'setCompraBanco')});}
 function compraDraftVal(id,def=''){const v=compraDraft.fields?.[id];return v==null?def:String(v)}
 function captureCompraDraft(){
   const host=document.getElementById('compraForm');if(!host)return;
@@ -379,9 +380,10 @@ function renderCompraForm(){
     <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
     ${compraDatosHtml(items)}
     <div class="buy-money-summary"><span>Total calculado</span><b>${money(m.total)}</b></div>
-    <input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto realmente pagado a Sublicuentas" data-default-total="${m.total}" value="${escAttr(compraDraft.montoManual?compraDraft.monto:(m.total||''))}" oninput="markCompraMontoManual(this)">
-    <div class="buy-monto-note ${compraDraft.montoManual?'warn':''}" id="buyMontoNote">${compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Monto igual al total calculado'}</div>
-    <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: método de pago, urgencia o detalle del cliente…">${escHtml(compraDraft.comentario||'')}</textarea>
+    ${m.hayComision?`<input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto realmente pagado a Sublicuentas" data-default-total="${m.total}" value="${escAttr(compraDraft.montoManual?compraDraft.monto:(m.total||''))}" oninput="markCompraMontoManual(this)">
+    <div class="buy-monto-note ${compraDraft.montoManual?'warn':''}" id="buyMontoNote">${compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Monto igual al total calculado'}</div>`:`<div class="buy-monto-note" id="buyMontoNote">🔒 Total automático (precio mayorista de su catálogo). El sistema lo confirma al enviar.</div>
+    <div class="pago-bancos" id="buyBancos"><small>¿Dónde se hizo el pago? <b>(obligatorio)</b></small><div class="pago-bancos-list">Cargando métodos…</div></div>`}
+    <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: urgencia o detalle del cliente…">${escHtml(compraDraft.comentario||'')}</textarea>
     <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
     <div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()">
       <div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small style="display:block;margin-top:4px;color:#7890AA;font-weight:900">Seleccione la captura guardada, no cámara.</small></div>
@@ -391,6 +393,7 @@ function renderCompraForm(){
     <div id="buyMsg" style="text-align:center;font-weight:900;font-size:13px;margin-top:10px;min-height:16px;font-family:var(--fn)"></div>
   </div>`;
   restoreCompraReceiptPreview();
+  if(!m.hayComision)setCompraBanco(compraDraft.bancoId||''); // R108: pinta los bancos activos
 }
 async function pickCompra(input){
   const f=input.files&&input.files[0]; if(!f)return;
@@ -421,7 +424,9 @@ async function enviarCompra(){
     });
   }
   if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
-  const montoReal=num(val('buyMonto')||m.total),montoModificado=Math.abs(montoReal-Number(m.total||0))>.001;
+  if(!m.hayComision&&!compraDraft.bancoId){msg.style.color='#e54848';msg.textContent='Elija dónde se hizo el pago.';return}
+  compraDraft.requestId=compraDraft.requestId||nuevoOpId(); // R108: doble toque / reintento = una sola compra
+  const montoReal=m.hayComision?num(val('buyMonto')||m.total):Number(m.total||0),montoModificado=m.hayComision&&Math.abs(montoReal-Number(m.total||0))>.001;
   let comentario=val('buyComentario');
   if(montoModificado){const nota=`Monto modificado manualmente: calculado ${money(m.total)} → pagado ${money(montoReal)}`;comentario=comentario?`${comentario} · ${nota}`:nota}
   const btn=document.getElementById('buyBtn'); btn.disabled=true; btn.textContent='Enviando…';
@@ -434,7 +439,7 @@ async function enviarCompra(){
       subtotalCatalogo:m.subtotal,
       descuentoCombo:m.descuento,
       totalCombo:m.total,
-      monto:montoReal, montoCalculado:m.total, montoModificado,
+      monto:montoReal, montoCalculado:m.total, montoModificado, bancoId:compraDraft.bancoId||'', requestId:compraDraft.requestId,
       comentario, imagen:compraImg
     })});
     msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';
@@ -443,7 +448,7 @@ async function enviarCompra(){
     setTimeout(()=>renderCompraForm(),900);
   }catch(e){
     msg.style.color='#e54848';
-    const map={imagen_muy_grande:'La foto pesa mucho, probá otra.',falta_servicio:'Seleccione un servicio.',sin_permiso_comprar:'Su usuario no tiene permiso para registrar compras.'};
+    const map={falta_banco:'Elija dónde se hizo el pago.',falta_operation_id:'Actualice el panel (recargue la página).',imagen_muy_grande:'La foto pesa mucho, probá otra.',falta_servicio:'Seleccione un servicio.',sin_permiso_comprar:'Su usuario no tiene permiso para registrar compras.'};
     msg.textContent=map[e&&e.error]||('No se pudo enviar la compra. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
   }finally{btn.disabled=false;btn.textContent='Enviar compra'}
 }

@@ -609,3 +609,10 @@ body.geisell-mode .nav{justify-content:center}
   .topbar-actions .icon-btn{width:42px!important;height:42px!important;flex-basis:42px!important}
   .web-admin-return{max-width:82px!important;padding:0 9px!important;font-size:10.5px!important}
 }
+
+/* R108 · Pago estructurado de Socios (blanco y limpio) */
+.pago-bancos{margin:10px 0;padding:10px;border:1px solid #e3e9f2;border-radius:12px;background:#fff}
+.pago-bancos small{display:block;font-weight:800;color:#33435c;margin-bottom:6px}
+.pago-bancos-list{display:flex;flex-wrap:wrap;gap:6px}
+.pago-chip{border:1px solid #d5dde8;background:#fff;color:#0f2d52;border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer}
+.pago-chip.on{background:#e2231a;border-color:#e2231a;color:#fff}
