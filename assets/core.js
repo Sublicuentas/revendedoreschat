@@ -364,7 +364,7 @@ function num(v){
   const n=parseFloat(s);return Number.isFinite(n)?n:0;
 }
 function precioServicio(s){return num(pick(s,CONFIG.campos.precio))}
-function money(n){return 'Lps. '+Math.round(n||0).toLocaleString('es-HN')}
+function money(n){return 'L'+Math.round(n||0).toLocaleString('es-HN')} // moneda: L pegado al número (L300)
 function esVigente(e){return e.n>=0&&e.n<9999}
 function clienteTieneVigente(c){return (Array.isArray(c.servicios)?c.servicios:[]).some(s=>esVigente(estado(parseFecha(pick(s,CONFIG.campos.vencimiento)))))}
 /* Vigente = tiene al menos un servicio en fecha. No vigente = todo lo demás (vencidos, sin fecha o sin servicio). */

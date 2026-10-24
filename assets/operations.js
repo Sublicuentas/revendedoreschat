@@ -141,11 +141,12 @@ let compraSels=[], compraDestino='sublicuentas', compraImg='', compraPickerOpen=
 let compraDraft={fields:{},monto:'',montoManual:false,comentario:''};
 let catalogCategoria='';
 function resetCompraDraft(){compraDraft={fields:{},monto:'',montoManual:false,comentario:'',bancoId:'',requestId:''}}
-function setCompraBanco(id){compraDraft.bancoId=id;const b=document.querySelector('#buyBancos .pago-bancos-list');if(b)cargarMetodosPago().then(ms=>{b.innerHTML=bancosChipsHtml(ms,compraDraft.bancoId,'setCompraBanco')});}
+function setCompraBanco(id){compraDraft.bancoId=id;if(id)compraLimpiarErr('buyBancos');const b=document.querySelector('#buyBancos .pago-bancos-list');if(b)cargarMetodosPago().then(ms=>{b.innerHTML=bancosChipsHtml(ms,compraDraft.bancoId,'setCompraBanco')});}
 function compraDraftVal(id,def=''){const v=compraDraft.fields?.[id];return v==null?def:String(v)}
 function captureCompraDraft(){
   const host=document.getElementById('compraForm');if(!host)return;
-  host.querySelectorAll('input[id^="buy_"],textarea[id^="buy_"],select[id^="buy_"]').forEach(el=>{
+  // Oct-2026: antes el selector solo tomaba ids "buy_…" y se perdían Notas (buyComentario) y Monto (buyMonto) al repintar.
+  host.querySelectorAll('input[id^="buy_"],textarea[id^="buy_"],select[id^="buy_"],#buyComentario,#buyMonto').forEach(el=>{
     if(el.type==='file')return;
     if(el.id==='buyMonto'){compraDraft.monto=el.value;const base=Number(el.dataset.defaultTotal||0),actual=Number(el.value||0);compraDraft.montoManual=Number.isFinite(actual)&&Math.abs(actual-base)>.001;return}
     if(el.id==='buyComentario'){compraDraft.comentario=el.value;return}
@@ -179,37 +180,61 @@ function compraEmoji(nombre,cat){
   if(t.includes('free fire'))return '🎮';
   return '🛒';
 }
+/* ===================================================================
+   Oct-2026 · COMPRA: un solo flujo para móvil y web
+   Productos → Datos de entrega → Pago → Notas → Comprobante → Resumen → Enviar
+   - El carrito siempre visible (web: columna derecha fija · móvil: barra inferior).
+   - Agregar/quitar productos NO mueve la pantalla al inicio ni borra lo escrito.
+   - Perfil pide nombre, apellido y dispositivo por defecto (pideDispositivo:false lo apaga).
+   - Banco y comprobante obligatorios en TODA compra (también por comisión).
+   - Validación con mensaje debajo de cada campo y foco en el primero que falte.
+   =================================================================== */
+let compraErrores={};   // id de campo → mensaje
+let compraScrollA='';   // a dónde llevar la vista después de pintar: 'datos' | 'resumen' | ''
+
+function compraBool(v){
+  if(v===true||v===false)return v;
+  const s=norm(String(v??''));
+  if(['true','si','sí','1','yes'].includes(s))return true;
+  if(['false','no','0'].includes(s))return false;
+  return null;
+}
+// Prioridad: 1) metadata del catálogo (entregaTipo / entregaCanal) · 2) reglas por categoría · 3) nombre (solo catálogos viejos).
 function compraTipoDesdeCatalogo(it,cat){
   const explicit=norm(it?.entregaTipo||it?.entrega_tipo||'').replace(/\s+/g,'_');
-  const categoria=norm(cat||'');
-  if(explicit==='cuenta_completa'||/(^| )cuentas? completas?( |$)/.test(categoria))return 'cuenta_completa';
+  if(explicit==='cuenta_completa'||explicit==='cuenta')return 'cuenta_completa';
   if(['perfil','correo','acceso','serial','serial_key','detalle'].includes(explicit))return explicit;
-  const t=norm([it.n,it.s,it.d,cat].filter(Boolean).join(' '));
-  if(/netflix|disney|max|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
+  if(explicit==='invitacion')return 'correo';
+  const canal=norm(it?.entregaCanal||it?.entrega_canal||'');
+  if(canal==='invitacion')return 'correo';
+  if(canal==='iptv')return 'acceso';
+  if(/(^| )cuentas? completas?( |$)/.test(norm(cat||'')))return 'cuenta_completa';
+  const t=norm([it?.n,it?.s,it?.d,cat].filter(Boolean).join(' '));
+  if(/iptv|liontv|latintv|latin tv|lion tv|icomplay|nanotech|evoutouch|oleada/.test(t))return 'acceso';
+  if(/netflix|disney|\bmax\b|hbo|vix|viki|prime video|paramount|crunchyroll/.test(t))return 'perfil';
   if(/canva|gemini|office personal|microsoft 365|invitacion al correo|invitacion al gmail|gmail del cliente|al correo del cliente|a correo del cliente/.test(t))return 'correo';
   if(/mcafee|nod32|eset|antivirus|office 2021|office 2024|licencia permanente|serial de activacion|key/.test(t))return t.includes('key')?'serial_key':'serial';
-  if(/oleada|iptv|liontv|latintv|latin tv|lion tv|spotify|deezer|correo y contrasena|correo y clave|se entrega correo y contrasena/.test(t))return 'acceso';
-  if(/free fire|recarga|juegos/.test(t))return 'detalle';
+  if(/spotify|deezer|correo y contrasena|correo y clave|se entrega correo y contrasena/.test(t))return 'acceso';
   return 'detalle';
 }
-// ✅ NUEVO: para estas 6 plataformas, además del nombre/apellido del perfil,
-// se pide en qué dispositivo lo va a usar el cliente (TV, celular, tablet o
-// computadora) — así el equipo ya sabe para cuál armar el acceso.
-function compraPideDispositivo(it,cat){
-  const t=norm([it.n,it.s,cat].filter(Boolean).join(' '));
-  return /disney|\bmax\b|\bhbo\b|\bvix\b|crunchyroll|prime video/.test(t);
+// Perfil → SIEMPRE pide dispositivo, salvo que el catálogo diga pideDispositivo:false.
+// Antes dependía de una lista vieja de nombres y los productos nuevos (p. ej. HBO Max Platino) perdían el campo.
+function compraPideDispositivo(it,cat,tipo){
+  const meta=compraBool(it?.pideDispositivo??it?.pide_dispositivo);
+  if(meta!==null)return meta;
+  return (tipo||compraTipoDesdeCatalogo(it,cat))==='perfil';
 }
-function compraEsIptv(p){return /iptv|liontv|latintv|latin tv|lion tv/.test(norm([p.base,p.nombre,p.categoria].join(' ')))}
+function compraEsIptv(p){return p?.entregaCanal==='iptv'||/iptv|liontv|latintv|latin tv|lion tv|icomplay|nanotech|evoutouch/.test(norm([p?.base,p?.nombre,p?.categoria].join(' ')))}
 function compraAyudaDesdeTipo(p){
   const canal=String(p.canal||'manual');
   const flujo={bot_tg:' Flujo configurado: Bot TG / código.',inventario:' Flujo configurado: Inventario Sublichat.',invitacion:' Flujo configurado: invitación al correo.',iptv:' Flujo configurado: TV Digital / IPTV.'}[canal]||'';
-  if(p.tipo==='cuenta_completa')return 'Solo seleccione la cantidad. La cuenta completa se entrega con correo; no pide datos del cliente ni dispositivo.'+flujo;
-  if(p.tipo==='perfil')return 'Pedir nombre y apellido del perfil.'+flujo;
-  if(p.tipo==='correo')return 'Pedir solo el correo del cliente.'+flujo;
-  if(p.tipo==='acceso')return 'Este servicio se entrega con acceso. El encargado hará la entrega.'+flujo;
-  if(p.tipo==='serial_key')return 'Este producto se entrega con key / serial. El encargado hará la entrega.'+flujo;
-  if(p.tipo==='serial')return 'Este producto se entrega con serial/licencia. El encargado hará la entrega.'+flujo;
-  return 'Pedir el detalle necesario para procesar la compra.'+flujo;
+  if(p.tipo==='cuenta_completa')return 'Seleccione la cantidad. La cuenta completa se entrega con correo; no pide perfil ni dispositivo.'+flujo;
+  if(p.tipo==='perfil')return (p.pideDispositivo?'Nombre, apellido y dispositivo del perfil.':'Nombre y apellido del perfil.')+flujo;
+  if(p.tipo==='correo')return 'Nombre del cliente y correo para la invitación.'+flujo;
+  if(p.tipo==='acceso')return 'Se entrega con acceso. El encargado hará la entrega.'+flujo;
+  if(p.tipo==='serial_key')return 'Se entrega con key / serial. El encargado hará la entrega.'+flujo;
+  if(p.tipo==='serial')return 'Se entrega con serial/licencia. El encargado hará la entrega.'+flujo;
+  return 'Escriba el detalle necesario para procesar la compra.'+flujo;
 }
 function compraProductosCatalogo(){
   const out=[];
@@ -217,53 +242,44 @@ function compraProductosCatalogo(){
     (g.items||[]).forEach((it,ii)=>{
       const nombre=(it.s?`${it.n} · ${it.s}`:it.n);
       const tipo=compraTipoDesdeCatalogo(it,g.cat);
+      const pideDispositivo=tipo==='perfil'&&compraPideDispositivo(it,g.cat,tipo);
+      const entregaCanal=it.entregaCanal||it.entrega_canal||'manual';
       out.push({
         id:it.id?`cat_${compraSlug(it.id)}`:`cat_${gi}_${ii}_${compraSlug(nombre)}`,
-        catalogId:it.id||'',
-        emoji:compraEmoji(nombre,g.cat),
-        nombre,
-        base:it.n||'',
-        sub:it.s||'',
-        precio:it.p,
-        precioTxt:it.p==null?'Por comisión':`Lps. ${it.p}`,
-        tipo,
-        pideDispositivo:tipo==='perfil'&&compraPideDispositivo(it,g.cat),
-        ayuda:compraAyudaDesdeTipo({tipo,canal:it.entregaCanal||'manual'}),
-        detalleCatalogo:it.d||'',
-        entregaCanal:it.entregaCanal||it.entrega_canal||'manual',
-        categoria:g.cat||'Catálogo',
-        grupo:g.cat||'Catálogo'
+        catalogId:it.id||'', emoji:compraEmoji(nombre,g.cat), nombre, base:it.n||'', sub:it.s||'',
+        precio:it.p, precioTxt:it.p==null?'Por comisión':`L${it.p}`,
+        tipo, pideDispositivo, ayuda:compraAyudaDesdeTipo({tipo,canal:entregaCanal,pideDispositivo}),
+        detalleCatalogo:it.d||'', entregaCanal, categoria:g.cat||'Catálogo', grupo:g.cat||'Catálogo'
       });
     });
   });
   return out;
 }
 function compraEnsureSel(){
-  const arr=compraProductosCatalogo();
-  const ids=new Set(arr.map(x=>x.id));
+  const ids=new Set(compraProductosCatalogo().map(x=>x.id));
   compraSels=(compraSels||[]).filter(id=>ids.has(id));
 }
 function compraSeleccionados(){compraEnsureSel();const arr=compraProductosCatalogo();return compraSels.map(id=>arr.find(x=>x.id===id)).filter(Boolean)}
 function compraProducto(){return compraSeleccionados()[0]||{id:'',emoji:'🛒',nombre:'Seleccione un producto',tipo:'detalle',ayuda:'Abra la lista y elija el servicio que necesita.',precio:null,precioTxt:'',categoria:'Catálogo',detalleCatalogo:''}}
-function compraTipoTxt(t){return {cuenta_completa:'Cuenta completa · seleccione cantidad',perfil:'Pide nombre y apellido del perfil',acceso:'Se entrega acceso',correo:'Pide correo',serial:'Se entrega serial',serial_key:'Se entrega key / serial',detalle:'Pide detalle de compra'}[t]||'Compra'}
+function compraTipoTxt(t,p){if(t==='perfil'&&p&&!p.pideDispositivo)return 'Perfil · nombre y apellido';return {cuenta_completa:'Cuenta completa · seleccione cantidad',perfil:'Perfil · nombre, apellido y dispositivo',acceso:'Se entrega acceso',correo:'Pide nombre y correo',serial:'Se entrega serial',serial_key:'Se entrega key / serial',detalle:'Pide detalle de compra'}[t]||'Compra'}
 function compraCantidad(p){
   if(!p||p.tipo!=='cuenta_completa')return 1;
   const n=Math.floor(Number(compraDraftVal(buyFid(p,'cantidad'),'1'))||1);
   return Math.min(50,Math.max(1,n));
 }
 function setCompraCantidad(pid,val){
-  const n=Math.min(50,Math.max(1,Math.floor(Number(val)||1)));
-  compraDraft.fields[`buy_cantidad_${pid}`]=String(n);
+  captureCompraDraft();
+  compraDraft.fields[`buy_cantidad_${pid}`]=String(Math.min(50,Math.max(1,Math.floor(Number(val)||1))));
   renderCompraForm();
 }
 function compraCantidadHtml(p){
   const actual=compraCantidad(p),opciones=[...Array.from({length:20},(_,i)=>i+1),25,30,40,50];
-  return `<div class="buy-dispositivo"><small class="buy-disp-label">Cantidad de cuentas completas</small><select class="comp-in" id="${buyFid(p,'cantidad')}" onchange="setCompraCantidad('${p.id}',this.value)">${opciones.map(n=>`<option value="${n}" ${actual===n?'selected':''}>${n}</option>`).join('')}</select><div class="buy-note"><b>Entrega:</b> se entrega una cuenta completa con correo por cada unidad. No se solicita nombre de cliente, perfil, dispositivo ni datos de instalación.</div></div>`;
+  return `<label class="buy-field"><span>Cantidad de cuentas completas</span><select class="comp-in" id="${buyFid(p,'cantidad')}" onchange="setCompraCantidad('${p.id}',this.value)">${opciones.map(n=>`<option value="${n}" ${actual===n?'selected':''}>${n}</option>`).join('')}</select></label><div class="buy-note"><b>Entrega:</b> una cuenta completa con correo por cada unidad. No se pide perfil, dispositivo ni datos de instalación.</div>`;
 }
 function compraMath(){
   const items=compraSeleccionados();
   const unidades=items.reduce((a,p)=>a+compraCantidad(p),0);
-  const subtotal=items.reduce((a,p)=>a+(Number.isFinite(Number(p.precio))?Number(p.precio)*compraCantidad(p):0),0);
+  const subtotal=items.reduce((a,p)=>a+(Number.isFinite(Number(p.precio))&&p.precio!=null?Number(p.precio)*compraCantidad(p):0),0);
   const conPrecio=items.reduce((a,p)=>a+(p.precio!=null?compraCantidad(p):0),0);
   const descuento=Math.min(Math.max(conPrecio-1,0),4)*10;
   return {items,unidades,subtotal,conPrecio,descuento,total:Math.max(0,subtotal-descuento),hayComision:items.some(p=>p.precio==null)};
@@ -272,64 +288,88 @@ function compraResumenTxt(){
   const m=compraMath();
   if(!m.items.length)return 'Todavía no ha seleccionado ningún producto.';
   if(m.unidades===1)return `1 producto · ${m.items[0]?.precioTxt||''}`;
-  return `${m.unidades} unidades · Subtotal Lps. ${m.subtotal} · Descuento Lps. ${m.descuento} · Total Lps. ${m.total}${m.conPrecio>5?' · descuento máximo aplicado':''}${m.hayComision?' + comisión':''}`;
+  return `${m.unidades} unidades · Subtotal ${money(m.subtotal)} · Descuento ${money(m.descuento)} · Total ${money(m.total)}${m.hayComision?' + comisión':''}`;
 }
-function setCompraProducto(id){captureCompraDraft();compraSels=[id];compraPickerOpen=false;renderCompraForm()}
+// Pintar sin perder la posición: guarda el scroll, pinta y lo devuelve (o lleva al bloque pedido, nunca al inicio).
+function compraPintar(fn){
+  const y=window.scrollY;
+  fn();
+  const destino=compraScrollA; compraScrollA='';
+  if(destino){
+    const el=document.getElementById(destino==='resumen'?'buySecResumen':destino==='datos'?'buySecDatos':destino);
+    if(el){el.scrollIntoView({behavior:'smooth',block:'start'});return}
+  }
+  window.scrollTo(0,y);
+}
+function compraAviso(texto){
+  let t=document.getElementById('buyToast');
+  if(!t){t=document.createElement('div');t.id='buyToast';t.className='buy-toast';document.body.appendChild(t)}
+  t.textContent=texto;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1600);
+}
+function setCompraProducto(id){captureCompraDraft();if(!compraSels.includes(id))compraSels.push(id);compraPickerOpen=false;renderCompraForm()}
 function toggleCompraProducto(id){
   captureCompraDraft();compraEnsureSel();
-  if(compraSels.includes(id)){
-    compraSels=compraSels.filter(x=>x!==id);
-  }else{
-    compraSels.push(id);
-  }
+  const p=compraProductosCatalogo().find(x=>x.id===id);
+  if(compraSels.includes(id)){compraSels=compraSels.filter(x=>x!==id);compraAviso(`Quitado: ${p?.nombre||'producto'}`)}
+  else{compraSels.push(id);compraAviso(`✓ Agregado al carrito: ${p?.nombre||'producto'}`)}
   renderCompraForm();
 }
+function quitarCompraProducto(id){captureCompraDraft();compraSels=compraSels.filter(x=>x!==id);renderCompraForm()}
 function toggleCompraPicker(){captureCompraDraft();compraPickerOpen=!compraPickerOpen;renderCompraForm()}
 function setCompraDestino(d){compraDestino=d;document.querySelectorAll('.destino-seg button').forEach(b=>b.classList.toggle('on',b.dataset.dest===d))}
 function buyFid(p,field){return `buy_${field}_${p.id}`}
-// ✅ NUEVO: selector de dispositivo (TV/Celular/Tablet/Computadora) — solo
-// para las 6 plataformas que lo piden (ver compraPideDispositivo).
+function compraLimpiarErr(id){if(!compraErrores[id])return;delete compraErrores[id];document.getElementById('err_'+id)?.remove();document.getElementById('fld_'+id)?.classList.remove('has-err');const box=document.getElementById(id);if(box&&!/^(INPUT|TEXTAREA|SELECT)$/.test(box.tagName))box.classList.remove('has-err');if(id==='buyFile')document.getElementById('buyDrop')?.classList.remove('has-err')}
+function compraErrHtml(id){return compraErrores[id]?`<small class="buy-err" id="err_${id}">${escHtml(compraErrores[id])}</small>`:''}
+function compraCampo(p,field,label,ph,{type='text',req=true}={}){
+  const id=buyFid(p,field);
+  return `<label class="buy-field ${compraErrores[id]?'has-err':''}" id="fld_${id}"><span>${escHtml(label)}${req?' <i>*</i>':''}</span><input class="comp-in" id="${id}" type="${type}" value="${escAttr(compraDraftVal(id))}" placeholder="${escAttr(ph)}" oninput="compraLimpiarErr('${id}')">${compraErrHtml(id)}</label>`;
+}
 function compraDispositivoHtml(p){
-  const opciones=[['tv','📺 TV'],['celular','📱 Celular'],['tablet','📱 Tablet'],['computadora','💻 Computadora']],selected=compraDraftVal(buyFid(p,'dispositivo'));
-  return `<div class="buy-dispositivo">
-    <small class="buy-disp-label">¿En qué dispositivo va este perfil?</small>
-    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt ${selected===v?'on':''}" data-disp="${v}" onclick="setCompraDispositivo('${p.id}','${v}',this);return false">${l}</button>`).join('')}</div>
-    <input type="hidden" id="${buyFid(p,'dispositivo')}" value="${escAttr(selected)}">
-  </div>`;
+  const id=buyFid(p,'dispositivo'),selected=compraDraftVal(id);
+  const opciones=[['tv','📺 TV'],['celular','📱 Celular'],['tablet','📱 Tableta'],['computadora','💻 Computadora']];
+  return `<div class="buy-field ${compraErrores[id]?'has-err':''}" id="fld_${id}"><span>Dispositivo <i>*</i></span><small class="buy-hint">Seleccione dónde utilizará este perfil.</small>
+    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt ${selected===v?'on':''}" data-disp="${v}" onclick="setCompraDispositivo('${p.id}','${v}');return false">${l}</button>`).join('')}</div>
+    <input type="hidden" id="${id}" value="${escAttr(selected)}">${compraErrHtml(id)}</div>`;
+}
+function setCompraDispositivo(pid,val){
+  const id=`buy_dispositivo_${pid}`,input=document.getElementById(id);
+  if(input)input.value=val;
+  compraDraft.fields[id]=val;
+  document.getElementById('fld_'+id)?.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.disp===val));
+  compraLimpiarErr(id);
 }
 function compraMarcaTvHtml(p){
-  const opciones=[['samsung','Samsung'],['lg','LG'],['tcl','TCL'],['roku','Roku TV'],['otro','Otra']],selected=compraDraftVal(buyFid(p,'marcaTv')),otra=compraDraftVal(buyFid(p,'marcaTvOtra'));
-  return `<div class="buy-dispositivo"><small class="buy-disp-label">¿En qué marca o sistema de TV usará IPTV?</small><div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt ${selected===v?'on':''}" data-marca="${v}" onclick="setCompraMarcaTv('${p.id}','${v}',this);return false">📺 ${l}</button>`).join('')}</div><input type="hidden" id="${buyFid(p,'marcaTv')}" value="${escAttr(selected)}"><input class="comp-in" id="${buyFid(p,'marcaTvOtra')}" value="${escAttr(otra)}" placeholder="Especifique marca y modelo" style="display:${selected==='otro'?'block':'none'};margin-top:9px"></div>`;
+  const id=buyFid(p,'marcaTv'),idO=buyFid(p,'marcaTvOtra'),selected=compraDraftVal(id),otra=compraDraftVal(idO);
+  const opciones=[['samsung','Samsung'],['lg','LG'],['tcl','TCL'],['roku','Roku TV'],['otro','Otra']];
+  return `<div class="buy-field ${compraErrores[id]||compraErrores[idO]?'has-err':''}" id="fld_${id}"><span>Marca o sistema del TV <i>*</i></span>
+    <div class="dispositivo-opts">${opciones.map(([v,l])=>`<button type="button" class="disp-opt ${selected===v?'on':''}" data-marca="${v}" onclick="setCompraMarcaTv('${p.id}','${v}');return false">📺 ${l}</button>`).join('')}</div>
+    <input type="hidden" id="${id}" value="${escAttr(selected)}"><input class="comp-in" id="${idO}" value="${escAttr(otra)}" placeholder="Especifique marca y modelo" oninput="compraLimpiarErr('${idO}')" style="display:${selected==='otro'?'block':'none'};margin-top:9px">${compraErrHtml(id)}${compraErrHtml(idO)}</div>`;
 }
-function setCompraMarcaTv(pid,val,btn){const input=document.getElementById(`buy_marcaTv_${pid}`);if(input)input.value=val;btn?.parentElement?.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.marca===val));const otro=document.getElementById(`buy_marcaTvOtra_${pid}`);if(otro)otro.style.display=val==='otro'?'block':'none'}
-function setCompraDispositivo(pid,val){
-  const input=document.getElementById(`buy_dispositivo_${pid}`); if(input)input.value=val;
-  const wrap=input&&input.previousElementSibling; // .dispositivo-opts
-  if(wrap)wrap.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.disp===val));
+function setCompraMarcaTv(pid,val){
+  const id=`buy_marcaTv_${pid}`,input=document.getElementById(id);if(input)input.value=val;compraDraft.fields[id]=val;
+  document.getElementById('fld_'+id)?.querySelectorAll('.disp-opt').forEach(b=>b.classList.toggle('on',b.dataset.marca===val));
+  const otro=document.getElementById(`buy_marcaTvOtra_${pid}`);if(otro)otro.style.display=val==='otro'?'block':'none';
+  compraLimpiarErr(id);
 }
+// Reglas por tipo de entrega (cada producto con SUS campos; banco, notas, comprobante y total son generales).
 function compraCampos(p){
   if(p.tipo==='cuenta_completa')return compraCantidadHtml(p);
-  if(p.tipo==='perfil'){
-    const base=`<div class="buy-grid2"><input class="comp-in" id="${buyFid(p,'perfilNombre')}" value="${escAttr(compraDraftVal(buyFid(p,'perfilNombre')))}" placeholder="Nombre del perfil"><input class="comp-in" id="${buyFid(p,'perfilApellido')}" value="${escAttr(compraDraftVal(buyFid(p,'perfilApellido')))}" placeholder="Apellido del perfil"></div>`;
-    return p.pideDispositivo ? base+compraDispositivoHtml(p) : base;
-  }
-  // Gemini y Canva: invitación al correo + nombre del cliente.
-  if(p.tipo==='correo')return `<input class="comp-in" id="${buyFid(p,'nombreCliente')}" value="${escAttr(compraDraftVal(buyFid(p,'nombreCliente')))}" placeholder="Nombre del cliente" style="margin-bottom:8px"><input class="comp-in" id="${buyFid(p,'correo')}" value="${escAttr(compraDraftVal(buyFid(p,'correo')))}" type="email" placeholder="Correo del cliente">`;
-  if(p.tipo==='detalle')return `<input class="comp-in" id="${buyFid(p,'detalle')}" value="${escAttr(compraDraftVal(buyFid(p,'detalle')))}" placeholder="Detalle requerido: ID, número, plan o indicación del cliente">`;
-  if(p.tipo==='acceso')return `${compraEsIptv(p)?compraMarcaTvHtml(p):''}<div class="buy-note"><b>Entrega:</b> este producto se entrega con acceso. Adjunte comprobante; use comentario si necesita dejar una indicación.</div>`;
-  if(p.tipo==='serial_key')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con key / serial. El encargado lo entrega después de revisar el comprobante.</div>`;
-  if(p.tipo==='serial')return `<div class="buy-note"><b>Entrega:</b> este producto se entrega con serial/licencia. El encargado lo entrega después de revisar el comprobante.</div>`;
+  if(p.tipo==='perfil')return `<div class="buy-grid2">${compraCampo(p,'perfilNombre','Nombre','Nombre del perfil')}${compraCampo(p,'perfilApellido','Apellido','Apellido del perfil')}</div>${p.pideDispositivo?compraDispositivoHtml(p):''}`;
+  if(p.tipo==='correo')return `${compraCampo(p,'nombreCliente','Nombre del cliente','Nombre del cliente')}${compraCampo(p,'correo','Correo del cliente','correo@ejemplo.com',{type:'email'})}`;
+  if(p.tipo==='detalle')return compraCampo(p,'detalle','Detalle requerido','ID, teléfono, usuario, plan o indicación del cliente');
+  if(p.tipo==='acceso')return compraEsIptv(p)?compraMarcaTvHtml(p):`<div class="buy-note"><b>Entrega:</b> se entrega con acceso. Use Notas si necesita dejar una indicación.</div>`;
+  if(p.tipo==='serial_key')return `<div class="buy-note"><b>Entrega:</b> key / serial. El encargado lo entrega después de revisar el comprobante.</div>`;
+  if(p.tipo==='serial')return `<div class="buy-note"><b>Entrega:</b> serial/licencia. El encargado lo entrega después de revisar el comprobante.</div>`;
   return '';
 }
 function compraOpcionesHtml(){
-  const productos=compraProductosCatalogo();
   const grupos=[];
-  productos.forEach(p=>{let item=grupos.find(x=>x.g===p.grupo);if(!item){item={g:p.grupo,items:[]};grupos.push(item)}item.items.push(p)});
+  compraProductosCatalogo().forEach(p=>{let item=grupos.find(x=>x.g===p.grupo);if(!item){item={g:p.grupo,items:[]};grupos.push(item)}item.items.push(p)});
   return grupos.map(gr=>`<div class="buy-group">${escHtml(gr.g)}</div>`+gr.items.map(x=>{
     const st=inventoryState(x), selected=compraSels.includes(x.id);
     return `<button class="buy-option ${selected?'on':''} ${!st.available?'is-out':''}" ${!st.available?'disabled':''} onclick="toggleCompraProducto('${x.id}');return false">
-      <span class="bo-main"><span class="bo-emoji">${selected?'✅':x.emoji}</span><span><b>${escHtml(x.nombre)}</b><small>${escHtml(compraTipoTxt(x.tipo))}</small><em class="stock-badge ${st.key}">${escHtml(st.label)}</em></span></span>
-      <span class="bo-price">${escHtml(x.precioTxt)}</span>
+      <span class="bo-main"><span class="bo-emoji">${selected?'✅':x.emoji}</span><span><b>${escHtml(x.nombre)}</b><small>${escHtml(compraTipoTxt(x.tipo,x))}</small><em class="stock-badge ${st.key}">${escHtml(st.label)}</em></span></span>
+      <span class="bo-price">${escHtml(x.precioTxt)}<i class="bo-act">${selected?'Quitar':'Agregar'}</i></span>
     </button>`;
   }).join('')).join('');
 }
@@ -346,12 +386,47 @@ function misComprasHtml(){
   }).join('');
   return `<div class="order-panel"><div class="order-panel-head"><b>Mis pedidos recientes</b><span>Seguimiento</span></div>${rows}</div>`;
 }
-function compraDatosHtml(items){
-  return items.map((p,i)=>`<div class="buy-product-box">
-    <div class="buy-product-title"><span>${i+1}. ${p.emoji} ${p.nombre}</span><small>${p.precioTxt}</small></div>
-    <div class="buy-product-help">${p.ayuda}</div>
-    ${compraCampos(p)}
-  </div>`).join('');
+// Carrito: nombre · variante · cantidad · precio · eliminar · subtotal · descuento · total.
+function compraCarritoItemsHtml(items){
+  return items.map(p=>{const n=compraCantidad(p);return `<div class="buy-cart-row"><span class="buy-cart-ic">${p.emoji}</span><div><b>${escHtml(p.base||p.nombre)}</b><small>${escHtml([p.sub,p.tipo==='perfil'?'Perfil':p.tipo==='cuenta_completa'?'Cuenta completa':'',n>1?`× ${n}`:''].filter(Boolean).join(' · '))}</small></div><em>${escHtml(p.precio==null?'Por comisión':money(Number(p.precio)*n))}</em><button type="button" class="buy-cart-del" onclick="quitarCompraProducto('${p.id}');return false" aria-label="Eliminar ${escAttr(p.nombre)}">Eliminar</button></div>`}).join('');
+}
+function compraTotalesHtml(m){
+  return `<dl class="buy-totals"><div><dt>Subtotal</dt><dd>${money(m.subtotal)}</dd></div><div class="discount"><dt>Descuento</dt><dd>-${money(m.descuento)}</dd></div><div class="total"><dt>TOTAL</dt><dd>${money(m.total)}${m.hayComision?' + comisión':''}</dd></div></dl>`;
+}
+// Secciones del checkout en el orden obligatorio (después de Productos).
+function compraSeccionesHtml(items,m){
+  const datos=items.map((p,i)=>{const campos=compraCampos(p);return `<div class="buy-product-box" id="buybox_${p.id}">
+    <div class="buy-product-title"><span>${i+1}. ${p.emoji} ${escHtml(p.nombre)}</span><small>${escHtml(p.precioTxt)}</small></div>
+    <div class="buy-product-help">${escHtml(p.ayuda)}</div>${campos||'<div class="buy-note">No requiere datos adicionales.</div>'}</div>`}).join('');
+  const montoId='buyMonto',bancoId='buyBancos',fileId='buyFile';
+  return `
+  <section class="buy-sec" id="buySecDatos"><h3><b>2</b> Datos de entrega</h3>${datos||'<div class="buy-note">Agregue un producto para ver sus datos.</div>'}</section>
+  <section class="buy-sec" id="buySecPago"><h3><b>3</b> Pago</h3>
+    <div class="buy-money-summary"><span>Total calculado</span><b>${money(m.total)}${m.hayComision?' + comisión':''}</b></div>
+    ${m.hayComision?`<label class="buy-field ${compraErrores[montoId]?'has-err':''}" id="fld_${montoId}"><span>Monto realmente pagado <i>*</i></span><input class="comp-in" id="buyMonto" type="number" inputmode="decimal" min="0" placeholder="Monto que pagó a Sublicuentas" data-default-total="${m.total}" value="${escAttr(compraDraft.montoManual?compraDraft.monto:(compraDraft.monto||m.total||''))}" oninput="markCompraMontoManual(this);compraLimpiarErr('buyMonto')">${compraErrHtml(montoId)}</label>
+    <div class="buy-monto-note ${compraDraft.montoManual?'warn':''}" id="buyMontoNote">${compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Incluye productos por comisión: escriba lo que realmente pagó.'}</div>`:`<div class="buy-monto-note" id="buyMontoNote">🔒 Total automático (precio mayorista de su catálogo). El sistema lo confirma al enviar.</div>`}
+    <div class="pago-bancos buy-field ${compraErrores[bancoId]?'has-err':''}" id="buyBancos"><span>¿Dónde se hizo el pago? <i>*</i></span><div class="pago-bancos-list">Cargando métodos…</div>${compraErrHtml(bancoId)}</div>
+  </section>
+  <section class="buy-sec" id="buySecNotas"><h3><b>4</b> Notas</h3>
+    <textarea class="cobro-text" id="buyComentario" placeholder="Indicación adicional, urgencia o detalle para procesar la compra...">${escHtml(compraDraft.comentario||'')}</textarea>
+  </section>
+  <section class="buy-sec" id="buySecComprobante"><h3><b>5</b> Comprobante <i>*</i></h3>
+    <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
+    <div class="comp-drop ${compraErrores[fileId]?'has-err':''}" id="buyDrop" onclick="document.getElementById('buyFile').click()">
+      <div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small>JPG, PNG o WEBP. Seleccione la captura guardada.</small></div>
+      <img id="buyPrev" style="display:none" alt="Comprobante">
+    </div>${compraErrores[fileId]?`<small class="buy-err" id="err_${fileId}">${escHtml(compraErrores[fileId])}</small>`:''}
+  </section>
+  <section class="buy-sec" id="buySecResumen"><h3><b>6</b> Resumen</h3>
+    <div class="buy-cart-items">${compraCarritoItemsHtml(items)}</div>${compraTotalesHtml(m)}
+    <div class="buy-field"><span>Enviar a</span><div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">Relojes</button></div></div>
+    <button class="act primary buy-submit" id="buyBtn" onclick="enviarCompra()" ${items.length?'':'disabled'}>${items.length?'Enviar compra':'Seleccione un producto'}</button>
+    <div id="buyMsg" class="web-form-msg"></div>
+  </section>`;
+}
+function compraDespuesDePintar(){
+  restoreCompraReceiptPreview();
+  setCompraBanco(compraDraft.bancoId||''); // bancos activos (obligatorio en toda compra)
 }
 function vCompras(){
   if(socioSinCompras()){go('renovar');return}
@@ -359,98 +434,114 @@ function vCompras(){
   content.innerHTML=`<section class="operations-hero"><h2>Nueva compra</h2><p>Seleccione servicios, arme un combo y envíe el comprobante directamente al equipo.</p><img src="${ROBOT_IMG}" alt="Mascota Sublicuentas"></section><div id="compraForm"></div>`;
   renderCompraForm();
 }
+// Móvil: una sola columna + barra inferior "Carrito (n) L… [Ver compra]".
 function renderCompraForm(){
   captureCompraDraft();
-  const items=compraSeleccionados(), p=compraProducto(), m=compraMath();
+  const items=compraSeleccionados(), m=compraMath();
   const el=document.getElementById('compraForm'); if(!el)return;
-  const pickedNames=items.length?items.map(x=>`${x.emoji} ${x.nombre}${compraCantidad(x)>1?` × ${compraCantidad(x)}`:''}`).join(' + '):'Toque aquí para elegir del catálogo';
-  el.innerHTML=`
-  ${misComprasHtml()}
-  <button class="buy-picker-btn" onclick="toggleCompraPicker();return false">
-    <span class="buy-picked"><span class="buy-emoji">🛒</span><span><span class="buy-name">${items.length>1?'Combo de '+m.unidades+' unidades':(compraCantidad(p)>1?p.nombre+' × '+compraCantidad(p):p.nombre)}</span><span class="buy-type">${pickedNames}</span></span></span>
-    <span class="buy-arrow">${compraPickerOpen?'▲':'▼'}</span>
-  </button>
-  ${compraPickerOpen?`<div class="buy-list"><div class="buy-combo-tip">Seleccione los productos que necesite. En Cuentas completas puede elegir cantidad. Descuento automático por unidades con precio: 2 = Lps. 10, 3 = Lps. 20, 4 = Lps. 30, 5 o más = Lps. 40 máximo.</div>${compraOpcionesHtml()}</div>`:''}
-  <div class="card">
-    <div class="card-h"><h2>Datos de la compra</h2><a onclick="go('precios')">Catálogo</a></div>
-    <div class="buy-total-box">
-      <b>${m.unidades>1?'Compra por cantidad / combo':'Producto seleccionado'}</b>
-      <span>${compraResumenTxt()}</span>
-    </div>
-    <div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">🟣 Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">⌚ Relojes</button></div>
-    ${compraDatosHtml(items)}
-    <div class="buy-money-summary"><span>Total calculado</span><b>${money(m.total)}</b></div>
-    ${m.hayComision?`<input class="comp-in" id="buyMonto" type="number" inputmode="decimal" placeholder="Monto realmente pagado a Sublicuentas" data-default-total="${m.total}" value="${escAttr(compraDraft.montoManual?compraDraft.monto:(m.total||''))}" oninput="markCompraMontoManual(this)">
-    <div class="buy-monto-note ${compraDraft.montoManual?'warn':''}" id="buyMontoNote">${compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Monto igual al total calculado'}</div>`:`<div class="buy-monto-note" id="buyMontoNote">🔒 Total automático (precio mayorista de su catálogo). El sistema lo confirma al enviar.</div>
-    <div class="pago-bancos" id="buyBancos"><small>¿Dónde se hizo el pago? <b>(obligatorio)</b></small><div class="pago-bancos-list">Cargando métodos…</div></div>`}
-    <textarea class="cobro-text" id="buyComentario" style="min-height:82px" placeholder="Comentario opcional: urgencia o detalle del cliente…">${escHtml(compraDraft.comentario||'')}</textarea>
-    <input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)">
-    <div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()">
-      <div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small style="display:block;margin-top:4px;color:#7890AA;font-weight:900">Seleccione la captura guardada, no cámara.</small></div>
-      <img id="buyPrev" style="display:none" alt="">
-    </div>
-    <button class="act primary buy-submit" id="buyBtn" onclick="enviarCompra()" ${items.length?'':'disabled'}>${items.length?'Enviar compra':'Seleccione un producto'}</button>
-    <div id="buyMsg" style="text-align:center;font-weight:900;font-size:13px;margin-top:10px;min-height:16px;font-family:var(--fn)"></div>
-  </div>`;
-  restoreCompraReceiptPreview();
-  if(!m.hayComision)setCompraBanco(compraDraft.bancoId||''); // R108: pinta los bancos activos
+  compraPintar(()=>{
+    el.innerHTML=`
+    ${misComprasHtml()}
+    <section class="buy-sec" id="buySecProductos"><h3><b>1</b> Productos</h3>
+      <button class="buy-picker-btn" onclick="toggleCompraPicker();return false">
+        <span class="buy-picked"><span class="buy-emoji">🛒</span><span><span class="buy-name">${items.length?`${m.unidades} en el carrito`:'Agregar productos'}</span><span class="buy-type">${items.length?escHtml(items.map(x=>x.nombre).join(' + ')):'Toque aquí para elegir del catálogo'}</span></span></span>
+        <span class="buy-arrow">${compraPickerOpen?'▲':'▼'}</span>
+      </button>
+      ${compraPickerOpen?`<div class="buy-list"><div class="buy-combo-tip">Puede agregar varios productos. Descuento automático por unidades con precio: 2 = L10, 3 = L20, 4 = L30, 5 o más = L40 máximo.</div>${compraOpcionesHtml()}</div>`:''}
+      ${items.length?`<div class="buy-cart-items">${compraCarritoItemsHtml(items)}</div>`:''}
+    </section>
+    ${items.length?compraSeccionesHtml(items,m):''}
+    ${items.length?`<div class="buy-bar"><span>🛒 Carrito (${m.unidades}) <b>${money(m.total)}${m.hayComision?' +':''}</b></span><button type="button" onclick="compraScrollA='resumen';compraPintar(()=>{});return false">Ver compra</button></div>`:''}`;
+    if(items.length)compraDespuesDePintar();
+  });
 }
 async function pickCompra(input){
   const f=input.files&&input.files[0]; if(!f)return;
-  const msg=document.getElementById('buyMsg'); msg.style.color='#6E8299'; msg.textContent='Procesando comprobante…';
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type)&&!/\.(jpe?g|png|webp)$/i.test(f.name||'')){compraErrores.buyFile='Use una imagen JPG, PNG o WEBP.';captureCompraDraft();renderCompraForm();return}
+  const msg=document.getElementById('buyMsg'); if(msg){msg.className='web-form-msg';msg.textContent='Procesando comprobante…'}
   try{
     compraImg=await compressImage(f,1280,0.7);
-    const prev=document.getElementById('buyPrev'), ph=document.getElementById('buyPh');
-    prev.src=compraImg; prev.style.display='block'; ph.style.display='none'; msg.textContent='';
-  }catch(e){ msg.style.color='#e54848'; msg.textContent='No pude leer la imagen del comprobante.'; }
+    restoreCompraReceiptPreview();compraLimpiarErr('buyFile');document.getElementById('buyDrop')?.classList.remove('has-err');
+    if(msg)msg.textContent='';
+  }catch(e){ if(msg){msg.className='web-form-msg error';msg.textContent='No se pudo leer la imagen del comprobante.'} }
+}
+function compraValidar(items,m){
+  const e={},v=id=>String(compraDraftVal(id)).trim();
+  for(const p of items){
+    if(p.tipo==='perfil'){
+      if(!v(buyFid(p,'perfilNombre')))e[buyFid(p,'perfilNombre')]='Escriba el nombre del perfil.';
+      if(!v(buyFid(p,'perfilApellido')))e[buyFid(p,'perfilApellido')]='Escriba el apellido del perfil.';
+      if(p.pideDispositivo&&!v(buyFid(p,'dispositivo')))e[buyFid(p,'dispositivo')]='Seleccione un dispositivo.';
+    }
+    if(p.tipo==='correo'){
+      if(!v(buyFid(p,'nombreCliente')))e[buyFid(p,'nombreCliente')]='Escriba el nombre del cliente.';
+      if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v(buyFid(p,'correo'))))e[buyFid(p,'correo')]='Escriba un correo válido.';
+    }
+    if(p.tipo==='detalle'&&!v(buyFid(p,'detalle')))e[buyFid(p,'detalle')]='Escriba el detalle para procesar la compra.';
+    if(p.tipo==='acceso'&&compraEsIptv(p)){
+      const marca=v(buyFid(p,'marcaTv'));
+      if(!marca)e[buyFid(p,'marcaTv')]='Seleccione la marca o sistema del TV.';
+      else if(marca==='otro'&&!v(buyFid(p,'marcaTvOtra')))e[buyFid(p,'marcaTvOtra')]='Especifique la marca y el modelo del TV.';
+    }
+  }
+  if(m.hayComision&&!(num(compraDraft.monto)>0))e.buyMonto='Escriba el monto realmente pagado.';
+  if(!compraDraft.bancoId)e.buyBancos='Elija dónde se hizo el pago.';
+  if(!compraImg)e.buyFile='Adjunte el comprobante antes de enviar.';
+  return e;
+}
+function compraPayloadProductos(items){
+  const v=id=>String(compraDraftVal(id)).trim();
+  return items.map(p=>{const marcaTv=v(buyFid(p,'marcaTv'));return {
+    id:p.id, catalogId:p.catalogId, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
+    precioCatalogo:p.precio, cantidad:compraCantidad(p), entregaTipo:p.tipo, entregaCanal:p.entregaCanal||'manual',
+    perfilNombre:v(buyFid(p,'perfilNombre')), perfilApellido:v(buyFid(p,'perfilApellido')), correo:v(buyFid(p,'correo')),
+    detalleServicio:v(buyFid(p,'detalle')), nombreCliente:v(buyFid(p,'nombreCliente')), dispositivo:v(buyFid(p,'dispositivo')),
+    marcaTv:marcaTv==='otro'?v(buyFid(p,'marcaTvOtra')):marcaTv
+  }});
+}
+function compraEnfocarError(){
+  const first=document.querySelector('#compraForm .has-err');
+  if(!first)return;
+  first.scrollIntoView({behavior:'smooth',block:'center'});
+  const focusable=first.matches('input,textarea,select,button')?first:first.querySelector('input:not([type=hidden]),textarea,select,button');
+  setTimeout(()=>{try{focusable?.focus({preventScroll:true})}catch(_){}} ,250);
 }
 async function enviarCompra(){
-  const items=compraSeleccionados(), msg=document.getElementById('buyMsg'), m=compraMath();
+  captureCompraDraft();
+  const items=compraSeleccionados(), m=compraMath();
   if(!items.length){compraPickerOpen=true;renderCompraForm();return}
-  const val=id=>(document.getElementById(id)?.value||'').trim();
-  const productos=[];
-  for(const p of items){
-    const perfilNombre=val(buyFid(p,'perfilNombre')), perfilApellido=val(buyFid(p,'perfilApellido')), correo=val(buyFid(p,'correo')), detalleServicio=val(buyFid(p,'detalle')), nombreCliente=val(buyFid(p,'nombreCliente')), dispositivo=val(buyFid(p,'dispositivo')), marcaTv=val(buyFid(p,'marcaTv')), marcaTvOtra=val(buyFid(p,'marcaTvOtra')), cantidad=compraCantidad(p);
-    if(p.tipo==='perfil' && (!perfilNombre||!perfilApellido)){msg.style.color='#e54848';msg.textContent='Coloque nombre y apellido del perfil para '+p.nombre+'.';return}
-    if(p.tipo==='perfil' && p.pideDispositivo && !dispositivo){msg.style.color='#e54848';msg.textContent='Elija en qué dispositivo va el perfil de '+p.nombre+'.';return}
-    if(p.tipo==='correo' && !correo){msg.style.color='#e54848';msg.textContent='Coloque el correo para '+p.nombre+'.';return}
-    if(p.tipo==='correo' && !nombreCliente){msg.style.color='#e54848';msg.textContent='Coloque el nombre del cliente para '+p.nombre+'.';return}
-    if(p.tipo==='detalle' && !detalleServicio){msg.style.color='#e54848';msg.textContent='Coloque el detalle para '+p.nombre+'.';return}
-    if(compraEsIptv(p) && !marcaTv){msg.style.color='#e54848';msg.textContent='Seleccione la marca o sistema del TV para '+p.nombre+'.';return}
-    if(compraEsIptv(p) && marcaTv==='otro' && !marcaTvOtra){msg.style.color='#e54848';msg.textContent='Especifique la marca y modelo del TV.';return}
-    productos.push({
-      id:p.id, catalogId:p.catalogId, servicio:p.nombre, servicioBase:p.base, catalogCategory:p.categoria, catalogSub:p.sub, catalogDetalle:p.detalleCatalogo,
-      precioCatalogo:p.precio, cantidad, entregaTipo:p.tipo, entregaCanal:p.entregaCanal||'manual', perfilNombre, perfilApellido, correo, detalleServicio, nombreCliente, dispositivo, marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv
-    });
+  if(typeof webCatalogOperational==='function'&&typeof webDesktopMode==='function'&&webDesktopMode()&&!webCatalogOperational()){const msg=document.getElementById('buyMsg');if(msg){msg.textContent='Actualice el catálogo antes de enviar.';msg.className='web-form-msg error'}return}
+  compraErrores=compraValidar(items,m);
+  if(Object.keys(compraErrores).length){
+    renderCompraForm();
+    const msg=document.getElementById('buyMsg');if(msg){msg.textContent='Faltan datos: revise los campos marcados.';msg.className='web-form-msg error'}
+    compraEnfocarError();return;
   }
-  if(!compraImg){msg.style.color='#e54848';msg.textContent='Adjunte el comprobante antes de enviar.';return}
-  if(!m.hayComision&&!compraDraft.bancoId){msg.style.color='#e54848';msg.textContent='Elija dónde se hizo el pago.';return}
-  compraDraft.requestId=compraDraft.requestId||nuevoOpId(); // R108: doble toque / reintento = una sola compra
-  const montoReal=m.hayComision?num(val('buyMonto')||m.total):Number(m.total||0),montoModificado=m.hayComision&&Math.abs(montoReal-Number(m.total||0))>.001;
-  let comentario=val('buyComentario');
+  const productos=compraPayloadProductos(items);
+  compraDraft.requestId=compraDraft.requestId||nuevoOpId(); // doble toque / reintento = una sola compra
+  const montoReal=m.hayComision?num(compraDraft.monto||m.total):Number(m.total||0),montoModificado=m.hayComision&&Math.abs(montoReal-Number(m.total||0))>.001;
+  let comentario=String(compraDraft.comentario||'').trim();
   if(montoModificado){const nota=`Monto modificado manualmente: calculado ${money(m.total)} → pagado ${money(montoReal)}`;comentario=comentario?`${comentario} · ${nota}`:nota}
-  const btn=document.getElementById('buyBtn'); btn.disabled=true; btn.textContent='Enviando…';
+  const btn=document.getElementById('buyBtn'),msg=document.getElementById('buyMsg');
+  if(btn){btn.disabled=true;btn.textContent='Enviando…'}
   try{
     const r=await API.call('/rev/compra',{method:'POST',body:JSON.stringify({
-      destino:compraDestino,
+      requestId:compraDraft.requestId, destino:compraDestino,
       servicio:m.unidades>1?`Combo ${m.unidades} unidades`:items[0].nombre,
-      productos,
-      comboCantidad:m.unidades,
-      subtotalCatalogo:m.subtotal,
-      descuentoCombo:m.descuento,
-      totalCombo:m.total,
-      monto:montoReal, montoCalculado:m.total, montoModificado, bancoId:compraDraft.bancoId||'', requestId:compraDraft.requestId,
+      productos, comboCantidad:m.unidades, subtotalCatalogo:m.subtotal, descuentoCombo:m.descuento, totalCombo:m.total,
+      monto:montoReal, montoCalculado:m.total, montoModificado, bancoId:compraDraft.bancoId||'',
       comentario, imagen:compraImg
     })});
-    msg.style.color='#1aa15a'; msg.textContent='✅ Compra enviada a '+(r.destinoLabel||'Telegram')+'.';
-    compraImg=''; compraSels=[]; compraPickerOpen=true;resetCompraDraft();
-    loadMisCompras();
-    setTimeout(()=>renderCompraForm(),900);
+    if(msg){msg.textContent=r.duplicate?'✅ La compra ya estaba registrada. No se duplicó.':`✅ Compra enviada a ${r.destinoLabel||'equipo'}.`;msg.className='web-form-msg ok'}
+    compraImg='';compraSels=[];compraPickerOpen=true;compraErrores={};resetCompraDraft();
+    if(typeof webCompraStep!=='undefined')webCompraStep=1;
+    if(typeof markSyncStale==='function')markSyncStale(['compras','inventario','metricas']);
+    await Promise.allSettled([loadMisCompras(),typeof loadInventario==='function'?loadInventario():null,typeof loadMetricas==='function'?loadMetricas():null]);
+    setTimeout(()=>{if(current==='compras')vCompras()},900);
   }catch(e){
-    msg.style.color='#e54848';
-    const map={falta_banco:'Elija dónde se hizo el pago.',falta_operation_id:'Actualice el panel (recargue la página).',imagen_muy_grande:'La foto pesa mucho, probá otra.',falta_servicio:'Seleccione un servicio.',sin_permiso_comprar:'Su usuario no tiene permiso para registrar compras.'};
-    msg.textContent=map[e&&e.error]||('No se pudo enviar la compra. '+((e&&e.detail)||(e&&e.error)||'Reintentá.'));
-  }finally{btn.disabled=false;btn.textContent='Enviar compra'}
+    const map={falta_banco:'Elija dónde se hizo el pago.',falta_operation_id:'Actualice el panel (recargue la página).',imagen_muy_grande:'La foto pesa mucho, pruebe otra.',falta_servicio:'Seleccione un servicio.',sin_permiso_comprar:'Su usuario no tiene permiso para registrar compras.'};
+    if(msg){msg.textContent=map[e&&e.error]||('No se pudo enviar la compra. '+((e&&e.detail)||(e&&e.error)||'Reintente.'));msg.className='web-form-msg error'}
+  }finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent='Enviar compra'}}
 }
 
 

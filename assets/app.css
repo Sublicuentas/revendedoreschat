@@ -616,3 +616,41 @@ body.geisell-mode .nav{justify-content:center}
 .pago-bancos-list{display:flex;flex-wrap:wrap;gap:6px}
 .pago-chip{border:1px solid #d5dde8;background:#fff;color:#0f2d52;border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer}
 .pago-chip.on{background:#e2231a;border-color:#e2231a;color:#fff}
+
+/* ===== Oct-2026 · Compra: checkout claro, carrito y validación (móvil; la web ajusta en panel-web) ===== */
+.buy-sec{background:#fff;border:1px solid #E3EAF2;border-radius:20px;padding:14px;margin-bottom:12px}
+.buy-sec>h3{display:flex;align-items:center;gap:9px;font-family:var(--ff);font-size:18px;color:var(--txt);margin:0 0 11px}
+.buy-sec>h3>b{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;background:#F1F4F8;color:#33475E;font-size:13px}
+.buy-sec>h3>i,.buy-field>span>i{color:#D92954;font-style:normal}
+.buy-sec>h3 .web-link{margin-left:auto}
+.buy-field{display:block;margin-bottom:10px}
+.buy-field>span{display:block;font-family:var(--fn);font-weight:900;font-size:13px;color:#33475E;margin-bottom:6px}
+.buy-field .comp-in{margin-bottom:0}
+.buy-hint{display:block;font-family:var(--fn);font-weight:800;font-size:11.5px;color:#7890AA;margin:-2px 0 7px}
+.buy-err{display:block;color:#C92C27;font-family:var(--fn);font-weight:900;font-size:12px;margin-top:5px}
+.buy-field.has-err .comp-in,.comp-drop.has-err{border:2px solid #E5484D!important;background:#FFF7F7}
+.buy-field.has-err .dispositivo-opts .disp-opt{border-color:#F3B3B5}
+.pago-bancos.has-err{border-color:#E5484D;background:#FFF7F7}
+.buy-cart-items{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.buy-cart-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #EEF2F6}
+.buy-cart-row b{display:block;font-size:13.5px;color:var(--txt);line-height:1.2}
+.buy-cart-row small{display:block;font-size:11.5px;color:#7890AA;font-weight:800;margin-top:2px}
+.buy-cart-row em{font-style:normal;font-weight:900;font-size:13px;color:#16805B;white-space:nowrap}
+.buy-cart-ic{width:30px;height:30px;border-radius:9px;background:#F4F7FB;display:grid;place-items:center;font-size:16px}
+.buy-cart-del{border:1px solid #F1D0D3;background:#fff;color:#C92C27;border-radius:9px;padding:6px 8px;font-weight:800;font-size:11px;cursor:pointer}
+.buy-totals{margin:8px 0 12px}
+.buy-totals>div{display:flex;justify-content:space-between;padding:4px 0;font-family:var(--fn);font-weight:800;font-size:13px;color:#53687F}
+.buy-totals .discount dd{color:#16805B}
+.buy-totals .total{margin-top:6px;padding-top:9px;border-top:1px solid #E5ECF2;font-size:17px;color:var(--txt)}
+.buy-totals dd{margin:0;font-weight:900}
+.buy-option .bo-price{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.bo-act{font-style:normal;font-size:11px;font-weight:900;padding:4px 8px;border-radius:8px;background:#fff;border:1px solid #E3EAF2;color:#33475E}
+.buy-option.on .bo-act{color:#C92C27;border-color:#F1D0D3}
+.buy-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h, 76px) + 22px);width:min(486px,calc(100% - 24px));z-index:60;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border:1px solid #DCE5EF;border-radius:18px;padding:10px 10px 10px 16px;box-shadow:0 8px 24px rgba(26,58,94,.14);font-family:var(--fn);font-weight:900;color:var(--txt)}
+.buy-bar b{color:#16805B;margin-left:4px}
+.buy-bar button{border:none;background:#E2231A;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;font-family:var(--fn);cursor:pointer}
+#compraForm{padding-bottom:100px}
+.buy-toast{position:fixed;left:50%;top:14px;transform:translate(-50%,-20px);opacity:0;z-index:90;background:#102A4A;color:#fff;border-radius:12px;padding:10px 14px;font-family:var(--fn);font-weight:900;font-size:13px;transition:.2s;pointer-events:none;max-width:calc(100% - 32px)}
+.buy-toast.on{opacity:1;transform:translate(-50%,0)}
+.web-form-msg{margin-top:10px;min-height:18px;font-weight:900;text-align:center;font-family:var(--fn)}
+.web-form-msg.ok{color:#16805B}.web-form-msg.error{color:#C92C27}

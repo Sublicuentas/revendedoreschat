@@ -67,3 +67,23 @@
 @media (min-width:900px) and (max-width:1180px){
   .web-kpi-four{grid-template-columns:repeat(2,1fr)}.web-summary-grid.five{grid-template-columns:repeat(3,1fr)}.web-category-grid{grid-template-columns:repeat(2,1fr)}.web-ask-grid,.web-course-grid{grid-template-columns:repeat(2,1fr)}.web-buy-layout{grid-template-columns:minmax(0,1fr) 280px}.web-toolbar{grid-template-columns:1fr 1fr}.web-toolbar .web-select,.web-toolbar .web-date{grid-column:auto}.web-reward-hero{padding-right:280px}.web-reward-hero img{right:90px}.web-gift-art{display:none}
 }
+
+/* ===== Oct-2026 · Compras web: Productos → Checkout completo, carrito fijo a la derecha ===== */
+@media (min-width:900px){
+  .web-stepper-2{grid-template-columns:auto 1fr auto}
+  .web-buy-layout{grid-template-columns:minmax(0,1fr) 340px}
+  .web-checkout{padding:16px}
+  .web-checkout .buy-sec{border-radius:16px;padding:16px;box-shadow:none}
+  .web-checkout .buy-sec>h3{font-size:15px}
+  .web-checkout .buy-grid2{grid-template-columns:1fr 1fr}
+  .web-cart{max-height:calc(100vh - 28px);overflow:auto}
+  .web-cart .buy-cart-row{grid-template-columns:28px minmax(0,1fr) auto}
+  .web-cart .buy-cart-row .buy-cart-del{grid-column:2 / 4;justify-self:end;margin-top:-4px}
+  .web-cart .buy-cart-row b{font-size:11.5px}.web-cart .buy-cart-row small{font-size:10px}.web-cart .buy-cart-row em{font-size:11px}
+  .web-cart .buy-totals>div{font-size:11px}.web-cart .buy-totals .total{font-size:15px}
+  .web-cart .web-primary.full,.web-cart .web-secondary.full{width:100%;margin-top:7px}
+  .buy-bar{display:none}
+  #compraForm{padding-bottom:0}
+  .buy-field>span{font-size:11.5px}
+  .buy-err{font-size:10.5px}
+}

@@ -132,13 +132,7 @@ loadPrecios = function(){
 function webCatalogTrusted(){return webCatalogVerified||Number(syncAt.precios||0)>0}
 function webCatalogOperational(){return webCatalogVerified}
 copyCatalogPrice = function(btn){if(!webDesktopMode())return MOBILE_BASE.copyCatalogPrice.apply(this,arguments);if(!webCatalogOperational())return alert('El catálogo todavía no está validado en vivo. Actualice antes de copiar un precio.');const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)};
-buyFromCatalog = function(ix){
-  if(!webDesktopMode())return MOBILE_BASE.buyFromCatalog.apply(this,arguments);
-  if(socioSinCompras())return;if(!webCatalogOperational())return alert('Valide el catálogo en vivo antes de iniciar una compra.');
-  const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;
-  const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);
-  if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');compraSels=[found.id];compraPickerOpen=false;webCompraStep=2;go('compras')}
-};
+/* buyFromCatalog (web) está en la sección Compras. */
 
 /* ---------- Inicio ---------- */
 vInicio = function(){
@@ -223,7 +217,7 @@ vPrecios = function(){
   const warning=!webCatalogOperational()?`<div class="web-stale-warning">⚠️ Está viendo la última copia validada de esta sesión. Actualice para habilitar compra y copiar precio.</div>`:'';
   if(catalogCategoria!==''&&PRECIOS[Number(catalogCategoria)]){
     const ix=Number(catalogCategoria),g=PRECIOS[ix],ico=catalogIcon(g.cat,ix);
-    const apps=(g.items||[]).map((it,i)=>{const invItem={catalogId:it.id||'',id:it.id||'',nombre:it.n,base:it.n},stock=inventoryState(invItem),copy=String(`${it.n}${it.s?' · '+it.s:''} · ${it.p==null?'Por comisión':'Lps. '+it.p}`),lines=webDetailLines(it),meta=webDeliveryMeta(it),can=webCatalogOperational();return `<article class="web-product-card ${!stock.available?'is-out':''}"><div class="web-product-head"><span class="web-product-logo tone-${webCatalogTone(i)}">${compraEmoji(it.n,g.cat)}</span><div><h3>${escHtml(it.n)}</h3><p>${escHtml(it.s||g.sub||'Servicio disponible')}</p><span class="stock-badge ${stock.key}">${escHtml(stock.label)}</span></div><strong>${it.p==null?'Por comisión':'Lps. '+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="web-product-facts">${lines.slice(0,6).map(x=>`<span>${escHtml(x)}</span>`).join('')}</div><div class="web-product-meta"><span>${meta[0]} ${escHtml(meta[1])}</span>${it.entregaTipo?`<span>📋 ${escHtml(compraTipoTxt(it.entregaTipo))}</span>`:''}</div><div class="web-product-actions">${restricted?'':`<button class="web-primary" ${!can||!stock.available?'disabled':''} onclick="buyFromCatalog(${i})">${stock.available?'🛒 Nueva compra':'⛔ Agotado'}</button>`}<button class="web-secondary" ${!can?'disabled':''} data-copy="${escAttr(copy)}" onclick="copyCatalogPrice(this)">📋 Copiar precio</button></div></article>`}).join('');
+    const apps=(g.items||[]).map((it,i)=>{const invItem={catalogId:it.id||'',id:it.id||'',nombre:it.n,base:it.n},stock=inventoryState(invItem),copy=String(`${it.n}${it.s?' · '+it.s:''} · ${it.p==null?'Por comisión':'L'+it.p}`),lines=webDetailLines(it),meta=webDeliveryMeta(it),can=webCatalogOperational();return `<article class="web-product-card ${!stock.available?'is-out':''}"><div class="web-product-head"><span class="web-product-logo tone-${webCatalogTone(i)}">${compraEmoji(it.n,g.cat)}</span><div><h3>${escHtml(it.n)}</h3><p>${escHtml(it.s||g.sub||'Servicio disponible')}</p><span class="stock-badge ${stock.key}">${escHtml(stock.label)}</span></div><strong>${it.p==null?'Por comisión':'L'+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="web-product-facts">${lines.slice(0,6).map(x=>`<span>${escHtml(x)}</span>`).join('')}</div><div class="web-product-meta"><span>${meta[0]} ${escHtml(meta[1])}</span>${it.entregaTipo?`<span>📋 ${escHtml(compraTipoTxt(it.entregaTipo))}</span>`:''}</div><div class="web-product-actions">${restricted?'':`<button class="web-primary" ${!can||!stock.available?'disabled':''} onclick="buyFromCatalog(${i})">${stock.available?'🛒 Nueva compra':'⛔ Agotado'}</button>`}<button class="web-secondary" ${!can?'disabled':''} data-copy="${escAttr(copy)}" onclick="copyCatalogPrice(this)">📋 Copiar precio</button></div></article>`}).join('');
     content.innerHTML=`<div class="web-detail-top"><button class="web-back" onclick="closeCatalogCategory()">← Categorías</button><div><small>CATÁLOGO</small><h2>${escHtml(g.cat)}</h2><p>${escHtml(g.sub||`${g.items.length} productos disponibles`)}</p></div><span class="web-cat-bigicon">${ico}</span></div>${warning}<div class="web-catalog-date">● Catálogo actualizado · ${catTxt}</div><div class="web-products-grid">${apps}</div>`;return;
   }
   const categorias=PRECIOS.map((g,i)=>`<button class="web-category tone-${webCatalogTone(i)}" onclick="openCatalogCategory(${i})"><span>${catalogIcon(g.cat,i)}</span><div><b>${escHtml(g.cat)}</b><small>${g.items.length} producto${g.items.length===1?'':'s'}${g.sub?' · '+escHtml(g.sub):''}</small></div><i>›</i></button>`).join('');
@@ -231,45 +225,75 @@ vPrecios = function(){
   content.innerHTML=`<div class="web-catalog-landing"><section class="web-catalog-hero"><div><small>CATÁLOGO MAYORISTA</small><h2>Todo lo que necesita para hacer crecer su negocio</h2><p>Aplicaciones, servicios y herramientas al precio mayorista.</p></div><img src="${ROBOT_IMG}" alt="Mascota Sublicuentas"></section>${restricted?'':`<aside class="web-level-mini"><span>🎁</span><small>NIVEL DE SOCIO</small><h3>${escHtml(nivel)}</h3><p>${ventas} ventas registradas</p><div class="web-progress"><i style="width:${progress}%"></i></div><button onclick="go('recompensas')">Mis recompensas →</button></aside>`}</div>${warning}<div class="web-catalog-date">● Catálogo actualizado · ${catTxt}</div><div class="web-section-title"><div><small>EXPLORAR</small><h3>Categorías</h3></div><span>${PRECIOS.length} secciones</span></div><div class="web-category-grid">${categorias}</div>${politicasHTML()}`;
 };
 
-/* ---------- Compras: 3 pasos ---------- */
-let webCompraStep=1,webCompraSearch='',webCompraCat='todas',webCompraRequestId='';
-function webPurchaseRequestId(){if(!webCompraRequestId)webCompraRequestId=(globalThis.crypto?.randomUUID?.()||`web-${Date.now()}-${Math.random().toString(36).slice(2,10)}`);return webCompraRequestId}
-function webSetCompraStep(step){captureCompraDraft();if(step>1&&!compraSeleccionados().length)return;webCompraStep=Math.max(1,Math.min(3,step));renderCompraForm();window.scrollTo({top:0,behavior:'smooth'})}
+/* ---------- Compras (Oct-2026): Productos → Checkout completo → Enviar ----------
+   Antes: 3 pantallas, cada clic hacía scrollTo(0) y "Nueva compra" saltaba a un paso vacío.
+   Ahora: 1) elegir productos (Agregar NO mueve la pantalla, solo actualiza el carrito)
+          2) checkout completo en una sola pantalla, con el carrito fijo a la derecha.
+   La validación y el envío son los mismos de móvil (operations.js). */
+let webCompraStep=1,webCompraSearch='',webCompraCat='todas';
+function webSetCompraStep(step){
+  captureCompraDraft();
+  if(step>1&&!compraSeleccionados().length)return;
+  webCompraStep=step>1?2:1;
+  compraScrollA=webCompraStep===2?'buySecProductos':'compraForm';
+  renderCompraForm();
+}
 function webCompraList(){const q=norm(webCompraSearch),cat=norm(webCompraCat);return compraProductosCatalogo().filter(p=>(cat==='todas'||norm(p.categoria)===cat)&&(!q||norm(`${p.nombre} ${p.categoria}`).includes(q)))}
-function webCompraCart(items,m){return `<aside class="web-cart"><header><span>🛍️</span><div><small>RESUMEN DE COMPRA</small><h3>${items.length?`${m.unidades} unidad${m.unidades===1?'':'es'}`:'Su carrito está vacío'}</h3></div></header>${items.length?`<div class="web-cart-items">${items.map(p=>`<div><span>${p.emoji}</span><b>${escHtml(p.nombre)}${compraCantidad(p)>1?` × ${compraCantidad(p)}`:''}</b><em>${escHtml(p.precioTxt)}</em></div>`).join('')}</div>`:`<div class="web-cart-empty">Seleccione uno o más productos del catálogo para continuar.</div>`}<dl><div><dt>Subtotal</dt><dd>${money(m.subtotal)}</dd></div><div class="discount"><dt>Descuento</dt><dd>-${money(m.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(m.total)}</dd></div></dl>${webCompraStep===1?`<button class="web-primary full" ${items.length?'':'disabled'} onclick="webSetCompraStep(2)">Continuar compra →</button>`:''}</aside>`}
+function webCompraListaHtml(){
+  const list=webCompraList();
+  return list.length?list.map(p=>{const st=inventoryState(p),sel=compraSels.includes(p.id);return `<button class="web-buy-product ${sel?'selected':''} ${!st.available?'disabled':''}" data-pid="${escAttr(p.id)}" ${!st.available?'disabled':''} onclick="webCompraToggle('${p.id}');return false"><span class="web-buy-appicon">${sel?'✓':p.emoji}</span><div><b>${escHtml(p.nombre)}</b><small>${escHtml(p.categoria)} · ${escHtml(compraTipoTxt(p.tipo,p))}</small><em class="stock-badge ${st.key}">${escHtml(st.label)}</em></div><strong>${escHtml(p.precioTxt)}</strong><i>${sel?'Quitar':'Agregar'}</i></button>`}).join(''):webEmpty('🔎','Sin productos','Pruebe otra búsqueda o categoría.');
+}
+// Carrito: nombre · variante · cantidad · precio · eliminar · subtotal · descuento · total · Continuar.
+function webCompraCart(items,m){
+  const accion=webCompraStep===1
+    ?`<button class="web-primary full" ${items.length?'':'disabled'} onclick="webSetCompraStep(2)">Continuar compra →</button>`
+    :`<button class="web-primary full" onclick="compraScrollA='resumen';compraPintar(()=>{})">Ir al resumen y enviar ↓</button><button class="web-secondary full" onclick="webSetCompraStep(1)">＋ Agregar más productos</button>`;
+  return `<aside class="web-cart" id="webCart"><header><span>🛒</span><div><small>CARRITO</small><h3>${items.length?`${m.unidades} producto${m.unidades===1?'':'s'}`:'Su carrito está vacío'}</h3></div></header>${items.length?`<div class="buy-cart-items">${compraCarritoItemsHtml(items)}</div>`:`<div class="web-cart-empty">Agregue uno o más productos para continuar.</div>`}${compraTotalesHtml(m)}${accion}</aside>`;
+}
+function webCompraPintarCarrito(){const items=compraSeleccionados(),m=compraMath(),c=document.getElementById('webCart');if(c)c.outerHTML=webCompraCart(items,m)}
+// Agregar/Quitar en la lista: solo cambia ese botón y el carrito (sin repintar la página ni perder la búsqueda).
+function webCompraToggle(id){
+  captureCompraDraft();
+  const p=compraProductosCatalogo().find(x=>x.id===id);
+  if(compraSels.includes(id)){compraSels=compraSels.filter(x=>x!==id);compraAviso(`Quitado: ${p?.nombre||'producto'}`)}
+  else{compraSels.push(id);compraAviso(`✓ Agregado al carrito: ${p?.nombre||'producto'}`)}
+  const btn=document.querySelector(`.web-buy-product[data-pid="${CSS.escape(id)}"]`);
+  if(btn){const sel=compraSels.includes(id);btn.classList.toggle('selected',sel);btn.querySelector('.web-buy-appicon').textContent=sel?'✓':(p?.emoji||'🛒');btn.querySelector('i').textContent=sel?'Quitar':'Agregar'}
+  webCompraPintarCarrito();
+}
+function webCompraBuscar(v){webCompraSearch=v;const g=document.getElementById('webBuyGrid');if(g)g.innerHTML=webCompraListaHtml()}
+buyFromCatalog = function(ix){
+  if(!webDesktopMode())return MOBILE_BASE.buyFromCatalog.apply(this,arguments);
+  if(socioSinCompras())return;if(!webCatalogOperational())return alert('Valide el catálogo en vivo antes de iniciar una compra.');
+  const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;
+  const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);
+  if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');if(!compraSels.includes(found.id))compraSels.push(found.id);compraPickerOpen=false;webCompraStep=2;compraScrollA='buybox_'+found.id;go('compras')}
+};
 vCompras = function(){
   if(!webDesktopMode())return MOBILE_BASE.vCompras.apply(this,arguments);
   if(socioSinCompras()){go('renovar');return}
   if(!webCatalogTrusted()){content.innerHTML=`${webPageHero('buy','Compras','Seleccione servicios, complete los datos y envíe el comprobante.',{kicker:'NUEVA COMPRA'})}<section class="web-panel-card">${webCatalogError?webEmpty('⚠️','No pude validar el catálogo','Las compras quedan bloqueadas hasta consultar precios y disponibilidad reales.',"loadPrecios()",'Reintentar'):webSkeleton(6)}</section>`;return}
-  content.innerHTML=`${webPageHero('buy','Compras','Seleccione servicios, arme un combo y envíe el comprobante directamente al equipo.',{kicker:'COMPRA SERVICIOS Y ACTIVE AL INSTANTE'})}<div class="web-stepper"><div class="${webCompraStep>=1?'on':''}"><b>1</b><span>Seleccione productos</span></div><i></i><div class="${webCompraStep>=2?'on':''}"><b>2</b><span>Complete los datos</span></div><i></i><div class="${webCompraStep>=3?'on':''}"><b>3</b><span>Envíe el comprobante</span></div></div><div id="compraForm"></div>`;renderCompraForm();
+  if(!compraSeleccionados().length)webCompraStep=1;
+  content.innerHTML=`${webPageHero('buy','Compras','Agregue productos al carrito, complete los datos y envíe el comprobante.',{kicker:'COMPRA SERVICIOS Y ACTIVE AL INSTANTE'})}<div class="web-stepper web-stepper-2"><div class="${webCompraStep>=1?'on':''}"><b>1</b><span>Productos</span></div><i></i><div class="${webCompraStep>=2?'on':''}"><b>2</b><span>Datos, pago y comprobante</span></div></div><div id="compraForm"></div>`;renderCompraForm();
 };
 renderCompraForm = function(){
   if(!webDesktopMode())return MOBILE_BASE.renderCompraForm.apply(this,arguments);
   captureCompraDraft();const items=compraSeleccionados(),m=compraMath(),host=document.getElementById('compraForm');if(!host)return;
+  if(!items.length)webCompraStep=1;
+  document.querySelectorAll('.web-stepper-2>div').forEach((d,k)=>d.classList.toggle('on',webCompraStep>=k+1));
   if(!webCatalogOperational()){host.innerHTML=`<div class="web-stale-warning">⚠️ Para registrar una compra debe validar el catálogo en vivo. <button onclick="loadPrecios()">Actualizar ahora</button></div>${webCompraCart(items,m)}`;return}
-  if(webCompraStep===1){
-    const cats=['todas',...new Set(compraProductosCatalogo().map(p=>p.categoria))],list=webCompraList();
-    host.innerHTML=`${misComprasHtml()}<div class="web-buy-layout"><section class="web-buy-products"><div class="web-buy-tools"><div class="web-search"><span>⌕</span><input placeholder="Buscar producto…" value="${escAttr(webCompraSearch)}" oninput="webCompraSearch=this.value;renderCompraForm()"></div><select class="web-select" onchange="webCompraCat=this.value;renderCompraForm()">${cats.map(c=>`<option value="${escAttr(c)}" ${webCompraCat===c?'selected':''}>${c==='todas'?'Todas las categorías':escHtml(c)}</option>`).join('')}</select></div><div class="web-buy-grid">${list.length?list.map(p=>{const st=inventoryState(p),sel=compraSels.includes(p.id);return `<button class="web-buy-product ${sel?'selected':''} ${!st.available?'disabled':''}" ${!st.available?'disabled':''} onclick="toggleCompraProducto('${p.id}');return false"><span class="web-buy-appicon">${sel?'✓':p.emoji}</span><div><b>${escHtml(p.nombre)}</b><small>${escHtml(p.categoria)}</small><em class="stock-badge ${st.key}">${escHtml(st.label)}</em></div><strong>${escHtml(p.precioTxt)}</strong><i>${sel?'Quitar':'Agregar'}</i></button>`}).join(''):webEmpty('🔎','Sin productos','Pruebe otra búsqueda o categoría.')}</div></section>${webCompraCart(items,m)}</div>`;
-  }else if(webCompraStep===2){
-    host.innerHTML=`<div class="web-buy-layout"><section class="web-panel-card web-buy-data"><header><div><small>PASO 2</small><h3>Datos de la compra</h3></div><button class="web-secondary" onclick="webSetCompraStep(1)">← Productos</button></header><div class="web-destination"><b>¿Quién procesa la operación?</b><div class="destino-seg"><button data-dest="sublicuentas" class="${compraDestino==='sublicuentas'?'on':''}" onclick="setCompraDestino('sublicuentas');return false">Sublicuentas</button><button data-dest="relojes" class="${compraDestino==='relojes'?'on':''}" onclick="setCompraDestino('relojes');return false">Relojes</button></div></div>${compraDatosHtml(items)}<div class="web-pay-box"><div class="buy-money-summary"><span>Total calculado</span><b>${money(m.total)}</b></div>${m.hayComision?`<label>Monto realmente pagado</label><input class="comp-in" id="buyMonto" type="number" inputmode="decimal" data-default-total="${m.total}" value="${escAttr(compraDraft.montoManual?compraDraft.monto:(m.total||''))}" oninput="markCompraMontoManual(this)"><div class="buy-monto-note ${compraDraft.montoManual?'warn':''}" id="buyMontoNote">${compraDraft.montoManual?'⚠️ Monto modificado manualmente':'Monto igual al total calculado'}</div>`:`<div class="buy-monto-note" id="buyMontoNote">🔒 Total automático (precio mayorista de su catálogo).</div><div class="pago-bancos" id="buyBancos"><small>¿Dónde se hizo el pago? <b>(obligatorio)</b></small><div class="pago-bancos-list">Cargando métodos…</div></div>`}<label>Comentario opcional</label><textarea class="cobro-text" id="buyComentario" placeholder="Método de pago, urgencia o detalle del cliente…">${escHtml(compraDraft.comentario||'')}</textarea></div><div class="web-form-actions"><button class="web-secondary" onclick="webSetCompraStep(1)">Volver</button><button class="web-primary" onclick="webSetCompraStep(3)">Continuar al comprobante →</button></div></section>${webCompraCart(items,m)}</div>`;
-    if(!m.hayComision)setCompraBanco(compraDraft.bancoId||''); // R108: bancos activos (obligatorio)
-  }else{
-    host.innerHTML=`<div class="web-buy-layout"><section class="web-panel-card web-buy-final"><header><div><small>PASO 3</small><h3>Envíe el comprobante</h3></div><button class="web-secondary" onclick="webSetCompraStep(2)">← Datos</button></header><div class="web-final-summary">${items.map(p=>`<div><span>${p.emoji}</span><b>${escHtml(p.nombre)}${compraCantidad(p)>1?` × ${compraCantidad(p)}`:''}</b><em>${escHtml(p.precioTxt)}</em></div>`).join('')}</div><input type="file" id="buyFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display:none" onchange="pickCompra(this)"><div class="comp-drop" id="buyDrop" onclick="document.getElementById('buyFile').click()"><div class="comp-ph" id="buyPh"><div class="ic">🖼️</div><span>Adjuntar comprobante desde archivos o galería</span><small>Seleccione una captura guardada; no se obliga cámara.</small></div><img id="buyPrev" style="display:none" alt="Comprobante"></div><div class="web-form-actions"><button class="web-secondary" onclick="webSetCompraStep(2)">Volver</button><button class="web-primary" id="buyBtn" onclick="enviarCompra()">Enviar compra</button></div><div id="buyMsg" class="web-form-msg"></div></section>${webCompraCart(items,m)}</div>`;restoreCompraReceiptPreview();
-  }
+  compraPintar(()=>{
+    if(webCompraStep===1){
+      const cats=['todas',...new Set(compraProductosCatalogo().map(p=>p.categoria))];
+      host.innerHTML=`${misComprasHtml()}<div class="web-buy-layout"><section class="web-buy-products"><div class="web-buy-tools"><div class="web-search"><span>⌕</span><input placeholder="Buscar producto…" value="${escAttr(webCompraSearch)}" oninput="webCompraBuscar(this.value)"></div><select class="web-select" onchange="webCompraCat=this.value;webCompraBuscar(webCompraSearch)">${cats.map(c=>`<option value="${escAttr(c)}" ${webCompraCat===c?'selected':''}>${c==='todas'?'Todas las categorías':escHtml(c)}</option>`).join('')}</select></div><div class="web-buy-grid" id="webBuyGrid">${webCompraListaHtml()}</div></section>${webCompraCart(items,m)}</div>`;
+    }else{
+      host.innerHTML=`<div class="web-buy-layout"><section class="web-panel-card web-buy-data web-checkout"><section class="buy-sec" id="buySecProductos"><h3><b>1</b> Productos <button class="web-link" onclick="webSetCompraStep(1)">＋ Agregar más</button></h3><div class="buy-cart-items">${compraCarritoItemsHtml(items)}</div></section>${compraSeccionesHtml(items,m)}</section>${webCompraCart(items,m)}</div>`;
+      compraDespuesDePintar();
+    }
+  });
 };
-function webBuyVal(id){const el=document.getElementById(id);if(el)return String(el.value||'').trim();return String(compraDraft.fields?.[id]??'').trim()}
-enviarCompra = async function(){
-  if(!webDesktopMode())return MOBILE_BASE.enviarCompra.apply(this,arguments);
-  captureCompraDraft();const items=compraSeleccionados(),msg=document.getElementById('buyMsg'),m=compraMath();if(!items.length){webCompraStep=1;renderCompraForm();return}if(!webCatalogOperational()){if(msg){msg.textContent='Actualice el catálogo antes de enviar.';msg.className='web-form-msg error'}return}
-  const productos=[];for(const p of items){const perfilNombre=webBuyVal(buyFid(p,'perfilNombre')),perfilApellido=webBuyVal(buyFid(p,'perfilApellido')),correo=webBuyVal(buyFid(p,'correo')),detalleServicio=webBuyVal(buyFid(p,'detalle')),nombreCliente=webBuyVal(buyFid(p,'nombreCliente')),dispositivo=webBuyVal(buyFid(p,'dispositivo')),marcaTv=webBuyVal(buyFid(p,'marcaTv')),marcaTvOtra=webBuyVal(buyFid(p,'marcaTvOtra')),cantidad=compraCantidad(p);
-    if(p.tipo==='perfil'&&(!perfilNombre||!perfilApellido)){webCompraStep=2;renderCompraForm();alert('Coloque nombre y apellido del perfil para '+p.nombre+'.');return}if(p.tipo==='perfil'&&p.pideDispositivo&&!dispositivo){webCompraStep=2;renderCompraForm();alert('Elija el dispositivo para '+p.nombre+'.');return}if(p.tipo==='correo'&&!correo){webCompraStep=2;renderCompraForm();alert('Coloque el correo para '+p.nombre+'.');return}if(p.tipo==='correo'&&!nombreCliente){webCompraStep=2;renderCompraForm();alert('Coloque el nombre del cliente para '+p.nombre+'.');return}if(p.tipo==='detalle'&&!detalleServicio){webCompraStep=2;renderCompraForm();alert('Coloque el detalle para '+p.nombre+'.');return}if(compraEsIptv(p)&&!marcaTv){webCompraStep=2;renderCompraForm();alert('Seleccione la marca o sistema del TV para '+p.nombre+'.');return}if(compraEsIptv(p)&&marcaTv==='otro'&&!marcaTvOtra){webCompraStep=2;renderCompraForm();alert('Especifique la marca y modelo del TV.');return}
-    productos.push({id:p.id,catalogId:p.catalogId,servicio:p.nombre,servicioBase:p.base,catalogCategory:p.categoria,catalogSub:p.sub,catalogDetalle:p.detalleCatalogo,precioCatalogo:p.precio,cantidad,entregaTipo:p.tipo,entregaCanal:p.entregaCanal||'manual',perfilNombre,perfilApellido,correo,detalleServicio,nombreCliente,dispositivo,marcaTv:marcaTv==='otro'?marcaTvOtra:marcaTv});}
-  if(!compraImg){if(msg){msg.textContent='Adjunte el comprobante antes de enviar.';msg.className='web-form-msg error'}return}
-  if(!m.hayComision&&!compraDraft.bancoId){webCompraStep=2;renderCompraForm();if(msg){msg.textContent='Elija dónde se hizo el pago.';msg.className='web-form-msg error'}return}
-  const montoReal=m.hayComision?num(compraDraft.monto||m.total):Number(m.total||0),montoModificado=m.hayComision&&Math.abs(montoReal-Number(m.total||0))>.001;let comentario=String(compraDraft.comentario||'').trim();if(montoModificado){const nota=`Monto modificado manualmente: calculado ${money(m.total)} → pagado ${money(montoReal)}`;comentario=comentario?`${comentario} · ${nota}`:nota}
-  const btn=document.getElementById('buyBtn');if(btn){btn.disabled=true;btn.textContent='Enviando…'}
-  try{const r=await API.call('/rev/compra',{method:'POST',body:JSON.stringify({requestId:webPurchaseRequestId(),destino:compraDestino,servicio:m.unidades>1?`Combo ${m.unidades} unidades`:items[0].nombre,productos,comboCantidad:m.unidades,subtotalCatalogo:m.subtotal,descuentoCombo:m.descuento,totalCombo:m.total,monto:montoReal,montoCalculado:m.total,montoModificado,bancoId:compraDraft.bancoId||'',comentario,imagen:compraImg})});if(msg){msg.textContent=(r.duplicate?'✅ La compra ya estaba registrada. ':'✅ Compra enviada a ')+(r.duplicate?'No se duplicó.':(r.destinoLabel||'equipo')+'.');msg.className='web-form-msg ok'}compraImg='';compraSels=[];compraPickerOpen=true;resetCompraDraft();webCompraRequestId='';webCompraStep=1;markSyncStale(['compras','inventario','metricas']);await Promise.allSettled([loadMisCompras(),loadInventario(),loadMetricas()]);setTimeout(()=>{if(current==='compras')vCompras()},850)}catch(e){if(msg){msg.textContent='No se pudo enviar la compra. '+((e&&e.detail)||(e&&e.error)||'Reintente.');msg.className='web-form-msg error'}}finally{if(btn){btn.disabled=false;btn.textContent='Enviar compra'}}
-};
+// enviarCompra: el mismo de móvil (operations.js) — una sola validación y un solo requestId (sin duplicados).
+enviarCompra = MOBILE_BASE.enviarCompra;
 
 /* ---------- Renovación ---------- */
 let webRenSearch='',webRenDate='';

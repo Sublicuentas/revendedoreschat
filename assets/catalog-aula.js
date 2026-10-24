@@ -128,7 +128,7 @@ function catalogAppStyle(i){const a=[['linear-gradient(145deg,#ffad43,#f07827)',
 function openCatalogCategory(ix){catalogCategoria=String(ix);vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function closeCatalogCategory(){catalogCategoria='';vPrecios();window.scrollTo({top:0,behavior:'smooth'})}
 function copyCatalogPrice(btn){const txt=btn?.dataset?.copy||'';navigator.clipboard?.writeText(txt)}
-function buyFromCatalog(ix){if(socioSinCompras())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');compraSels=[found.id];compraPickerOpen=false;go('compras')}}
+function buyFromCatalog(ix){if(socioSinCompras())return;const g=PRECIOS[Number(catalogCategoria)],it=g?.items?.[ix];if(!it)return;const nombre=it.s?`${it.n} · ${it.s}`:it.n,found=compraProductosCatalogo().find(p=>p.nombre===nombre);if(found){const st=inventoryState(found);if(!st.available)return alert('Este producto aparece agotado por el momento.');if(!compraSels.includes(found.id))compraSels.push(found.id);compraPickerOpen=false;compraScrollA='buybox_'+found.id;go('compras')}} // Oct-2026: se suma al carrito (no lo borra) y lleva a sus datos
 function vPrecios(){
   const restricted=socioSinCompras();
   const me=gamificacion.perfil||{ventas:0,nivel:'Sin nivel'},ventas=Number(me.ventas||0);
@@ -150,13 +150,13 @@ function vPrecios(){
     const ix=Number(catalogCategoria),g=PRECIOS[ix],t=catalogTheme(ix),ico=catalogIcon(g.cat,ix);
     const apps=g.items.map((it,i)=>{
       const [grad,glow]=catalogAppStyle(i);
-      const copy=String(`${it.n} · ${it.p==null?'Por comisión':'Lps. '+it.p}`);
+      const copy=String(`${it.n} · ${it.p==null?'Por comisión':'L'+it.p}`);
       const invItem={catalogId:it.id||'',id:it.id||'',nombre:it.n,base:it.n};
       const stock=inventoryState(invItem);
       const copyBtn=`<button data-copy="${escAttr(copy)}" onclick="copyCatalogPrice(this)">📋 Copiar precio</button>`;
       const buyBtn=stock.available?`<button onclick="buyFromCatalog(${i})">🛒 Nueva compra</button>`:`<button disabled aria-disabled="true">⛔ Agotado</button>`;
       const actions=restricted?copyBtn:buyBtn+copyBtn;
-      return `<article class="catalog-app ${!stock.available?'is-out':''}"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${escHtml(it.n)}</b><small>${escHtml(it.s||'Servicio disponible')}</small><em class="stock-badge ${stock.key}">${escHtml(stock.label)}</em></div><strong class="catalog-app-price">${it.p==null?'Comisión':'Lps. '+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="catalog-app-desc">${escHtml(it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.')}</div><div class="catalog-app-actions">${actions}</div></article>`;
+      return `<article class="catalog-app ${!stock.available?'is-out':''}"><div class="catalog-app-main"><span class="catalog-app-icon" style="--app-grad:${grad};--app-glow:${glow}">${compraEmoji(it.n,g.cat)}</span><div class="catalog-app-name"><b>${escHtml(it.n)}</b><small>${escHtml(it.s||'Servicio disponible')}</small><em class="stock-badge ${stock.key}">${escHtml(stock.label)}</em></div><strong class="catalog-app-price">${it.p==null?'Comisión':'L'+Number(it.p).toLocaleString('es-HN')}</strong></div><div class="catalog-app-desc">${escHtml(it.d||'Consulte disponibilidad y condiciones antes de confirmar la venta.')}</div><div class="catalog-app-actions">${actions}</div></article>`;
     }).join('');
     content.innerHTML=`<div class="catalog-detail-shell"><div class="catalog-detail-head" style="background:${t.g};--cat-shadow:${t.s}"><button class="catalog-back" onclick="closeCatalogCategory()">‹</button><div class="cat-icon">${ico}</div><h2>${escHtml(g.cat)}</h2><p>${g.sub?escHtml(g.sub):`${g.items.length} opciones disponibles para sus clientes`}</p></div>${accessNote}<div class="catalog-fresh">Catálogo actualizado · ${catTxt}</div><div class="catalog-app-list">${apps}</div></div>`;
     return;
