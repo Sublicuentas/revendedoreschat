@@ -14,6 +14,10 @@ const { chromium } = require('playwright');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BOT_DIR = path.resolve(root, process.env.BOT_DIR || '../bot');
 const CS = require(path.join(BOT_DIR, 'lib_compra_socios.js'));
+// Entregas, Buzón y Telegram: se sirven con las rutas REALES del bot (rev_entregas_api.js) sobre un Firestore en memoria.
+const express = require(path.join(BOT_DIR, 'node_modules/express'));
+const { FakeDb } = require(path.join(BOT_DIR, 'tests/helpers/fake-firestore.js'));
+const ENT_KEY = require('node:crypto').randomBytes(32).toString('base64');
 const OUT = process.env.E2E_OUT || path.join(root, 'tests/capturas');
 fs.mkdirSync(OUT, { recursive: true });
 const API_HOST = 'https://sublicuentas-panel-api.onrender.com';
@@ -52,12 +56,41 @@ function nuevoEstado() {
   const pedidos = new Map();
   const viejo = { version: 2, socio_norm: 'jimena', estado: 'falta información', detalleEstado: 'Envíe el correo correcto de Canva', clientePrincipal: { clienteId: 'c2', nombre: 'Carlos', apellido: 'Mejía' }, productos: [{ renglonId: 'r1', catalogId: 'canva', servicio: 'Canva Pro · 1 mes', servicioBase: 'Canva Pro', precioCatalogo: 70, cantidad: 1, clienteNombre: 'Carlos Mejía', correo: 'carlos@correo', destinatario: { tipo: 'principal' } }], subtotalCatalogo: 70, descuentoCombo: 0, totalCombo: 70, monto: 70, banco: 'BAC', imagenUrl: 'x', createdAt: new Date(Date.now() - 86400000).toISOString(), estadoHistorial: [{ estado: 'pendiente', at: new Date(Date.now() - 86400000).toISOString() }, { estado: 'falta información', detalle: 'Envíe el correo correcto de Canva', at: new Date().toISOString() }] };
   pedidos.set('web_seed00ABC123', viejo);
-  return { pedidos, stock: { canva: 3 }, sugerencias: [], precioExtra: 0, calls: [], cortarRespuesta: 0 };
+  return { pedidos, stock: { canva: 3 }, sugerencias: [], precioExtra: 0, calls: [], cortarRespuesta: 0, real: null };
 }
+const norm = (v) => String(v || '').toLowerCase().trim();
+async function apiReal(E) {
+  if (E.real) return E.real;
+  const db = new FakeDb(), app = express(); app.use(express.json());
+  const revAuth = (req, res, next) => { if (!/Bearer/.test(req.headers.authorization || '')) return res.status(401).json({ error: 'auth' }); req.rev = { id: 'jimena', nombre_norm: 'jimena', nombre: 'Jimena' }; next(); };
+  const revAdminAuth = (req, res, next) => { if (!req.headers['x-admin']) return res.status(401).end(); req.admin = { nombre: 'Admin', permissions: ['*'] }; next(); };
+  require(path.join(BOT_DIR, 'rev_entregas_api.js')).registrar(app, {
+    db, revAuth, revAdminAuth, adminAnyPermission: () => (q, r, n) => n(), isFullAdmin: () => true, adminScopeProfile: () => 'sublicuentas',
+    revLiveProfile: async (rev) => { const s = await db.collection('revendedores').doc(rev.id).get(); return { id: rev.id, ...(s.data() || {}) }; },
+    revSocioAliases: (live) => [norm(live.nombre_norm || live.id)], revNormKey: norm,
+    revFiltrarClientePorAliases: (c, a) => ({ ...c, servicios: (c.servicios || []).filter((x) => a.includes(norm(x.vendedor))) }),
+    destinoInfo: (d) => ({ key: d || 'sublicuentas', label: '🟣 Sublicuentas' }), getDestinoChatIds: async () => ['900001'], bot: { getMe: async () => ({ username: 'SubliBotPrueba' }) },
+    env: { ENTREGAS_CODIGOS_KEY: ENT_KEY, SOCIOS_PANEL_URL: 'https://socios.ejemplo.test', PORTAL_CLIENTE_BASE: 'https://sublichat.ejemplo.test' },
+  });
+  await db.collection('revendedores').doc('jimena').set({ nombre: 'Jimena', nombre_norm: 'jimena', telegramId: '', activo: true });
+  await db.collection('revendedores').doc('otra').set({ nombre: 'Otra', nombre_norm: 'otra', telegramId: '555', activo: true });
+  for (const [id, x] of E.pedidos) await db.collection('compras').doc(id).set(x);
+  const srv = await new Promise((r) => { const s2 = app.listen(0, () => r(s2)); });
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  const admin = async (method, url, body) => { const r = await fetch(base + url, { method, headers: { 'Content-Type': 'application/json', 'x-admin': '1', 'x-sublichat-actor': 'naara' }, body: body ? JSON.stringify(body) : undefined }); return r.json(); };
+  E.real = { db, srv, base, admin };
+  return E.real;
+}
+const RUTAS_REALES = /^\/rev\/(entregas|novedades|consultas|telegram)(\/|$|\?)/;
 
 /* ---------- simulador de /rev/* (misma regla del servidor) ---------- */
 async function api(route, E) {
   const req = route.request(), url = new URL(req.url()), p = url.pathname, method = req.method();
+  if (RUTAS_REALES.test(p)) {
+    const R = await apiReal(E);
+    const r = await fetch(R.base + p + url.search, { method, headers: { 'Content-Type': 'application/json', Authorization: req.headers().authorization || '' }, body: ['GET', 'HEAD'].includes(method) ? undefined : (req.postData() || undefined) });
+    return route.fulfill({ status: r.status, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: await r.text() });
+  }
   const ok = (json, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
   E.calls.push(`${method} ${p}`);
   if (p === '/health') return ok({ ok: true });
@@ -75,6 +108,8 @@ async function api(route, E) {
   if (p === '/rev/compra/estado') { const id = 'web_' + url.searchParams.get('requestId'); const x = E.pedidos.get(id); return ok(x ? { ok: true, existe: true, pedido: CS.pedidoPublico(id, x) } : { ok: true, existe: false }); }
   if (p === '/rev/compra' && method === 'POST') {
     const b = req.postDataJSON(), id = 'web_' + b.requestId;
+    // Igual que server_api.js: un pedido = un cliente. Un renglón "para otro cliente" se rechaza aunque el navegador se manipule.
+    if ((b.productos || []).some((x) => x?.destinatario?.tipo === 'otro')) return ok({ error: 'cliente_unico' }, 400);
     if (E.pedidos.has(id)) { const d = E.pedidos.get(id); return ok({ ok: true, id, ref: id.slice(-6).toUpperCase(), duplicate: true, estado: d.estado, totalCombo: d.totalCombo, descuentoCombo: d.descuentoCombo }); }
     const plano = catalogo().flatMap((g) => g.items.map((it) => ({ ...it, categoria: g.cat })));
     plano[0].p += E.precioExtra;
@@ -131,6 +166,7 @@ async function abrir(viewport = { width: 390, height: 844 }, E = nuevoEstado(), 
 const shot = (page, n) => page.screenshot({ path: path.join(OUT, n), fullPage: false });
 const resultados = [];
 async function caso(nombre, fn) {
+  if (process.env.E2E_SOLO && !nombre.includes(process.env.E2E_SOLO)) return;
   try { await fn(); resultados.push(['OK', nombre]); console.log('✔', nombre); }
   catch (e) { resultados.push(['FALLA', nombre, e.message]); console.log('✖', nombre, '\n   ', e.message.split('\n').slice(0, 4).join('\n    ')); }
 }
@@ -173,34 +209,51 @@ await caso('A · Un cliente, varios servicios: HBO (dispositivo) + Canva (correo
   assert.match(await page.textContent('.sx-confirm'), new RegExp(id.slice(-6).toUpperCase()));
   assert.equal(await page.evaluate(() => localStorage.getItem(sxBorradorKey())), null, 'borrador limpio al confirmar');
   await page.click('[data-act="ver-pedido"]'); await page.waitForSelector('#sxPedTitulo');
-  assert.match(await page.textContent('.sx-page'), /Para Ana López/);
+  assert.match(await page.textContent('.sx-page'), /Cliente: Ana López/);
+  assert.equal((await page.textContent('.sx-review')).match(/Pendiente/g)?.length, 2, 'cada servicio con su propio estado de entrega');
   await shot(page, '06-movil-detalle-pedido.png');
   assert.deepEqual(errores, []); await ctx.close();
 });
 
-await caso('B · Varios clientes: Disney para Carlos (excepción); cambiar el principal no borra la excepción', async () => {
+await caso('B · Un solo cliente: sin "otro cliente"; cambiar de cliente limpia sus datos; "Nueva compra para otro cliente" guarda la actual; el servidor rechaza un payload manipulado', async () => {
   const { page, E, ctx } = await abrir({ width: 1440, height: 900 });
   await irCompras(page);
   await agregar(page, 'cat_hbo_platino'); await agregar(page, 'cat_disney_premium');
   await siguiente(page, 2);
   await page.fill('#sx_p_buscar', 'ana'); await page.click('[data-act="cliente-elegir"][data-scope="p"][data-id="c1"]');
+  assert.equal(await page.locator('[data-sx="otroCliente"]').count(), 0, 'ya no existe "Este servicio es para otro cliente"');
+  assert.doesNotMatch(await page.textContent('#sxCompra'), /Este servicio es para otro cliente/);
   const [h, d] = await page.evaluate(() => SX.renglones.map((r) => r.rid));
-  await page.check(`[data-sx="otroCliente"][data-rid="${d}"]`);
-  await page.fill(`#sx_${d}_buscar`, 'carl'); await page.click(`[data-act="cliente-elegir"][data-scope="${d}"][data-id="c2"]`);
   await page.click(`[data-act="opcion"][data-rid="${h}"][data-v="celular"]`); await page.click(`[data-act="opcion"][data-rid="${d}"][data-v="tv"]`);
-  await shot(page, '10-escritorio-paso2-dos-clientes.png');
+  assert.match(await page.textContent(`#sxr_${h} [data-act="duplicar"]`), /Agregar otro perfil para Ana/);
+  assert.match(await page.textContent('[data-act="otro-servicio"]'), /Agregar otro servicio para Ana/);
+  await shot(page, '10-escritorio-paso2-un-cliente.png');
+  // Cambiar el cliente antes de enviar: avisa (diálogo aceptado) y limpia los datos personales; conserva productos.
   await page.click('[data-act="cliente-cambiar"][data-scope="p"]');
+  assert.deepEqual(await page.evaluate(() => SX.renglones.map((r) => r.dispositivo)), ['', ''], 'no arrastra datos de Ana');
+  assert.equal(await page.evaluate(() => SX.renglones.length), 2);
   await page.fill('#sx_p_nombre', 'Luis'); await page.fill('#sx_p_apellido', 'Ramos');
-  assert.match(await page.textContent(`#sxr_${d}`), /Para Carlos Mejía/, 'la excepción permanece');
-  assert.match(await page.textContent(`#sxr_${h}`), /Asignado a Luis Ramos/);
+  assert.match(await page.textContent(`#sxr_${d}`), /Asignado a Luis Ramos/);
+  await page.click(`[data-act="opcion"][data-rid="${h}"][data-v="celular"]`); await page.click(`[data-act="opcion"][data-rid="${d}"][data-v="tv"]`);
+  // Nueva compra para otro cliente: guarda la de Luis y empieza vacía
+  await page.click('[data-act="otro-cliente"]');
+  assert.equal(await page.evaluate(() => SX.renglones.length), 0);
+  await page.waitForSelector('[data-act="borrador-abrir"]');
+  assert.match(await page.textContent('#sxCompra'), /Compras guardadas[\s\S]*Luis Ramos/);
+  await shot(page, '13-escritorio-compras-guardadas.png');
+  await page.click('[data-act="borrador-abrir"]');
+  assert.equal(await page.evaluate(() => SX.principal.nombre), 'Luis');
   await siguiente(page, 3);
   await page.click('[data-act="banco"][data-id="bac"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
   await shot(page, '11-escritorio-paso3.png');
   await page.click('#sxSummary [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
   await shot(page, '12-escritorio-confirmacion.png');
   const ped = [...E.pedidos.values()].pop();
-  assert.equal(ped.productos[1].clienteNombre, 'Carlos Mejía'); assert.equal(ped.productos[1].destinatario.clienteId, 'c2');
-  assert.equal(ped.productos[0].clienteNombre, 'Luis Ramos'); assert.equal(ped.productos[1].dispositivo, '📺 TV');
+  assert.deepEqual(ped.productos.map((x) => x.clienteNombre), ['Luis Ramos', 'Luis Ramos']); assert.equal(ped.productos[1].dispositivo, '📺 TV');
+  assert.ok(ped.productos.every((x) => x.destinatario.tipo === 'principal'));
+  // Payload manipulado con dos clientes → rechazado por el servidor
+  const r = await page.evaluate(async () => { try { await sxPost('/rev/compra', { ...sxPayload(), version: 2, requestId: 'manipulado', clientePrincipal: { nombre: 'Ana', apellido: 'López' }, productos: [{ renglonId: 'r1', catalogId: 'hbo_platino', dispositivo: 'tv', destinatario: { tipo: 'otro', nombre: 'Carlos', apellido: 'Mejía' } }] }); return 'aceptado'; } catch (e) { return e.error; } });
+  assert.equal(r, 'cliente_unico');
   await ctx.close();
 });
 
@@ -215,7 +268,8 @@ await caso('C · Mismo plan repetido: dos perfiles HBO = dos renglones con ID y 
   await page.click(`[data-act="opcion"][data-rid="${a}"][data-v="tv"]`);
   await page.click(`[data-act="opcion"][data-rid="${b}"][data-v="celular"]`);
   await page.check(`[data-sx="otroPerfil"][data-rid="${b}"]`); await page.fill(`#sx_${b}_perfilNombre`, 'Niños');
-  assert.match(await page.textContent(`#sxr_${b}`), /unidad 2/);
+  assert.match(await page.textContent(`#sxr_${b}`), /Perfil 2/); assert.doesNotMatch(await page.textContent(`#sxr_${b}`), /unidad/i);
+  assert.match(await page.textContent(`#sxr_${b} [data-act="duplicar"]`), /Agregar otro perfil para Ana/);
   // agregar una tercera unidad y quitarla
   await page.click(`[data-act="duplicar"][data-rid="${b}"]`);
   const c = await page.evaluate(() => SX.renglones[2].rid);
@@ -354,7 +408,8 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
   await page.click('.sx-order'); await page.waitForSelector('#sxPedTitulo');
   await page.fill('#sxConsulta', 'El correo correcto es carlos@correo.com');
   await page.click('[data-act="consultar"]'); await page.waitForSelector('#sxConsultaMsg.ok');
-  assert.equal(E.sugerencias[0].pedidoId, 'web_seed00ABC123');
+  const cons = Object.values(E.real.db.dump('buzon_consultas'));
+  assert.equal(cons.length, 1); assert.equal(cons[0].pedidoId, 'web_seed00ABC123'); assert.equal(cons[0].numero, 'C101');
   await page.waitForSelector('.sx-consultas');
   await shot(page, '52-escritorio-detalle-falta-info.png');
   await page.click('[data-act="recomprar"]'); await page.waitForSelector('#sxCompra');
@@ -413,6 +468,116 @@ await caso('Responsividad: 360, 390, 768, 1024, 1440 px y zoom 200 %; nombres la
   const h = await page.evaluate(() => getComputedStyle(document.querySelector('#sx_p_nombre')).minHeight);
   assert.equal(h, '52px', 'campos de 52 px');
   await ctx.close();
+});
+
+await caso('Entregas: parcial 1 de 2, campanita, "Mis entregas" paginado con filtros, detalle marca visto, portal por POST, otro socio no ve nada', async () => {
+  const E = nuevoEstado();
+  E.pedidos.set('web_seedHBOCANVA', { version: 2, socio_norm: 'jimena', estado: 'pendiente', clientePrincipal: { nombre: 'Ana', apellido: 'López', clienteId: 'c1' }, productos: [{ renglonId: 'r1', servicio: 'HBO Max · Platino', servicioBase: 'HBO Max', precioCatalogo: 100, cantidad: 1, clienteNombre: 'Ana López', destinatario: { tipo: 'principal' } }, { renglonId: 'r2', servicio: 'Canva Pro · 1 mes', servicioBase: 'Canva Pro', precioCatalogo: 70, cantidad: 1, clienteNombre: 'Ana López', correo: 'ana@ejemplo.com', destinatario: { tipo: 'principal' } }], subtotalCatalogo: 170, descuentoCombo: 10, totalCombo: 160, monto: 160, banco: 'BAC', imagenUrl: 'x', createdAt: new Date().toISOString() });
+  const R = await apiReal(E);
+  await R.db.collection('clientes').doc('cli_ana').set({ nombre: 'Ana López', servicios: [{ plataforma: 'HBO Max', compraId: 'svc_hbo', vendedor: 'jimena', fechaRenovacion: en(30) }], accesosBeneficiarios: { titular: { token: 'tokAnaDemo' } } });
+  for (let i = 0; i < 24; i++) await R.db.collection('entregas_socios').doc(`enth_compras_hist${i}_r1`).set({ compraId: `hist${String(i).padStart(4, '0')}`, pedidoRef: `H${String(i).padStart(5, '0')}`, renglonId: 'r1', socio_norm: 'jimena', estado: 'publicada', version: 1, historico: true, visibleSocio: true, servicio: i % 2 ? 'Netflix · 1 perfil' : 'Disney Premium', clienteNombre: `Cliente histórico ${i}`, fechaOriginal: i === 0 ? null : new Date(Date.UTC(2025, 0, 1 + i * 7)), importadaAt: new Date(), visto: { version: 1 } });
+  const pub = await R.admin('POST', '/rev/admin/entregas/guardar', { accion: 'publicar', compraId: 'web_seedHBOCANVA', renglonId: 'r1', opId: 'e2e1', ficha: { clienteId: 'cli_ana', servicioCompraId: 'svc_hbo', servicioIndex: 0 }, portalAutorizado: true, notaSocio: 'Perfil “Ana” creado.', mensajeCliente: 'Hola Ana, su HBO Max ya está listo.' });
+  const c = (await R.db.collection('compras').doc('web_seedHBOCANVA').get()).data();
+  E.pedidos.set('web_seedHBOCANVA', { ...E.pedidos.get('web_seedHBOCANVA'), entregas: c.entregas, estado: c.estado, detalleEstado: c.detalleEstado });
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+  await page.waitForFunction(() => document.getElementById('sxBellBadge')?.textContent === '1');
+  await shot(page, '90-movil-campanita.png');
+  await page.evaluate(() => go('pedidos')); await page.waitForSelector('.sx-orders');
+  assert.match(await page.textContent('.sx-orders'), /Entrega parcial · 1 de 2 servicios/);
+  await page.click('[data-act="abrir"][data-id="web_seedHBOCANVA"]'); await page.waitForSelector('#sxPedTitulo');
+  const lineas = await page.locator('.sx-review li').allTextContents();
+  assert.match(lineas[0], /Entregado/); assert.match(lineas[1], /Pendiente/); assert.doesNotMatch(lineas[1], /Entregado/);
+  await shot(page, '91-movil-pedido-parcial.png');
+  await page.click('[data-act="volver"]'); await page.click('[data-act="pedtab"][data-v="entregas"]');
+  await page.waitForSelector('.sx-ents');
+  assert.equal(await page.locator('.sx-ent').count(), 20, 'primera página del servidor');
+  await shot(page, '92-movil-mis-entregas.png');
+  await page.click('[data-act="ent-mas"]'); await page.waitForFunction(() => document.querySelectorAll('.sx-ent').length === 25);
+  assert.match(await page.textContent('.sx-ents'), /Sin fecha confirmada/, 'histórico sin fecha: no se inventa');
+  await page.fill('#sxEntForm [name="servicio"]', 'disney'); await page.click('#sxEntForm button[type="submit"]');
+  await page.waitForFunction(() => [...document.querySelectorAll('.sx-ent')].every((x) => /Disney/.test(x.textContent)) && document.querySelectorAll('.sx-ent').length === 12);
+  await page.fill('#sxEntForm [name="servicio"]', ''); await page.click('[data-act="ent-estado"][data-v="nuevas"]');
+  await page.waitForFunction(() => document.querySelectorAll('.sx-ent').length === 1);
+  await page.click('[data-act="ent-ver"]'); await page.waitForSelector('#sxEntTitulo');
+  assert.match(await page.textContent('.sx-page'), /Hola Ana, su HBO Max ya está listo/);
+  assert.match(await page.textContent('.sx-page'), /Entrega parcial · 1 de 2/);
+  await shot(page, '93-movil-detalle-entrega.png');
+  const e = (await R.db.collection('entregas_socios').doc(pub.id).get()).data();
+  assert.equal(e.visto.version, 1, 'visto al abrir el detalle');
+  await page.waitForFunction(() => !document.getElementById('sxBellBadge')?.classList.contains('show'));
+  await ctx.route('https://sublichat.ejemplo.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Portal del cliente (prueba)</h1>' }));
+  const [popup] = await Promise.all([page.waitForEvent('popup'), page.click('[data-act="ent-portal"]')]);
+  await popup.waitForURL(/sublichat\.ejemplo\.test\/c\/tokAnaDemo/).catch(() => {});
+  assert.match(popup.url(), /\/c\/tokAnaDemo/);
+  assert.ok(!page.url().includes('tokAnaDemo'), 'el enlace nunca va en la URL del panel');
+  await popup.close();
+  // Escritorio
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.evaluate(() => sxAbrirEntrega(sxEntAbiertaId)); await page.waitForSelector('#sxEntTitulo');
+  await shot(page, '94-escritorio-detalle-entrega.png');
+  // Otro socio con el enlace directo: acceso denegado (el servidor revalida la propiedad)
+  const ajeno = await fetch(R.base + '/rev/entregas/' + pub.id, { headers: { Authorization: 'Bearer tok' } }).then((r) => r.status);
+  assert.equal(ajeno, 200);
+  await R.db.collection('entregas_socios').doc(pub.id).set({ socio_norm: 'otra' }, { merge: true });
+  const negado = await fetch(R.base + '/rev/entregas/' + pub.id, { headers: { Authorization: 'Bearer tok' } }).then((r) => r.status);
+  assert.equal(negado, 404);
+  await ctx.close(); R.srv.close();
+});
+
+await caso('Enlace del aviso (?entrega=…): abre la entrega después de la sesión, sin datos sensibles en la URL', async () => {
+  const E = nuevoEstado(); const R = await apiReal(E);
+  await R.db.collection('entregas_socios').doc('ent_web_seed00ABC123_r1').set({ compraId: 'web_seed00ABC123', pedidoRef: '0ABC123'.slice(-6), renglonId: 'r1', socio_norm: 'jimena', estado: 'publicada', version: 1, visibleSocio: true, servicio: 'Canva Pro · 1 mes', clienteNombre: 'Carlos Mejía', publicadaAt: new Date(), visto: null });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('rev_token', 'tok'); localStorage.setItem('rev_data', JSON.stringify({ nombre: 'Jimena', nombre_norm: 'jimena', usuario: 'jimena' })); } catch (_) {} });
+  await ctx.route(`${API_HOST}/**`, (route) => api(route, E));
+  await ctx.route('https://fonts.googleapis.com/**', (r) => r.abort()); await ctx.route('https://fonts.gstatic.com/**', (r) => r.abort());
+  const page = await ctx.newPage(); page.on('dialog', (d) => d.accept());
+  await page.goto(BASE + '?entrega=ent_web_seed00ABC123_r1');
+  await page.waitForSelector('#sxEntTitulo');
+  assert.match(await page.textContent('#sxEntTitulo'), /Carlos Mejía/);
+  assert.ok(!page.url().includes('entrega='), 'se limpia de la barra de direcciones');
+  await ctx.close(); R.srv.close();
+});
+
+await caso('Buzón de dos vías: nueva consulta, respuesta del equipo con aviso no leído, respuesta del socio en el mismo hilo; avisos del equipo en su pestaña', async () => {
+  const E = nuevoEstado(); const R = await apiReal(E);
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+  await page.evaluate(() => go('buzon')); await page.waitForSelector('[data-bz="nueva"]');
+  await page.click('[data-bz="nueva"]');
+  await page.fill('#sxBzAsunto', 'Netflix pide código'); await page.selectOption('#sxBzPedido', 'web_seed00ABC123'); await page.fill('#sxBzTexto', 'Mi cliente no puede entrar desde la TV.');
+  await shot(page, '95-movil-nueva-consulta.png');
+  await page.click('[data-bz="enviar-nueva"]'); await page.waitForSelector('.sx-hilo');
+  const [id] = Object.keys(R.db.dump('buzon_consultas'));
+  await R.admin('POST', `/rev/admin/consultas/${id}/mensajes`, { texto: 'Nota interna: revisar', interna: true, opId: 'i1' });
+  await R.admin('POST', `/rev/admin/consultas/${id}/mensajes`, { texto: 'Ya lo revisamos, intente de nuevo.', opId: 'r1' });
+  await page.evaluate(() => sxCargarNovedades()); await page.waitForFunction(() => document.getElementById('sxBellBadge')?.textContent === '1');
+  await page.click('[data-bz="volver"]'); await page.click('[data-bz="recargar"]'); await page.waitForSelector('.sx-bz-item');
+  assert.match(await page.textContent('.sx-ents'), /1 nueva/);
+  await page.click('.sx-bz-item'); await page.waitForSelector('#sxBzResp');
+  assert.doesNotMatch(await page.textContent('.sx-hilo'), /Nota interna/);
+  await page.fill('#sxBzResp', 'Ya funcionó, gracias.'); await page.click('[data-bz="responder"]');
+  await page.waitForFunction(() => document.querySelectorAll('.sx-hmsg').length === 3);
+  await shot(page, '96-movil-hilo-consulta.png');
+  const c = R.db.dump('buzon_consultas')[id];
+  assert.equal(c.mensajes.length, 4); assert.equal(c.estado, 'en_atencion'); assert.equal(c.noLeidasSocio, 0);
+  await page.click('[data-bz="tab"][data-v="avisos"]'); assert.match(await page.textContent('.sx-page'), /Oleada TV/);
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.click('[data-bz="tab"][data-v="consultas"]'); await page.click('.sx-bz-item');
+  await shot(page, '97-escritorio-buzon-hilo.png');
+  await ctx.close(); R.srv.close();
+});
+
+await caso('Perfil · Telegram: conectar genera enlace de un solo uso (sin datos del socio); desvincular', async () => {
+  const E = nuevoEstado(); const R = await apiReal(E);
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+  await page.evaluate(() => go('perfil')); await page.waitForSelector('#sxTgCard [data-tg="conectar"]');
+  await page.click('[data-tg="conectar"]'); await page.waitForSelector('#sxTgCard a[href^="https://t.me/SubliBotPrueba?start=v_"]');
+  const href = await page.getAttribute('#sxTgCard a', 'href');
+  assert.ok(!/jimena/i.test(href));
+  await page.locator('#sxTgCard').scrollIntoViewIfNeeded(); await shot(page, '98-movil-perfil-telegram.png');
+  await R.db.collection('revendedores').doc('jimena').set({ telegramId: '777777', telegramVinculo: { estado: 'vinculado', metodo: 'token', desde: new Date() } }, { merge: true });
+  await page.evaluate(() => vPerfil()); await page.waitForSelector('#sxTgCard [data-tg="desvincular"]');
+  await page.click('[data-tg="desvincular"]'); await page.waitForSelector('#sxTgCard [data-tg="conectar"]');
+  assert.equal((await R.db.collection('revendedores').doc('jimena').get()).data().telegramId, '');
+  await ctx.close(); R.srv.close();
 });
 
 await caso('Permisos: un socio sin permiso de compra no ve Compras ni Pedidos; Aula, recompensas, buzón y perfil siguen disponibles', async () => {
