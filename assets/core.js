@@ -11,7 +11,8 @@ let syncBusyCount=0,lastResumeRefresh=0;
 function syncTypesForView(v=current){
   const restricted=socioSinCompras();
   const map={
-    inicio:['clientes','metricas','avisos'],
+    inicio:['clientes','metricas','avisos','compras'],
+    pedidos:['compras'],
     clientes:['clientes'],
     renovar:['clientes'],
     precios:['precios','inventario','gamificacion'],
@@ -490,7 +491,7 @@ function toggleImpBar(){
     b.innerHTML=`<div class="lbl">👁 Viendo como <b>${escHtml(revName())}</b></div><button onclick="volverAdmin()">Volver</button>`;
   } else { b.className='hide'; b.innerHTML=''; }
 }
-function logout(){clearInterval(window.__subliInboxTimer);API.clear();st('del','rev_admin');st('del','rev_last');location.reload()}
+function logout(){clearInterval(window.__subliInboxTimer);try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith('socios_borrador_'))localStorage.removeItem(k)}}catch(_){}API.clear();st('del','rev_admin');st('del','rev_last');location.reload()}
 
 /* ── ADMIN (modo dios, solo lectura) ── */
 let admF='', admCompF='', admCompraF='', admMode='socios';
@@ -753,10 +754,12 @@ async function loadMisCompras(){
   if(optionalUnavailable.has('compras'))return misCompras;
   return runSocioRequest('compras',async(epoch)=>{
     try{
-      const data=await API.call('/rev/compras/mias?limit=20&_='+Date.now(),{cache:'no-store',timeoutMs:12000});
+      const data=await API.call('/rev/compras/mias?limit=60&_='+Date.now(),{cache:'no-store',timeoutMs:12000});
       if(epoch!==socioEpoch)return misCompras;
       const rows=Array.isArray(data)?data:Array.isArray(data?.items)?data.items:[];
-      misCompras=rows;writeSocioCache('compras',rows);if(current==='compras')renderCompraForm();
+      misCompras=rows;writeSocioCache('compras',rows);
+      // Oct-2026 · Pedidos e Inicio también muestran el seguimiento.
+      if(current==='compras')renderCompraForm();else if(current==='pedidos'&&typeof vPedidos==='function')vPedidos();else if(current==='inicio')vInicio();
     }catch(e){if(e?.status===404)optionalUnavailable.add('compras')}
     return misCompras;
   });
