@@ -3,8 +3,9 @@
    Brief: "Rediseño del panel de socios" (compras claras, clientes bien asignados y seguimiento).
    - UNA sola lógica para celular y computadora (el CSS cambia el acomodo, no la lógica).
    - Compra en 3 pasos + confirmación: Productos → Datos de clientes → Revisar y pagar → Confirmación.
-   - Un cliente principal por pedido; cada servicio lo hereda o activa "Este servicio es para otro cliente".
-   - Cada unidad es un renglón con ID propio (dos perfiles HBO = dos renglones independientes).
+   - Brief maestro 30/10/2026: UN cliente por pedido (un pedido, un cliente, un pago). Todos los servicios lo heredan;
+     para otra persona: "Nueva compra para otro cliente" (otro pedido y otro comprobante).
+   - Cada perfil/cuenta es un renglón con ID propio (dos perfiles HBO = "Perfil 1" y "Perfil 2", independientes).
    - Los datos que se piden salen del catálogo (entregaTipo/entregaCanal/pideDispositivo/datoRequerido).
    - Borrador en este dispositivo (sin claves ni comprobante); requestId estable para reintentos.
    - Sección Pedidos con lista filtrable y detalle. Inicio, Catálogo, Clientes y Renovaciones rediseñados.
@@ -103,14 +104,54 @@ function sxCargarBorrador() {
     const raw = JSON.parse(localStorage.getItem(sxBorradorKey()) || 'null');
     if (!raw || raw.v !== 2 || !Array.isArray(raw.renglones)) return false;
     if (Date.now() - Number(raw.savedAt || 0) > 7 * 86400000) { localStorage.removeItem(sxBorradorKey()); return false; }
+    // Borradores de antes del 30/10/2026 con servicios "para otro cliente": se separan en otra compra
+    // guardada para esa persona (nunca se pasan sus datos al cliente principal).
+    const otros = raw.renglones.filter((r) => r.hereda === false);
+    if (otros.length) {
+      const porCliente = new Map();
+      otros.forEach((r) => { const k = sxNorm(sxNombreCompleto(r.otro)) || 'sin_nombre'; if (!porCliente.has(k)) porCliente.set(k, { principal: { id: r.otro?.id || '', nombre: r.otro?.nombre || '', apellido: r.otro?.apellido || '', telefono: '' }, renglones: [] }); const x = { ...r }; delete x.hereda; delete x.otro; porCliente.get(k).renglones.push(x); });
+      porCliente.forEach((g) => sxGuardarAparte({ ...sxNuevo(), principal: g.principal, renglones: g.renglones, destino: raw.destino || 'sublicuentas' }));
+      raw.renglones = raw.renglones.filter((r) => r.hereda !== false);
+    }
+    raw.renglones.forEach((r) => { delete r.hereda; delete r.otro; });
     SX = { ...sxNuevo(), ...raw, recuperado: true, paso: Math.min(3, Math.max(1, Number(raw.paso) || 1)) };
+    if (otros.length) SX.avisoPrecio = 'Su compra guardada tenía servicios para otra persona. Ahora cada cliente lleva su propio pedido: los separamos en “Compras guardadas”.';
     return true;
   } catch (_) { return false; }
+}
+/* Compras guardadas (otro cliente): "Nueva compra para otro cliente" guarda la actual aquí antes de empezar otra. */
+function sxGuardadosKey() { return `socios_borrador_guardados_${socioCacheId()}`; }
+function sxGuardados() { try { return (JSON.parse(localStorage.getItem(sxGuardadosKey()) || '[]') || []).filter((x) => x && Date.now() - Number(x.savedAt || 0) < 7 * 86400000); } catch (_) { return []; } }
+function sxGuardarAparte(compra) {
+  try { const l = sxGuardados(); l.unshift({ id: sxId(), principal: compra.principal, renglones: compra.renglones, destino: compra.destino, savedAt: Date.now() }); localStorage.setItem(sxGuardadosKey(), JSON.stringify(l.slice(0, 5))); } catch (_) {}
+}
+function sxQuitarGuardado(id) { try { localStorage.setItem(sxGuardadosKey(), JSON.stringify(sxGuardados().filter((x) => x.id !== id))); } catch (_) {} }
+function sxAbrirGuardado(id) {
+  const g = sxGuardados().find((x) => x.id === id); if (!g) return;
+  if (SX.renglones.length || sxNombreCompleto(SX.principal)) { if (!confirm('Tiene una compra en preparación. ¿Guardarla aparte y abrir la otra?')) return; sxGuardarAparte(SX); }
+  sxQuitarGuardado(id);
+  SX = { ...sxNuevo(), principal: g.principal, renglones: g.renglones, destino: g.destino || 'sublicuentas', paso: g.renglones.length ? 2 : 1 };
+  sxErr = {}; sxImg = ''; sxImgInfo = null; sxGuardar(); sxRender({ scroll: true });
+}
+function sxNuevaCompraOtroCliente() {
+  const hay = SX.renglones.length || sxNombreCompleto(SX.principal);
+  if (hay) {
+    const ok = confirm(`Cada cliente lleva su propio pedido y pago.\n\n¿Guardar la compra de ${sxNombreCompleto(SX.principal) || 'este cliente'} para terminarla después y empezar una nueva?`);
+    if (!ok) return;
+    sxGuardarAparte(SX);
+  }
+  SX = sxNuevo(); sxErr = {}; sxImg = ''; sxImgInfo = null; sxMsg = { t: '', c: '' }; sxGuardar();
+  if (current !== 'compras') go('compras'); else sxRender({ scroll: true });
+  sxToast(hay ? 'Compra anterior guardada. Empiece la del otro cliente.' : 'Nueva compra.');
+}
+function sxGuardadosHtml() {
+  const l = sxGuardados(); if (!l.length) return '';
+  return `<section class="sx-card"><h2>Compras guardadas</h2><ul class="sx-list">${l.map((g) => `<li><div><b>${sxEsc(sxNombreCompleto(g.principal) || 'Sin cliente')}</b><small>${g.renglones.length} servicio(s) · guardada ${sxFechaHora(g.savedAt)}</small></div><button type="button" class="sx-btn sec sm" data-act="borrador-abrir" data-id="${sxAttr(g.id)}">Continuar</button><button type="button" class="sx-link danger" data-act="borrador-quitar" data-id="${sxAttr(g.id)}">Descartar</button></li>`).join('')}</ul></section>`;
 }
 function sxBorrarBorrador() { try { localStorage.removeItem(sxBorradorKey()); } catch (_) {} }
 function sxTieneBorrador() { try { const r = JSON.parse(localStorage.getItem(sxBorradorKey()) || 'null'); return !!(r && r.v === 2 && r.renglones?.length && Date.now() - Number(r.savedAt || 0) < 7 * 86400000); } catch (_) { return false; } }
 
-function sxRenglonNuevo(pid) { return { rid: sxId(), pid, cantidad: 1, hereda: true, otro: { id: '', nombre: '', apellido: '' }, otroPerfil: false, perfilNombre: '', perfilApellido: '', dispositivo: '', correo: '', marcaTv: '', marcaOtra: '', modeloTv: '', detalle: '', notas: '', notasAbiertas: false }; }
+function sxRenglonNuevo(pid) { return { rid: sxId(), pid, cantidad: 1, otroPerfil: false, perfilNombre: '', perfilApellido: '', dispositivo: '', correo: '', marcaTv: '', marcaOtra: '', modeloTv: '', detalle: '', notas: '', notasAbiertas: false }; }
 function sxAgregar(pid, { silencioso = false } = {}) {
   const p = sxProducto(pid); if (!p) return;
   if (!p.stock.available) { sxToast(`${p.nombre}: agotado por el momento.`); return; }
@@ -140,9 +181,23 @@ function sxTotales() {
   const descuento = Math.min(Math.max(conPrecio - 1, 0), 4) * 10; // regla vigente: L10 por unidad adicional, máximo L40
   return { ls, unidades: ls.reduce((a, l) => a + l.cantidad, 0), subtotal, descuento, total: Math.max(0, subtotal - descuento), hayComision: ls.some((l) => l.p.precio === null) };
 }
-function sxDestinatario(r) { return r.hereda ? SX.principal : r.otro; }
-function sxNombreDest(r) { return sxNombreCompleto(sxDestinatario(r)) || (r.hereda ? 'Cliente principal' : 'Otro cliente'); }
+// Un solo cliente por pedido: todos los renglones son del cliente principal.
+function sxDestinatario() { return SX.principal; }
+function sxNombreDest() { return sxNombreCompleto(SX.principal) || 'el cliente'; }
+function sxNombreCorto() { return String(SX.principal.nombre || '').trim().split(/\s+/)[0] || 'este cliente'; }
 function sxNumeroUnidad(r) { const mismos = SX.renglones.filter((x) => x.pid === r.pid); return mismos.length > 1 ? mismos.indexOf(r) + 1 : 0; }
+function sxEtiquetaUnidad(p, n) { return !n ? '' : p.modalidad === 'perfil' ? `Perfil ${n}` : p.modalidad === 'correo' ? `Acceso ${n}` : `Cuenta ${n}`; }
+function sxTextoDuplicar(p) { const n = sxNombreCorto(); return p.modalidad === 'perfil' ? `＋ Agregar otro perfil para ${n}` : p.modalidad === 'correo' ? `＋ Agregar otro acceso para ${n}` : `＋ Agregar otra cuenta de este plan para ${n}`; }
+// Datos personales de entrega de un renglón (no se arrastran de una persona a otra).
+function sxLimpiarDatosPersonales(r) { Object.assign(r, { otroPerfil: false, perfilNombre: '', perfilApellido: '', dispositivo: '', correo: '', marcaTv: '', marcaOtra: '', modeloTv: '', detalle: '', notas: '', notasAbiertas: false }); }
+function sxRenglonTieneDatos(r) { return !!(r.correo || r.dispositivo || r.notas || r.detalle || r.perfilNombre || r.marcaTv || r.modeloTv); }
+// Cambiar de cliente antes de enviar: avisar y limpiar datos personales; los productos se conservan.
+function sxCambiarCliente(nuevo) {
+  const actual = sxNombreCompleto(SX.principal), conDatos = SX.renglones.some(sxRenglonTieneDatos);
+  if (actual && conDatos && sxNorm(actual) !== sxNorm(sxNombreCompleto(nuevo)) && !confirm(`Va a cambiar el cliente de ${actual} a ${sxNombreCompleto(nuevo) || 'otro cliente'}. Se borrarán correos, dispositivos, notas y datos de entrega escritos para ${actual}; los productos se conservan. ¿Continuar?`)) return false;
+  if (actual && sxNorm(actual) !== sxNorm(sxNombreCompleto(nuevo))) SX.renglones.forEach(sxLimpiarDatosPersonales);
+  SX.principal = nuevo; return true;
+}
 
 /* ---------- validación (solo lo necesario para cada paso; nunca borra lo escrito) ---------- */
 const SX_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
@@ -152,8 +207,6 @@ function sxValidarDatos() {
   if (!String(SX.principal.apellido || '').trim() && !SX.principal.id) e['p:apellido'] = 'Escriba el apellido del cliente principal.';
   for (const { r, p } of sxLineas()) {
     const k = (c) => `${r.rid}:${c}`;
-    if (!r.hereda && !String(r.otro.nombre || '').trim()) e[k('otroNombre')] = 'Escriba el nombre del otro cliente.';
-    if (!r.hereda && !String(r.otro.apellido || '').trim() && !r.otro.id) e[k('otroApellido')] = 'Escriba el apellido del otro cliente.';
     if (p.modalidad === 'perfil' && r.otroPerfil && !String(r.perfilNombre || '').trim()) e[k('perfilNombre')] = 'Escriba el nombre del perfil.';
     if (p.pideDispositivo && !r.dispositivo) e[k('dispositivo')] = 'Seleccione el dispositivo.';
     if (p.modalidad === 'tv_digital' && r.dispositivo === 'tv') {
@@ -184,7 +237,7 @@ function sxPayload() {
     productos: m.ls.map(({ r, p, cantidad }) => ({
       renglonId: r.rid, id: p.pid, catalogId: p.catalogId, servicio: p.nombre, servicioBase: p.base, catalogCategory: p.categoria, catalogSub: p.sub, catalogDetalle: p.detalle,
       precioCatalogo: p.precio, cantidad, entregaTipo: p.modalidad === 'cuenta_completa' ? 'cuenta_completa' : p.modalidad, entregaCanal: p.canal,
-      destinatario: r.hereda ? { tipo: 'principal' } : { tipo: 'otro', clienteId: r.otro.id || '', nombre: String(r.otro.nombre || '').trim(), apellido: String(r.otro.apellido || '').trim() },
+      destinatario: { tipo: 'principal' },
       otroPerfil: p.modalidad === 'perfil' && !!r.otroPerfil, perfilNombre: String(r.perfilNombre || '').trim(), perfilApellido: String(r.perfilApellido || '').trim(),
       dispositivo: p.pideDispositivo ? r.dispositivo : '', correo: p.modalidad === 'correo' ? String(r.correo || '').trim() : '',
       marcaTv: p.modalidad === 'tv_digital' && r.dispositivo === 'tv' ? r.marcaTv : '', marcaOtra: r.marcaTv === 'otro' ? String(r.marcaOtra || '').trim() : '', modeloTv: String(r.modeloTv || '').trim(),
@@ -305,7 +358,7 @@ function sxPaso1Html() {
     <div class="sx-tools"><label class="sx-field sx-search"><span>Buscar producto</span><input id="sxBuscar" type="search" value="${sxAttr(sxBuscar)}" placeholder="Netflix, Canva, IPTV…" autocomplete="off"></label>
       <label class="sx-field"><span>Categoría</span><select id="sxCat">${cats.map((c) => `<option value="${sxAttr(c)}" ${sxCat === c ? 'selected' : ''}>${c === 'todas' ? 'Todas las categorías' : sxEsc(c)}</option>`).join('')}</select></label></div>
     <p class="sx-help">Descuento automático: L10 por cada unidad adicional con precio, hasta L40.</p>
-    <div class="sx-prod-list" id="sxProdList">${sxListaProductosHtml()}</div></section>`;
+    <div class="sx-prod-list" id="sxProdList">${sxListaProductosHtml()}</div></section>${sxGuardadosHtml()}`;
 }
 
 /* --- Paso 2 · Datos de clientes --- */
@@ -315,9 +368,9 @@ function sxSugerenciasClientes(q, excluirId = '') {
   return (clientes || []).filter((c) => String(c.id) !== excluirId && (sxNorm(nombreCli(c)).includes(t) || (dig.length >= 4 && String(c.telefono || c.telefono_norm || '').replace(/\D/g, '').includes(dig)))).slice(0, 6);
 }
 function sxSelectorClienteHtml(scope, sel, buscar) {
-  // scope: 'p' (principal) o rid (otro cliente de un renglón)
-  const pref = scope === 'p' ? 'p' : `${scope}:otro`;
-  const errN = sxErr[scope === 'p' ? 'p:nombre' : `${scope}:otroNombre`], errA = sxErr[scope === 'p' ? 'p:apellido' : `${scope}:otroApellido`];
+  // scope: siempre 'p' (un solo cliente por pedido)
+  const pref = 'p';
+  const errN = sxErr['p:nombre'], errA = sxErr['p:apellido'];
   if (sel.id) {
     return `<div class="sx-client-chosen"><span class="sx-avatar" aria-hidden="true">${sxEsc((sel.nombre || '?')[0].toUpperCase())}</span><div><b>${sxEsc(sxNombreCompleto(sel))}</b><small>Cliente guardado${sel.telefono ? ' · ' + sxEsc(sel.telefono) : ''}</small></div><button type="button" class="sx-link" data-act="cliente-cambiar" data-scope="${sxAttr(scope)}">Cambiar</button></div>`;
   }
@@ -365,8 +418,8 @@ function sxCamposRenglon(r, p) {
   }
   if (p.modalidad === 'correo') {
     partes.push(sxCampo(r, 'correo', 'Correo para recibir la invitación', { type: 'email', ph: 'cliente@correo.com', inputmode: 'email' }));
-    const otros = sxLineas().filter((l) => l.r.rid !== r.rid && l.p.modalidad === 'correo' && sxNombreDest(l.r) === sxNombreDest(r) && l.r.correo !== r.correo);
-    if (otros.length && SX_EMAIL.test(String(r.correo || ''))) partes.push(`<button type="button" class="sx-link" data-act="correo-compartir" data-rid="${sxAttr(r.rid)}">Usar este correo en los otros ${otros.length} servicio(s) por invitación de ${sxEsc(sxNombreDest(r))}</button>`);
+    const otros = sxLineas().filter((l) => l.r.rid !== r.rid && l.p.modalidad === 'correo' && l.r.correo !== r.correo);
+    if (otros.length && SX_EMAIL.test(String(r.correo || ''))) partes.push(`<button type="button" class="sx-link" data-act="correo-compartir" data-rid="${sxAttr(r.rid)}">Usar este correo en los otros servicios compatibles (${otros.length})</button>`);
   }
   if (p.modalidad === 'detalle') partes.push(sxCampo(r, 'detalle', p.datoRequerido || 'Detalle requerido', { ph: p.datoRequerido ? '' : 'Usuario, ID, teléfono o indicación' }));
   if (p.modalidad === 'licencia') partes.push(`<p class="sx-help">Se entrega la licencia o KEY después de revisar el pago. No se piden contraseñas.</p>`);
@@ -376,26 +429,24 @@ function sxCamposRenglon(r, p) {
 function sxRenglonHtml(r, idx) {
   const p = sxProducto(r.pid); if (!p) return '';
   const unidad = sxNumeroUnidad(r), completo = sxRenglonCompleto(r);
-  const cant = p.modalidad === 'cuenta_completa' ? `${r.cantidad} cuenta(s)` : p.modalidad === 'perfil' ? '1 perfil' : '1 unidad';
+  const cant = p.modalidad === 'cuenta_completa' ? `${r.cantidad} cuenta(s)` : p.modalidad === 'perfil' ? '1 perfil' : p.modalidad === 'correo' ? '1 acceso' : '1 cuenta';
   return `<article class="sx-card sx-renglon ${completo ? 'ok' : ''}" id="sxr_${sxAttr(r.rid)}" aria-labelledby="sxr_${sxAttr(r.rid)}_t">
-    <header class="sx-renglon-head"><span class="sx-prod-ic" aria-hidden="true">${p.emoji}</span><div><h3 id="sxr_${sxAttr(r.rid)}_t">${sxEsc(p.nombre)}${unidad ? ` · unidad ${unidad}` : ''}</h3>
-      <small>${r.hereda ? 'Asignado a' : 'Para'} <b>${sxEsc(sxNombreDest(r))}</b> · ${sxEsc(cant)} · ${sxEsc(sxModalidadTxt(p))}</small></div>
+    <header class="sx-renglon-head"><span class="sx-prod-ic" aria-hidden="true">${p.emoji}</span><div><h3 id="sxr_${sxAttr(r.rid)}_t">${sxEsc(p.nombre)}${unidad ? ` · ${sxEtiquetaUnidad(p, unidad)}` : ''}</h3>
+      <small>Asignado a <b>${sxEsc(sxNombreDest(r))}</b> · ${sxEsc(cant)} · ${sxEsc(sxModalidadTxt(p))}</small></div>
       <span class="sx-renglon-price">${p.precio === null ? 'Por confirmar' : money(p.precio * (p.modalidad === 'cuenta_completa' ? Number(r.cantidad) || 1 : 1))}</span>
       <span class="sx-state ${completo ? 'ok' : 'pend'}">${completo ? 'Completo' : 'Faltan datos'}</span></header>
     <div class="sx-renglon-body">${sxCamposRenglon(r, p)}
-      <label class="sx-check"><input type="checkbox" data-sx="otroCliente" data-rid="${sxAttr(r.rid)}" ${!r.hereda ? 'checked' : ''}> Este servicio es para otro cliente</label>
-      ${!r.hereda ? `<div class="sx-otro">${sxSelectorClienteHtml(r.rid, r.otro, sxBuscarCliente[r.rid] || '')}</div>` : ''}
       ${r.notasAbiertas || r.notas ? `<label class="sx-field"><span>Notas de este servicio (opcional)</span><textarea data-sx="r" data-rid="${sxAttr(r.rid)}" data-campo="notas" rows="2" maxlength="300" placeholder="Algo que el equipo deba saber para este servicio">${sxEsc(r.notas)}</textarea></label>` : ''}
-      <div class="sx-row-actions">${p.modalidad !== 'cuenta_completa' ? `<button type="button" class="sx-link" data-act="duplicar" data-rid="${sxAttr(r.rid)}">＋ Otra unidad de este plan</button>` : ''}${!r.notasAbiertas && !r.notas ? `<button type="button" class="sx-link" data-act="notas" data-rid="${sxAttr(r.rid)}">Agregar nota</button>` : ''}<button type="button" class="sx-link danger" data-act="quitar" data-rid="${sxAttr(r.rid)}">Quitar</button></div>
+      <div class="sx-row-actions">${p.modalidad !== 'cuenta_completa' ? `<button type="button" class="sx-link" data-act="duplicar" data-rid="${sxAttr(r.rid)}">${sxEsc(sxTextoDuplicar(p))}</button>` : ''}${!r.notasAbiertas && !r.notas ? `<button type="button" class="sx-link" data-act="notas" data-rid="${sxAttr(r.rid)}">Agregar nota</button>` : ''}<button type="button" class="sx-link danger" data-act="quitar" data-rid="${sxAttr(r.rid)}">Quitar</button></div>
     </div></article>`;
 }
 function sxPaso2Html() {
   return `<section class="sx-card sx-step-card sx-principal"><h2 id="sxPasoTitulo" tabindex="-1">2. Cliente principal del pedido</h2>
-      <p class="sx-help">Escríbalo una sola vez: todos los servicios lo heredan. Si un servicio es para otra persona, márquelo en ese servicio.</p>
+      <p class="sx-help">Escríbalo una sola vez: todos los servicios de este pedido son para esta persona. ¿Es para otra persona? Haga otro pedido con su propio pago.</p>
       ${sxSelectorClienteHtml('p', SX.principal, sxBuscarCliente.p || '')}</section>
     ${SX.renglones.map(sxRenglonHtml).join('')}
     ${sxMsg.t ? `<div class="sx-msg ${sxMsg.c}" role="alert">${sxEsc(sxMsg.t)}</div>` : ''}
-    <div class="sx-nav-actions"><button type="button" class="sx-link" data-act="paso" data-n="1">← Volver a productos</button></div>`;
+    <div class="sx-nav-actions"><button type="button" class="sx-link" data-act="paso" data-n="1">← Volver a productos</button><button type="button" class="sx-link" data-act="otro-servicio">＋ Agregar otro servicio para ${sxEsc(sxNombreCorto())}</button><button type="button" class="sx-link" data-act="otro-cliente">Nueva compra para otro cliente</button></div>`;
 }
 
 /* --- Paso 3 · Revisar y pagar --- */
@@ -414,10 +465,11 @@ function sxPaso3Html() {
   const m = sxTotales(), e = sxErr;
   const filas = m.ls.map(({ r, p, cantidad }) => {
     const datos = [p.pideDispositivo && r.dispositivo ? (SX_DISPOSITIVOS.find((x) => x[0] === r.dispositivo) || [])[1] : '', p.modalidad === 'correo' ? r.correo : '', p.modalidad === 'detalle' ? `${p.datoRequerido || 'Detalle'}: ${r.detalle}` : '', r.otroPerfil && r.perfilNombre ? `Perfil: ${sxNombreCompleto({ nombre: r.perfilNombre, apellido: r.perfilApellido })}` : '', r.notas ? `Nota: ${r.notas}` : ''].filter(Boolean).join(' · ');
-    return `<li><div><b>${sxEsc(p.nombre)}${cantidad > 1 ? ` × ${cantidad}` : ''}</b><small>Para ${sxEsc(sxNombreDest(r))}${datos ? ' · ' + sxEsc(datos) : ''}</small></div><span>${p.precio === null ? 'Por confirmar' : money(p.precio * cantidad)}</span></li>`;
+    const u = sxNumeroUnidad(r);
+    return `<li><div><b>${sxEsc(p.nombre)}${u ? ` · ${sxEtiquetaUnidad(p, u)}` : ''}${cantidad > 1 ? ` × ${cantidad}` : ''}</b><small>${datos ? sxEsc(datos) : 'Sin datos adicionales'}</small></div><span>${p.precio === null ? 'Por confirmar' : money(p.precio * cantidad)}</span></li>`;
   }).join('');
   return `<section class="sx-card sx-step-card"><h2 id="sxPasoTitulo" tabindex="-1">3. Revise el pedido</h2>
-      <p class="sx-help">Cliente principal: <b>${sxEsc(sxNombreCompleto(SX.principal))}</b>. <button type="button" class="sx-link" data-act="paso" data-n="2">Editar datos</button></p>
+      <p class="sx-help">Cliente del pedido: <b>${sxEsc(sxNombreCompleto(SX.principal))}</b>. Un pago y un comprobante para este cliente. <button type="button" class="sx-link" data-act="paso" data-n="2">Editar datos</button></p>
       <ul class="sx-review">${filas}</ul>
       <dl class="sx-totals"><div><dt>Subtotal</dt><dd>${money(m.subtotal)}</dd></div><div><dt>Descuento</dt><dd>−${money(m.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(m.total)}${m.hayComision ? ' + importe por confirmar' : ''}</dd></div></dl>
     </section>
@@ -445,8 +497,8 @@ function sxAccionPrincipal() {
 }
 function sxResumenHtml() {
   const m = sxTotales();
-  const items = m.ls.map(({ r, p, cantidad }) => `<li><span>${sxEsc(p.base || p.nombre)}${cantidad > 1 ? ` × ${cantidad}` : ''}<small>${sxEsc(sxNombreDest(r))}</small></span><b>${p.precio === null ? '—' : money(p.precio * cantidad)}</b></li>`).join('');
-  return `<h2>Su pedido</h2>${m.ls.length ? `<ul class="sx-sum-list">${items}</ul>` : '<p class="sx-help">Todavía no ha agregado productos.</p>'}
+  const items = m.ls.map(({ r, p, cantidad }) => { const u = sxNumeroUnidad(r); return `<li><span>${sxEsc(p.base || p.nombre)}${u ? ` · ${sxEtiquetaUnidad(p, u)}` : ''}${cantidad > 1 ? ` × ${cantidad}` : ''}</span><b>${p.precio === null ? '—' : money(p.precio * cantidad)}</b></li>`; }).join('');
+  return `<h2>Su pedido</h2>${sxNombreCompleto(SX.principal) ? `<p class="sx-help">Para <b>${sxEsc(sxNombreCompleto(SX.principal))}</b></p>` : ''}${m.ls.length ? `<ul class="sx-sum-list">${items}</ul>` : '<p class="sx-help">Todavía no ha agregado productos.</p>'}
     <dl class="sx-totals"><div><dt>Subtotal</dt><dd>${money(m.subtotal)}</dd></div><div><dt>Descuento</dt><dd>−${money(m.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(m.total)}${m.hayComision ? ' +' : ''}</dd></div></dl>
     ${sxAccionPrincipal()}`;
 }
@@ -505,13 +557,8 @@ function sxOnInput(ev) {
   if (k === 'p-nombre' || k === 'p-apellido') {
     SX.principal[k === 'p-nombre' ? 'nombre' : 'apellido'] = el.value; SX.principal.id = '';
     sxLimpiarError(k === 'p-nombre' ? 'p:nombre' : 'p:apellido', el);
-    SX.renglones.filter((r) => r.hereda).forEach((r) => sxPintarRenglonEstado(r.rid));
+    SX.renglones.forEach((r) => sxPintarRenglonEstado(r.rid));
     sxPintarResumen(); sxGuardar(); return;
-  }
-  if (/:otro-(nombre|apellido)$/.test(k)) {
-    const rid = el.dataset.scope, r = SX.renglones.find((x) => x.rid === rid); if (!r) return;
-    const campo = k.endsWith('nombre') ? 'nombre' : 'apellido'; r.otro[campo] = el.value; r.otro.id = '';
-    sxLimpiarError(`${rid}:${campo === 'nombre' ? 'otroNombre' : 'otroApellido'}`, el); sxPintarRenglonEstado(rid); sxPintarResumen(); sxGuardar(); return;
   }
   if (k === 'r') {
     const r = SX.renglones.find((x) => x.rid === el.dataset.rid); if (!r) return;
@@ -526,7 +573,6 @@ function sxOnInput(ev) {
 function sxOnChange(ev) {
   const el = ev.target, k = el.dataset.sx;
   if (el.id === 'sxCat') { sxCat = el.value; const l = document.getElementById('sxProdList'); if (l) l.innerHTML = sxListaProductosHtml(); return; }
-  if (k === 'otroCliente') { const r = SX.renglones.find((x) => x.rid === el.dataset.rid); if (!r) return; r.hereda = !el.checked; if (r.hereda) { Object.keys(sxErr).filter((x) => x.startsWith(r.rid + ':otro')).forEach((x) => delete sxErr[x]); } sxEnfocar = r.hereda ? '' : `sx_${r.rid}_buscar`.replace(/[^a-z0-9_]/gi, '_'); sxGuardar(); sxRender(); return; }
   if (k === 'otroPerfil') { const r = SX.renglones.find((x) => x.rid === el.dataset.rid); if (!r) return; r.otroPerfil = el.checked; if (r.otroPerfil) sxEnfocar = `sx_${r.rid}_perfilNombre`; else { delete sxErr[`${r.rid}:perfilNombre`]; } sxGuardar(); sxRender(); return; }
   if (k === 'r' && el.tagName === 'SELECT') sxOnInput(ev);
 }
@@ -554,23 +600,26 @@ async function sxOnClick(ev) {
   if (act === 'cliente-elegir') {
     const c = (clientes || []).find((x) => String(x.id) === String(b.dataset.id)); if (!c) return;
     const n = sxSplitNombre(nombreCli(c)), sel = { id: String(c.id), nombre: n.nombre, apellido: n.apellido, telefono: c.telefono || c.telefono_norm || '' };
-    if (b.dataset.scope === 'p') { SX.principal = sel; delete sxErr['p:nombre']; delete sxErr['p:apellido']; sxBuscarCliente.p = ''; }
-    else { const rr = SX.renglones.find((x) => x.rid === b.dataset.scope); if (rr) { rr.otro = sel; delete sxErr[`${rr.rid}:otroNombre`]; delete sxErr[`${rr.rid}:otroApellido`]; sxBuscarCliente[rr.rid] = ''; } }
+    if (!sxCambiarCliente(sel)) return;
+    delete sxErr['p:nombre']; delete sxErr['p:apellido']; sxBuscarCliente.p = '';
     sxGuardar(); sxRender(); return;
   }
   if (act === 'cliente-cambiar') {
-    if (b.dataset.scope === 'p') { SX.principal = { id: '', nombre: '', apellido: '', telefono: '' }; sxEnfocar = 'sx_p_buscar'; }
-    else { const rr = SX.renglones.find((x) => x.rid === b.dataset.scope); if (rr) { rr.otro = { id: '', nombre: '', apellido: '' }; sxEnfocar = `sx_${rr.rid}_buscar`.replace(/[^a-z0-9_]/gi, '_'); } }
-    sxGuardar(); sxRender(); return;
+    if (!sxCambiarCliente({ id: '', nombre: '', apellido: '', telefono: '' })) return;
+    sxEnfocar = 'sx_p_buscar'; sxGuardar(); sxRender(); return;
   }
-  if (act === 'duplicar' && r) { const nuevo = { ...sxRenglonNuevo(r.pid), hereda: r.hereda, otro: { ...r.otro } }; SX.renglones.splice(SX.renglones.indexOf(r) + 1, 0, nuevo); sxEnfocar = `sxr_${nuevo.rid}`; sxGuardar(); sxRender(); const card = document.getElementById('sxr_' + nuevo.rid); card?.scrollIntoView({ block: 'center' }); sxToast('Se agregó otra unidad con sus propios datos.'); return; }
+  if (act === 'otro-servicio') { SX.paso = 1; sxErr = {}; sxGuardar(); sxRender({ scroll: true }); sxToast(`Elija otro servicio para ${sxNombreCorto()}.`); return; }
+  if (act === 'otro-cliente') { sxNuevaCompraOtroCliente(); return; }
+  if (act === 'borrador-abrir') { sxAbrirGuardado(b.dataset.id); return; }
+  if (act === 'borrador-quitar') { sxQuitarGuardado(b.dataset.id); sxRender(); return; }
+  if (act === 'duplicar' && r) { const nuevo = sxRenglonNuevo(r.pid); SX.renglones.splice(SX.renglones.indexOf(r) + 1, 0, nuevo); sxEnfocar = `sxr_${nuevo.rid}`; sxGuardar(); sxRender(); const card = document.getElementById('sxr_' + nuevo.rid); card?.scrollIntoView({ block: 'center' }); const p = sxProducto(r.pid); sxToast(`Se agregó ${sxEtiquetaUnidad(p, sxNumeroUnidad(nuevo)).toLowerCase()} para ${sxNombreCorto()} con sus propios datos.`); return; }
   if (act === 'notas' && r) { r.notasAbiertas = true; sxGuardar(); sxRender(); document.querySelector(`#sxr_${CSS.escape(r.rid)} textarea`)?.focus(); return; }
   if (act === 'quitar' && r) {
     const p = sxProducto(r.pid);
-    if ((r.correo || r.dispositivo || r.notas || r.detalle || !r.hereda) && !confirm(`¿Quitar ${p?.nombre || 'este servicio'} del pedido? Se pierden los datos escritos en ese servicio.`)) return;
+    if (sxRenglonTieneDatos(r) && !confirm(`¿Quitar ${p?.nombre || 'este servicio'} del pedido? Se pierden los datos escritos en ese servicio.`)) return;
     SX.renglones = SX.renglones.filter((x) => x.rid !== r.rid); Object.keys(sxErr).filter((x) => x.startsWith(r.rid + ':')).forEach((x) => delete sxErr[x]); sxGuardar(); sxRender(); return;
   }
-  if (act === 'correo-compartir' && r) { const otros = sxLineas().filter((l) => l.r.rid !== r.rid && l.p.modalidad === 'correo' && sxNombreDest(l.r) === sxNombreDest(r)); otros.forEach((l) => { l.r.correo = r.correo; delete sxErr[`${l.r.rid}:correo`]; }); sxGuardar(); sxRender(); sxToast(`Correo usado en ${otros.length} servicio(s) más.`); return; }
+  if (act === 'correo-compartir' && r) { const otros = sxLineas().filter((l) => l.r.rid !== r.rid && l.p.modalidad === 'correo'); otros.forEach((l) => { l.r.correo = r.correo; delete sxErr[`${l.r.rid}:correo`]; }); sxGuardar(); sxRender(); sxToast(`Correo usado en ${otros.length} servicio(s) más.`); return; }
   if (act === 'banco') { SX.bancoId = b.dataset.id; delete sxErr['pago:banco']; document.querySelector('#sx_pago_banco')?.classList.remove('err'); document.querySelector('#sx_pago_banco .sx-err')?.remove(); sxGuardar(); sxPintarBancos(); return; }
   if (act === 'copiar') { navigator.clipboard?.writeText(b.dataset.txt || ''); sxToast('Copiado.'); return; }
   if (act === 'destino') { SX.destino = b.dataset.v; sxGuardar(); document.querySelectorAll('[data-act="destino"]').forEach((x) => { x.classList.toggle('on', x.dataset.v === SX.destino); x.setAttribute('aria-pressed', String(x.dataset.v === SX.destino)); }); return; }
@@ -631,17 +680,17 @@ async function sxEnviar() {
       SX.requestId = ''; sxRender({ scroll: true }); return;
     }
     if (e.error === 'datos_incompletos' && Array.isArray(e.errores)) {
-      sxErr = {}; e.errores.forEach((x) => { const k = x.renglonId === 'principal' ? `p:${x.campo}` : x.campo === 'destinatario' ? `${x.renglonId}:otroNombre` : `${x.renglonId}:${x.campo}`; sxErr[k] = x.mensaje; });
+      sxErr = {}; e.errores.forEach((x) => { const k = x.renglonId === 'principal' || x.campo === 'destinatario' ? 'p:nombre' : `${x.renglonId}:${x.campo}`; sxErr[k] = x.mensaje; });
       SX.paso = 2; sxMsg = { t: 'El servidor encontró datos incompletos: revise los campos marcados.', c: 'err' }; sxRender(); sxEnfocarError(); return;
     }
-    const map = { sin_stock: e.detail || 'Uno de los productos ya no tiene disponibilidad. Quítelo o cambie la cantidad.', falta_banco: 'Elija dónde hizo el pago.', imagen_muy_grande: 'La imagen supera 7 MB. Use otra captura.', cliente_ajeno: 'Uno de los clientes elegidos no pertenece a su cartera. Elíjalo de nuevo.', producto_fuera_catalogo: 'Un producto ya no está en su catálogo. Quítelo y vuelva a agregarlo.', catalogo_no_configurado: 'Su tarifa todavía no está configurada. Avise a Sublicuentas.', sin_permiso_comprar: 'Su usuario no tiene permiso para registrar compras.', destino_invalido: 'Elija Sublicuentas o Relojes.' };
+    const map = { cliente_unico: 'Un pedido es para un solo cliente. Haga otro pedido para la otra persona.', sin_stock: e.detail || 'Uno de los productos ya no tiene disponibilidad. Quítelo o cambie la cantidad.', falta_banco: 'Elija dónde hizo el pago.', imagen_muy_grande: 'La imagen supera 7 MB. Use otra captura.', cliente_ajeno: 'Uno de los clientes elegidos no pertenece a su cartera. Elíjalo de nuevo.', producto_fuera_catalogo: 'Un producto ya no está en su catálogo. Quítelo y vuelva a agregarlo.', catalogo_no_configurado: 'Su tarifa todavía no está configurada. Avise a Sublicuentas.', sin_permiso_comprar: 'Su usuario no tiene permiso para registrar compras.', destino_invalido: 'Elija Sublicuentas o Relojes.' };
     if (['producto_fuera_catalogo', 'sin_stock', 'cliente_ajeno'].includes(e.error)) SX.requestId = '';
     sxMsg = { t: map[e.error] || `No se pudo enviar el pedido. ${e.detail || e.error || 'Reintente.'}`, c: 'err' }; sxRender();
   }
 }
 function sxExito(r, duplicado) {
   const m = sxTotales();
-  sxConfirmacion = { id: r.id, ref: r.ref || String(r.id || '').slice(-6).toUpperCase(), duplicado, destinoLabel: r.destinoLabel || '', total: Number(r.totalCombo ?? m.total), descuento: Number(r.descuentoCombo ?? m.descuento), estado: r.estado || 'pendiente', principal: sxNombreCompleto(SX.principal), lineas: m.ls.map(({ r: rr, p, cantidad }) => ({ nombre: p.nombre, cantidad, para: sxNombreDest(rr), precio: p.precio })), comprobante: r.comprobante !== false };
+  sxConfirmacion = { id: r.id, ref: r.ref || String(r.id || '').slice(-6).toUpperCase(), duplicado, destinoLabel: r.destinoLabel || '', total: Number(r.totalCombo ?? m.total), descuento: Number(r.descuentoCombo ?? m.descuento), estado: r.estado || 'pendiente', principal: sxNombreCompleto(SX.principal), lineas: m.ls.map(({ r: rr, p, cantidad }) => ({ nombre: p.nombre + (sxNumeroUnidad(rr) ? ` · ${sxEtiquetaUnidad(p, sxNumeroUnidad(rr))}` : ''), cantidad, precio: p.precio })), comprobante: r.comprobante !== false };
   SX = sxNuevo(); sxErr = {}; sxImg = ''; sxImgInfo = null; sxEnviando = false; sxProgreso = 0; sxMsg = { t: '', c: '' }; sxBorrarBorrador();
   markSyncStale(['compras', 'inventario', 'metricas']);
   Promise.allSettled([loadMisCompras(), loadInventario(), loadMetricas()]);
@@ -654,9 +703,11 @@ function sxConfirmacionHtml() {
     <h1 id="sxConfTitulo" tabindex="-1">Pedido #${sxEsc(c.ref)} ${c.duplicado ? 'ya estaba registrado' : 'recibido'}</h1>
     <p>${c.duplicado ? 'Este pedido ya había llegado antes: no se creó otro.' : `El servidor confirmó el registro${c.destinoLabel ? ` y avisó a ${sxEsc(c.destinoLabel.replace(/^[^\p{L}]+/u, ''))}` : ''}.`} Estado: <span class="sx-pill ${cls}">${label}</span></p>
     <p class="sx-help">“Recibido” no significa pago verificado: el equipo revisa el comprobante y después entrega. Lo verá cambiar en Pedidos.</p>
-    <ul class="sx-review">${c.lineas.map((l) => `<li><div><b>${sxEsc(l.nombre)}${l.cantidad > 1 ? ` × ${l.cantidad}` : ''}</b><small>Para ${sxEsc(l.para)}</small></div><span>${l.precio === null ? 'Por confirmar' : money(l.precio * l.cantidad)}</span></li>`).join('')}</ul>
+    <p class="sx-help">Cliente: <b>${sxEsc(c.principal)}</b></p>
+    <ul class="sx-review">${c.lineas.map((l) => `<li><div><b>${sxEsc(l.nombre)}${l.cantidad > 1 ? ` × ${l.cantidad}` : ''}</b></div><span>${l.precio === null ? 'Por confirmar' : money(l.precio * l.cantidad)}</span></li>`).join('')}</ul>
     <dl class="sx-totals"><div><dt>Descuento</dt><dd>−${money(c.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(c.total)}</dd></div></dl>
     <div class="sx-confirm-actions"><button type="button" class="sx-btn pri" data-act="ver-pedido">Ver pedido</button><button type="button" class="sx-btn sec" data-act="nueva-compra">Nueva compra</button></div>
+    <p class="sx-help">¿Otro cliente? Use “Nueva compra”: cada cliente lleva su propio pedido y comprobante.</p>
   </section></div>`;
 }
 function sxBindConfirmacion() {
@@ -671,7 +722,7 @@ function sxBindConfirmacion() {
 /* ======================================================================
    PEDIDOS
    ====================================================================== */
-let sxPedidoAbierto = '', sxPedFiltro = 'todos', sxPedBuscar = '', sxConsultas = null, sxConsultaMsg = { id: '', t: '', c: '' };
+let sxPedidoAbierto = '', sxPedFiltro = 'todos', sxPedBuscar = '', sxConsultas = null, sxConsultaMsg = { id: '', t: '', c: '' }, sxPedTab = 'pedidos', sxConsultaOp = '';
 function sxEstadoPedido(v) {
   const s = sxNorm(v || 'pendiente');
   if (['entregado', 'completado'].includes(s)) return ['ok', 'Entregado'];
@@ -682,9 +733,21 @@ function sxEstadoPedido(v) {
 }
 const SX_FILTROS_PED = [['todos', 'Todos'], ['info', 'Recibidos'], ['work', 'En preparación'], ['warn', 'Falta información'], ['ok', 'Entregados'], ['off', 'Cancelados']];
 function sxPedidoCliente(o) { return o.clientePrincipal ? sxNombreCompleto(o.clientePrincipal) : (o.productos?.[0]?.clienteNombre || ''); }
+function sxPedTabsHtml() {
+  const n = typeof sxNovedades === 'object' && sxNovedades ? (sxNovedades.entregas || []).length : 0;
+  return `<div class="sx-tabs" role="tablist" aria-label="Pedidos y entregas"><button type="button" role="tab" class="sx-tab ${sxPedTab === 'pedidos' ? 'on' : ''}" aria-selected="${sxPedTab === 'pedidos'}" data-act="pedtab" data-v="pedidos">Mis pedidos</button><button type="button" role="tab" class="sx-tab ${sxPedTab === 'entregas' ? 'on' : ''}" aria-selected="${sxPedTab === 'entregas'}" data-act="pedtab" data-v="entregas">Mis entregas${n ? ` <span class="sx-dot">${n}</span>` : ''}</button></div>`;
+}
+function sxEstadoEntrega(o) {
+  const e = o.entregaResumen;
+  if (!e || sxEstadoPedido(o.estado)[0] === 'off') return null;
+  if (e.estado === 'parcial') return ['work', e.texto];
+  if (e.estado === 'entregado') return ['ok', 'Entregado al socio'];
+  return null;
+}
 function vPedidos() {
   if (socioSinCompras()) { go('renovar'); return; }
   document.body.classList.remove('sx-con-barra');
+  if (sxPedTab === 'entregas' && !sxPedidoAbierto && typeof sxEntregasVista === 'function') { sxEntregasVista(); return; }
   const o = sxPedidoAbierto ? (misCompras || []).find((x) => x.id === sxPedidoAbierto) : null;
   if (sxPedidoAbierto && o) { content.innerHTML = sxPedidoDetalleHtml(o); sxBindPedidos(); if (sxConsultas === null) sxCargarConsultas(); return; }
   const lista = (misCompras || []).filter((x) => {
@@ -693,36 +756,42 @@ function vPedidos() {
   });
   const cuenta = (k) => (misCompras || []).filter((x) => sxEstadoPedido(x.estado)[0] === k).length;
   content.innerHTML = `<div class="sx-page"><header class="sx-page-head"><div><small>Seguimiento</small><h1>Pedidos</h1></div><div class="sx-head-actions"><button type="button" class="sx-btn pri" data-act="nueva">Nueva compra</button></div></header>
+    ${sxPedTabsHtml()}
     <div class="sx-tools"><label class="sx-field sx-search"><span>Buscar pedido</span><input id="sxPedBuscar" type="search" value="${sxAttr(sxPedBuscar)}" placeholder="Número, cliente o servicio"></label></div>
     <div class="sx-filter" role="group" aria-label="Filtrar por estado">${SX_FILTROS_PED.map(([k, l]) => `<button type="button" class="sx-chip ${sxPedFiltro === k ? 'on' : ''}" aria-pressed="${sxPedFiltro === k}" data-act="filtro" data-v="${k}">${l}${k !== 'todos' && cuenta(k) ? ` · ${cuenta(k)}` : ''}</button>`).join('')}</div>
-    ${!syncAt.compras && !(misCompras || []).length ? '<div class="sx-card"><p class="sx-help">Cargando pedidos…</p></div>' : lista.length ? `<ul class="sx-orders">${lista.map((x) => { const [cls, label] = sxEstadoPedido(x.estado); return `<li><button type="button" class="sx-order" data-act="abrir" data-id="${sxAttr(x.id)}"><span class="sx-order-ref">#${sxEsc(x.ref || String(x.id).slice(-6).toUpperCase())}</span><div><b>${sxEsc(sxPedidoCliente(x) || x.servicio)}</b><small>${sxEsc((x.productos || []).map((p) => p.servicioBase || p.servicio).join(' + ') || x.servicio)} · ${sxFechaHora(x.createdAt)}</small>${x.detalleEstado && cls === 'warn' ? `<small class="sx-warn-txt">${sxEsc(x.detalleEstado)}</small>` : ''}</div><span class="sx-order-total">${money(x.totalCombo || x.monto)}</span><span class="sx-pill ${cls}">${label}</span></button></li>`; }).join('')}</ul>` : `<div class="sx-card sx-empty"><b>Sin pedidos en este filtro</b><p>Cuando envíe una compra aparecerá aquí con su estado.</p></div>`}
+    ${!syncAt.compras && !(misCompras || []).length ? '<div class="sx-card"><p class="sx-help">Cargando pedidos…</p></div>' : lista.length ? `<ul class="sx-orders">${lista.map((x) => { const [cls, label] = sxEstadoEntrega(x) || sxEstadoPedido(x.estado); return `<li><button type="button" class="sx-order" data-act="abrir" data-id="${sxAttr(x.id)}"><span class="sx-order-ref">#${sxEsc(x.ref || String(x.id).slice(-6).toUpperCase())}</span><div><b>${sxEsc(sxPedidoCliente(x) || x.servicio)}</b><small>${sxEsc((x.productos || []).map((p) => p.servicioBase || p.servicio).join(' + ') || x.servicio)} · ${sxFechaHora(x.createdAt)}</small>${x.detalleEstado && cls === 'warn' ? `<small class="sx-warn-txt">${sxEsc(x.detalleEstado)}</small>` : ''}</div><span class="sx-order-total">${money(x.totalCombo || x.monto)}</span><span class="sx-pill ${cls}">${label}</span></button></li>`; }).join('')}</ul>` : `<div class="sx-card sx-empty"><b>Sin pedidos en este filtro</b><p>Cuando envíe una compra aparecerá aquí con su estado.</p></div>`}
   </div>`;
   sxBindPedidos();
 }
+const SX_RENGLON_EST = { publicada: ['ok', 'Entregado'], revocada: ['off', 'Acceso revocado'], pendiente: ['info', 'Pendiente'] };
 function sxPedidoDetalleHtml(o) {
-  const [cls, label] = sxEstadoPedido(o.estado);
-  const pago = cls === 'off' ? 'Pedido cancelado' : cls === 'ok' ? `Pagado ${money(o.monto || o.totalCombo)}${o.banco ? ' · ' + o.banco : ''}` : `${o.comprobante ? 'Comprobante enviado' : 'Sin comprobante'}${o.banco ? ' · ' + o.banco : ''} · ${money(o.monto || o.totalCombo)} · pendiente de verificación por el equipo`;
+  const [cls0] = sxEstadoPedido(o.estado);
+  const [cls, label] = sxEstadoEntrega(o) || sxEstadoPedido(o.estado);
+  const ren = o.entregaResumen?.renglones || {};
+  const pago = o.pagoEnRevision ? `Pago en revisión por el equipo · ${money(o.monto || o.totalCombo)}` : cls0 === 'off' ? 'Pedido cancelado' : cls0 === 'ok' ? `Pagado ${money(o.monto || o.totalCombo)}${o.banco ? ' · ' + o.banco : ''}` : `${o.comprobante ? 'Comprobante enviado' : 'Sin comprobante'}${o.banco ? ' · ' + o.banco : ''} · ${money(o.monto || o.totalCombo)} · pendiente de verificación por el equipo`;
   const consultas = (sxConsultas || []).filter((c) => c.pedidoId === o.id);
+  const mixto = !!o.historicoAnterior;
   return `<div class="sx-page"><button type="button" class="sx-link" data-act="volver">← Pedidos</button>
     <header class="sx-page-head"><div><small>Pedido</small><h1 id="sxPedTitulo" tabindex="-1">#${sxEsc(o.ref || String(o.id).slice(-6).toUpperCase())}</h1><p class="sx-help">${sxFechaHora(o.createdAt)} · ${sxEsc(rev?.nombreMostrar || revName())} → ${sxEsc((o.destinoLabel || 'Sublicuentas').replace(/^[^\p{L}]+/u, ''))}</p></div><span class="sx-pill ${cls} lg">${label}</span></header>
     ${o.detalleEstado ? `<div class="sx-banner ${cls === 'warn' ? 'warn' : 'info'}" role="status"><span>${cls === 'warn' ? '<b>Falta información:</b> ' : ''}${sxEsc(o.detalleEstado)}</span></div>` : ''}
+    ${mixto ? '<div class="sx-banner info" role="note"><span><b>Histórico anterior:</b> este pedido es de antes de la regla “un cliente por pedido” y se conserva tal como se registró.</span></div>' : ''}
     <div class="sx-detail-grid">
-      <section class="sx-card"><h2>Servicios</h2><p class="sx-help">Cliente principal: <b>${sxEsc(sxPedidoCliente(o) || '—')}</b></p>
-        <ul class="sx-review">${(o.productos || []).map((p) => `<li><div><b>${sxEsc(p.servicio)}${(p.cantidad || 1) > 1 ? ` × ${p.cantidad}` : ''}</b><small>Para ${sxEsc(p.clienteNombre || p.perfil || '—')}${p.destinatario?.tipo === 'otro' ? ' (otro cliente)' : ''}${[p.otroPerfil && p.perfil ? `Perfil: ${p.perfil}` : '', p.dispositivo, p.marcaTv, p.correo, p.detalleServicio ? `${p.datoRequerido || 'Detalle'}: ${p.detalleServicio}` : '', p.notas ? `Nota: ${p.notas}` : ''].filter(Boolean).map((x) => ' · ' + sxEsc(x)).join('')}</small></div><span>${p.precioCatalogo === null ? 'Por confirmar' : money(Number(p.precioCatalogo) * (p.cantidad || 1))}</span></li>`).join('') || `<li><div><b>${sxEsc(o.servicio)}</b></div></li>`}</ul>
+      <section class="sx-card"><h2>Servicios</h2><p class="sx-help">Cliente: <b>${sxEsc(sxPedidoCliente(o) || '—')}</b></p>
+        <ul class="sx-review">${(o.productos || []).map((p) => { const er = ren[p.renglonId] || { estado: 'pendiente' }; const [ec, el] = cls0 === 'off' ? ['off', 'Cancelado'] : (SX_RENGLON_EST[er.estado] || SX_RENGLON_EST.pendiente); return `<li><div><b>${sxEsc(p.servicio)}${(p.cantidad || 1) > 1 ? ` × ${p.cantidad}` : ''}</b><small>${mixto ? `Para ${sxEsc(p.clienteNombre || p.perfil || '—')}` : ''}${[p.otroPerfil && p.perfil ? `Perfil: ${p.perfil}` : '', p.dispositivo, p.marcaTv, p.correo, p.detalleServicio ? `${p.datoRequerido || 'Detalle'}: ${p.detalleServicio}` : '', p.notas ? `Nota: ${p.notas}` : ''].filter(Boolean).map((x, i) => (i || mixto ? ' · ' : '') + sxEsc(x)).join('')}</small><span class="sx-line-state"><span class="sx-pill ${ec}">${el}</span>${er.entregaId ? `<button type="button" class="sx-link" data-act="ver-entrega" data-id="${sxAttr(er.entregaId)}">Ver entrega</button>` : ''}</span></div><span>${p.precioCatalogo === null ? 'Por confirmar' : money(Number(p.precioCatalogo) * (p.cantidad || 1))}</span></li>`; }).join('') || `<li><div><b>${sxEsc(o.servicio)}</b></div></li>`}</ul>
         <dl class="sx-totals"><div><dt>Subtotal</dt><dd>${money(o.subtotalCatalogo)}</dd></div><div><dt>Descuento</dt><dd>−${money(o.descuentoCombo)}</dd></div><div class="total"><dt>Total</dt><dd>${money(o.totalCombo || o.monto)}</dd></div></dl>
-        <p class="sx-help">El estado aplica al pedido completo.</p></section>
+        <p class="sx-help">Cada servicio muestra su propia entrega. Un servicio pendiente no aparece como entregado porque otro ya se entregó.</p></section>
       <section class="sx-card"><h2>Pago</h2><p>${sxEsc(pago)}</p>${o.comentario ? `<p class="sx-help">Comentario: ${sxEsc(o.comentario)}</p>` : ''}
         <h2>Historial</h2><ol class="sx-timeline">${(o.estadoHistorial || []).map((h) => `<li><b>${sxEstadoPedido(h.estado)[1]}</b><small>${sxFechaHora(h.at)}${h.detalle ? ' · ' + sxEsc(h.detalle) : ''}</small></li>`).join('') || '<li><b>Recibido</b></li>'}</ol></section>
       <section class="sx-card"><h2>${cls === 'warn' ? 'Enviar la información que falta' : 'Consultar sobre este pedido'}</h2>
         <label class="sx-field"><span>Mensaje para ${sxEsc((o.destinoLabel || 'Sublicuentas').replace(/^[^\p{L}]+/u, ''))}</span><textarea id="sxConsulta" rows="3" maxlength="1000" placeholder="${cls === 'warn' ? 'Escriba aquí el dato o la corrección que le pidieron' : 'Su consulta sobre este pedido'}"></textarea></label>
         <button type="button" class="sx-btn ${cls === 'warn' ? 'pri' : 'sec'}" data-act="consultar" data-id="${sxAttr(o.id)}">${cls === 'warn' ? 'Enviar información' : 'Enviar consulta'}</button><div id="sxConsultaMsg" class="sx-msg ${sxConsultaMsg.id === o.id ? sxConsultaMsg.c : ''}" role="status">${sxConsultaMsg.id === o.id ? sxEsc(sxConsultaMsg.t) : ''}</div>
-        ${consultas.length ? `<h3>Consultas de este pedido</h3><ul class="sx-consultas">${consultas.map((c) => `<li><p>${sxEsc(c.texto)}</p>${c.respuesta ? `<p class="sx-resp"><b>Respuesta:</b> ${sxEsc(c.respuesta)}</p>` : `<small>${sxEsc(c.estado || 'enviada')}</small>`}</li>`).join('')}</ul>` : ''}</section>
+        ${consultas.length ? `<h3>Consultas de este pedido</h3><ul class="sx-consultas">${consultas.map((c) => `<li><p><b>${c.numero ? '#' + sxEsc(c.numero) + ' · ' : ''}${sxEsc(c.asunto || 'Consulta')}</b> <span class="sx-pill ${c.estado === 'resuelta' ? 'ok' : c.estado === 'esperando_socio' ? 'warn' : 'info'}">${sxEsc(c.estadoLabel || c.estado)}</span></p>${(c.mensajes || []).slice(-3).map((m) => `<p class="${m.autor === 'equipo' ? 'sx-resp' : ''}"><b>${m.autor === 'equipo' ? 'Equipo' : 'Usted'}:</b> ${sxEsc(m.texto)}</p>`).join('')}${c.legacy ? '' : `<button type="button" class="sx-link" data-act="abrir-hilo" data-id="${sxAttr(c.id)}">Abrir conversación</button>`}</li>`).join('')}</ul>` : ''}</section>
     </div>
     <div class="sx-nav-actions"><button type="button" class="sx-btn sec" data-act="recomprar" data-id="${sxAttr(o.id)}">Volver a comprar</button></div>
   </div>`;
 }
 async function sxCargarConsultas() {
-  try { const d = await API.call('/rev/sugerencias/mias?_=' + Date.now(), { cache: 'no-store', timeoutMs: 12000 }); sxConsultas = Array.isArray(d) ? d : (d?.items || []); }
+  try { const d = await API.call('/rev/consultas?_=' + Date.now(), { cache: 'no-store', timeoutMs: 12000 }); sxConsultas = Array.isArray(d) ? d : (d?.items || []); }
   catch (_) { sxConsultas = []; }
   if (current === 'pedidos' && sxPedidoAbierto) vPedidos();
 }
@@ -733,6 +802,10 @@ async function sxOnClickPedidos(ev) {
   const b = ev.target.closest('[data-act]');
   if (!b) return;
   const act = b.dataset.act;
+  if (act === 'pedtab') { sxPedTab = b.dataset.v; sxPedidoAbierto = ''; vPedidos(); return; }
+  if (act === 'ver-entrega') { if (typeof sxAbrirEntrega === 'function') sxAbrirEntrega(b.dataset.id); return; }
+  if (act === 'abrir-hilo') { if (typeof sxAbrirHilo === 'function') sxAbrirHilo(b.dataset.id); return; }
+  if (typeof sxEntregasClick === 'function' && sxEntregasClick(ev, b)) return;
   if (act === 'filtro') { sxPedFiltro = b.dataset.v; vPedidos(); return; }
   if (act === 'abrir') { sxPedidoAbierto = b.dataset.id; sxConsultas = null; vPedidos(); window.scrollTo(0, 0); document.getElementById('sxPedTitulo')?.focus({ preventScroll: true }); return; }
   if (act === 'volver') { sxPedidoAbierto = ''; vPedidos(); return; }
@@ -743,7 +816,9 @@ async function sxOnClickPedidos(ev) {
     if (!txt) { msg.className = 'sx-msg err'; msg.textContent = 'Escriba el mensaje primero.'; ta?.focus(); return; }
     b.disabled = true; b.textContent = 'Enviando…';
     try {
-      await API.call('/rev/sugerencia', { method: 'POST', body: JSON.stringify({ texto: txt, pedidoId: b.dataset.id }) });
+      sxConsultaOp = sxConsultaOp || nuevoOpId();
+      await API.call('/rev/consultas', { method: 'POST', body: JSON.stringify({ texto: txt, pedidoId: b.dataset.id, opId: sxConsultaOp }) });
+      sxConsultaOp = '';
       sxConsultaMsg = { id: b.dataset.id, t: '✅ Enviado. La respuesta aparecerá aquí y en su buzón.', c: 'ok' }; ta.value = '';
       msg.className = 'sx-msg ok'; msg.textContent = sxConsultaMsg.t;
       sxConsultas = null; sxCargarConsultas();
@@ -766,7 +841,7 @@ async function sxRecomprar(id) {
     if (!prod || !prod.stock.available) { faltan.push(p.servicio); continue; }
     const r = sxRenglonNuevo(prod.pid);
     r.cantidad = prod.modalidad === 'cuenta_completa' ? Number(p.cantidad) || 1 : 1;
-    if (p.destinatario?.tipo === 'otro') { r.hereda = false; r.otro = { id: '', nombre: p.destinatario.nombre || '', apellido: p.destinatario.apellido || '' }; }
+    if (p.destinatario?.tipo === 'otro') { faltan.push(`${p.servicio} (era para ${sxNombreCompleto(p.destinatario) || 'otro cliente'}: haga otro pedido)`); continue; }
     r.dispositivo = dispKey(p.dispositivo); r.correo = p.correo || ''; r.detalle = p.detalleServicio || ''; r.notas = p.notas || '';
     if (p.otroPerfil && p.perfil) { r.otroPerfil = true; const n = sxSplitNombre(p.perfil); r.perfilNombre = n.nombre; r.perfilApellido = n.apellido; }
     SX.renglones.push(r);
@@ -791,6 +866,7 @@ function vInicio() {
   const tarea = (cls, titulo, detalle, accion, label) => `<li class="sx-task ${cls}"><div><b>${titulo}</b><small>${detalle}</small></div><button type="button" class="sx-btn sec sm" data-go="${accion}">${label}</button></li>`;
   const tareas = [
     !restricted && sxTieneBorrador() ? tarea('info', 'Tiene una compra sin terminar', 'Se guardó en este dispositivo.', 'compras', 'Continuar') : '',
+    ...(!restricted ? sxGuardados().slice(0, 2).map((g) => tarea('info', `Compra guardada para ${sxEsc(sxNombreCompleto(g.principal) || 'otro cliente')}`, `${g.renglones.length} servicio(s) sin enviar.`, 'compras', 'Ver')) : []),
     ...faltaInfo.slice(0, 3).map((x) => tarea('warn', `Pedido #${sxEsc(x.ref)}: falta información`, sxEsc(x.detalleEstado || 'Revise qué dato pide el equipo.'), `pedido:${x.id}`, 'Completar')),
     enCurso.length ? tarea('info', `${enCurso.length} pedido${enCurso.length === 1 ? '' : 's'} en curso`, 'Recibidos o en preparación por el equipo.', 'pedidos', 'Ver') : '',
     vencidos.length ? tarea('warn', `${uniqueClientCount(vencidos)} cliente${uniqueClientCount(vencidos) === 1 ? '' : 's'} con servicio vencido`, `${vencidos.length} servicio(s) · ${money(vencidos.reduce((a, s) => a + (s.precio || 0), 0))} por cobrar`, 'renovar:vencidos', 'Renovar') : '',
@@ -901,7 +977,7 @@ function sxClientesPintar(soloLista = false) {
 }
 function sxPedidosDeCliente(c) {
   const id = String(c.id), nom = sxNorm(nombreCli(c));
-  return (misCompras || []).filter((o) => o.clientePrincipal?.clienteId === id || (o.productos || []).some((p) => p.destinatario?.clienteId === id) || sxNorm(sxPedidoCliente(o)) === nom);
+  return (misCompras || []).filter((o) => o.clientePrincipal?.clienteId === id || sxNorm(sxPedidoCliente(o)) === nom);
 }
 function sxClienteHtml(c) {
   const svcs = Array.isArray(c.servicios) ? c.servicios : [], ec = estadoCliente(c), abierto = sxCliAbierto === String(c.id), tel = c.telefono || c.telefono_norm || '';
@@ -925,8 +1001,12 @@ function sxOnClickClientes(ev) {
   if (a === 'cobro') { openCobro(b.dataset.id, ''); return; }
   if (a === 'pedido') { sxPedidoAbierto = b.dataset.id; go('pedidos'); return; }
   if (a === 'comprar' && c) {
-    if (SX.renglones.length && SX.principal.id && SX.principal.id !== String(c.id) && !confirm('Su compra en preparación tiene otro cliente principal. ¿Cambiarlo por este? Los servicios marcados “para otro cliente” se mantienen.')) return;
-    const n = sxSplitNombre(nombreCli(c)); SX.principal = { id: String(c.id), nombre: n.nombre, apellido: n.apellido, telefono: c.telefono || '' }; sxGuardar(); go('compras');
+    const n = sxSplitNombre(nombreCli(c)), nuevo = { id: String(c.id), nombre: n.nombre, apellido: n.apellido, telefono: c.telefono || '' };
+    if (SX.renglones.length && sxNombreCompleto(SX.principal) && sxNorm(sxNombreCompleto(SX.principal)) !== sxNorm(sxNombreCompleto(nuevo))) {
+      if (!confirm(`Su compra en preparación es para ${sxNombreCompleto(SX.principal)}. ¿Guardarla y empezar una nueva para ${sxNombreCompleto(nuevo)}?`)) return;
+      sxGuardarAparte(SX); SX = sxNuevo();
+    }
+    SX.principal = nuevo; sxGuardar(); go('compras');
   }
 }
 

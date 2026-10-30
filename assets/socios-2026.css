@@ -296,3 +296,47 @@ body.sx-con-barra .sx-bottom-bar{display:flex}
 .cobro-sheet{font-family:var(--sx-font)!important}
 .cobro-sheet h3{font-family:var(--sx-font)!important}
 @media (prefers-reduced-motion:reduce){.sx-toast{transition:none}}
+
+/* ========================================================================
+   ENTREGAS · BUZÓN · TELEGRAM (30/10/2026) — mismos tokens, fondo blanco, sin degradados
+   ======================================================================== */
+.sx-tabs{display:flex;gap:4px;border-bottom:1px solid var(--sx-line);margin:0 0 16px;overflow-x:auto}
+.sx-tab{min-height:48px;padding:0 16px;border:0;border-bottom:3px solid transparent;background:none;color:var(--sx-muted);font:600 16px var(--sx-font);cursor:pointer;white-space:nowrap}
+.sx-tab.on{color:var(--sx-ink);border-bottom-color:var(--sx-red)}
+.sx-dot{display:inline-flex;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--sx-red);color:#fff;font-size:12px;font-weight:700;align-items:center;justify-content:center;margin-left:4px}
+.sx-line-state{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.sx-ents{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.sx-ent{display:flex;align-items:center;gap:12px;padding:16px}
+.sx-ent.nueva{border-left:4px solid var(--sx-red)}
+.sx-ent-main{flex:1;min-width:0;display:grid;gap:4px}
+.sx-ent-main b{font-size:16px;overflow-wrap:anywhere}
+.sx-ent-main small,.sx-ent small{color:var(--sx-muted);font-size:14px}
+.sx-ent-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;align-items:end}
+.sx-ent-filtros .sx-field{min-width:0}.sx-ent-filtros input,.sx-ent-filtros select{width:100%;min-width:0;box-sizing:border-box}
+.sx-pill.new{background:var(--sx-red-soft);color:var(--sx-red-d);border-color:#F6C3C0}
+.sx-ent-filtros .sx-btn{min-height:52px}
+.sx-dl{display:grid;gap:10px;margin:0}
+.sx-dl div{display:grid;grid-template-columns:minmax(120px,40%) 1fr;gap:8px;border-bottom:1px solid #EEF0F3;padding-bottom:8px}
+.sx-dl dt{color:var(--sx-muted);font-size:14px}.sx-dl dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.sx-note{background:#F8FAFC;border:1px solid var(--sx-line);border-radius:10px;padding:12px;margin:12px 0 0}
+.sx-code{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0;padding:12px;border:1px dashed #C9CFD8;border-radius:10px}
+.sx-code span{font:600 18px ui-monospace,Menlo,monospace;letter-spacing:.04em;overflow-wrap:anywhere;flex:1;min-width:120px}
+.sx-ent-report{margin-top:14px;padding-top:12px;border-top:1px solid #EEF0F3}
+.sx-bell{position:relative;font-size:19px!important}
+.sx-nov{position:fixed;inset:0;background:rgba(17,24,39,.35);display:none;z-index:9000;align-items:flex-start;justify-content:flex-end;padding:72px 16px 16px}
+.sx-nov.on{display:flex}
+.sx-nov-panel{background:#fff;border:1px solid var(--sx-line);border-radius:14px;width:min(420px,100%);max-height:calc(100vh - 100px);overflow:auto;padding:16px}
+.sx-nov-panel header{display:flex;justify-content:space-between;align-items:center}
+.sx-nov-panel h2{margin:0;font-size:20px}.sx-nov-panel h3{font-size:15px;margin:14px 0 6px;color:var(--sx-muted)}
+.sx-nov-item,.sx-bz-item{display:grid;gap:4px;width:100%;text-align:left;background:none;border:0;padding:6px 0;min-height:48px;cursor:pointer;font:inherit;color:inherit}
+.sx-nov-item small,.sx-bz-item small{color:var(--sx-muted);font-size:14px}
+.sx-bz-item b{font-size:16px;overflow-wrap:anywhere}
+.sx-hilo{list-style:none;margin:14px 0;padding:0;display:grid;gap:10px}
+.sx-hmsg{max-width:88%;padding:10px 14px;border-radius:12px;border:1px solid var(--sx-line);background:#fff}
+.sx-hmsg.yo{justify-self:end;background:#F8FAFC}
+.sx-hmsg.eq{justify-self:start;background:var(--sx-blue-soft);border-color:#C7D5F7}
+.sx-hmsg small{color:var(--sx-muted);font-size:13px}.sx-hmsg p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px}
+.sx-tg{grid-column:1/-1;margin-top:16px}
+.sx-tg .sx-banner{margin-top:12px;flex-wrap:wrap}
+@media (max-width:599px){.sx-ent{flex-direction:column;align-items:stretch}.sx-ent .sx-row-actions .sx-btn{width:100%}.sx-dl div{grid-template-columns:1fr}.sx-hmsg{max-width:100%}.sx-nov{padding:64px 8px 8px}}
+.sx-card .sx-row-actions+.sx-field,.sx-code+.sx-field{margin-top:14px}
