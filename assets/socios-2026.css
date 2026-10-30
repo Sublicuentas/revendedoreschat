@@ -1,81 +1,20 @@
 /* ========================================================================
-   SUBLICUENTAS · PANEL DE SOCIOS · SISTEMA VISUAL 30/10/2026
-   Brief "Rediseño del panel de socios" · pág. 8: fondo #F5F6F8, tarjetas #FFF, texto #111827,
-   secundario #64748B, acción #E2231A, borde #DFE3E8. Inter. Campos ≥52 px, botón principal 54 px.
-   Colores lisos (sin degradados). Se carga después de app.css y panel-web-20260925.css.
+   SUBLICUENTAS · PANEL DE SOCIOS · componentes de compras, pedidos, entregas y buzón (30/10/2026)
+   Apariencia restaurada a la interfaz anterior (app.css en celular, panel-web en computadora):
+   este archivo ya NO cambia fuentes, cabecera, menús ni fondo; solo viste los componentes nuevos
+   con los colores, letras, radios y sombras de siempre.
    ======================================================================== */
 :root{
-  --sx-bg:#F5F6F8;--sx-card:#FFFFFF;--sx-ink:#111827;--sx-muted:#64748B;--sx-red:#E2231A;--sx-red-d:#B71914;--sx-red-soft:#FDECEC;
-  --sx-line:#DFE3E8;--sx-green:#15803D;--sx-green-soft:#E8F5EC;--sx-amber:#B45309;--sx-amber-soft:#FEF3E2;--sx-blue:#1D4ED8;--sx-blue-soft:#EAF0FD;
-  --sx-r:12px;--sx-font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --ff:var(--sx-font);--fn:var(--sx-font);--fb:var(--sx-font);
+  --sx-bg:transparent;--sx-card:#FFFFFF;--sx-ink:var(--txt,#0F2D52);--sx-muted:var(--muted,#6E8299);--sx-red:var(--accent,#FF3F6E);--sx-red-d:var(--accent-d,#D92954);--sx-red-soft:var(--accentSoft,rgba(255,63,110,.1));
+  --sx-line:#E4EDF6;--sx-green:#11834a;--sx-green-soft:#EAFBF1;--sx-amber:#9a5b00;--sx-amber-soft:#FFF4DE;--sx-blue:#087fbf;--sx-blue-soft:#E8F6FD;
+  --sx-r:22px;--sx-font:var(--fn,'Nunito',system-ui,sans-serif);--sx-head:var(--ff,'Fredoka','Nunito',system-ui,sans-serif)
 }
-html,body{background:var(--sx-bg)!important;color:var(--sx-ink)!important;font-family:var(--sx-font)!important;-webkit-text-size-adjust:100%}
-body,button,input,select,textarea{font-family:var(--sx-font)}
+@media (min-width:900px){:root{
+  --sx-ink:var(--web-ink,#102A4A);--sx-muted:var(--web-muted,#6F8298);--sx-red:var(--web-red,#E2231A);--sx-red-d:var(--web-red-dark,#B71914);--sx-red-soft:#FDECEC;
+  --sx-line:var(--web-line,#DFE8F1);--sx-r:18px;--sx-font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--sx-head:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif
+}}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-
-/* ---------- Estructura general ---------- */
-#app.wrap{max-width:1200px!important;padding:12px 16px calc(84px + env(safe-area-inset-bottom))!important;margin:0 auto!important}
-body.sx-con-barra #app.wrap{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
-.topbar{padding:4px 0 12px!important;gap:10px!important;border-bottom:1px solid var(--sx-line);margin-bottom:16px}
-.av-brand{width:40px!important;height:40px!important;border-radius:10px!important;box-shadow:none!important;background:#fff!important;border:1px solid var(--sx-line)}
-.av-brand img{width:100%!important;height:100%!important;object-fit:contain!important;transform:none!important;filter:none!important}
-.tb-txt h1{font-size:17px!important;font-weight:800!important;letter-spacing:0!important;color:var(--sx-ink)!important;font-family:var(--sx-font)!important}
-.tb-txt .greet,.tb-txt .fecha-hora{font-size:13px!important;font-weight:500!important;color:var(--sx-muted)!important;font-family:var(--sx-font)!important;margin-top:2px!important}
-.tb-txt .fecha-hora{display:none!important}
-.sync-status{font-family:var(--sx-font)!important;font-size:12px!important;font-weight:500!important;color:var(--sx-muted)!important}
-.icon-btn{width:44px!important;height:44px!important;border-radius:10px!important;box-shadow:none!important;border:1px solid var(--sx-line)!important;background:#fff!important}
-.sync-btn{font-size:20px!important}
-:focus-visible{outline:3px solid #1D4ED8!important;outline-offset:2px!important}
-
-/* Celular: encabezado de una fila (marca + estado + acciones) */
-@media (max-width:899px){
-  body #app .topbar{display:flex!important;grid-template-columns:none!important;align-items:center!important;gap:10px!important;padding:2px 0 10px!important}
-  body #app .topbar .av-brand{width:40px!important;height:40px!important;border-radius:10px!important}
-  body #app .topbar .tb-txt h1{font-size:17px!important;line-height:1.2!important}
-  body #app .topbar .tb-txt .greet{display:none!important}
-  body #app .topbar .sync-status{font-size:12px!important}
-  body #app .topbar-actions{margin-left:auto!important;gap:6px!important;grid-column:auto!important;justify-content:flex-end!important;flex:none!important;width:auto!important}
-  body #app .topbar .tb-txt{flex:1 1 auto!important;min-width:0!important}
-  body #app .topbar .tb-txt h1{display:block!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-  body #app .topbar .sync-status{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-  body #app .topbar .icon-btn{width:42px!important;height:42px!important}
-}
-@media (min-width:900px){body #app .topbar .tb-txt h1{font-size:17px!important}body #app .topbar .tb-txt .greet{display:none!important}}
-.nav .nav-btn.on .nav-ico{background:none!important;box-shadow:none!important;transform:none!important}
-.sx-card h2+p+h2,.sx-card p+h2{margin-top:18px}
-
-/* Celular: barra inferior compacta (5 botones) */
-.nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;transform:none!important;width:100%!important;max-width:none!important;height:calc(64px + env(safe-area-inset-bottom))!important;padding:0 4px env(safe-area-inset-bottom)!important;border-radius:0!important;background:#fff!important;border-top:1px solid var(--sx-line)!important;box-shadow:none!important;backdrop-filter:none!important;display:flex!important;align-items:stretch!important;justify-content:space-around!important;z-index:60!important}
-.nav::before{display:none!important}
-.nav .nav-btn{flex:1!important;height:64px!important;min-width:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:3px!important;color:var(--sx-muted)!important;font-size:12px!important;font-weight:600!important;transform:none!important;position:relative}
-.nav .nav-btn .nav-ico{width:auto!important;height:24px!important;background:none!important;box-shadow:none!important;font-size:19px!important;border:0!important;transform:none!important;color:inherit!important}
-.nav .nav-btn.on{color:var(--sx-red)!important}
-.nav .nav-btn.on::before{display:block!important;content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--sx-red)}
-.nav .nav-btn.permission-hidden{display:none!important}
-.nav .nav-badge{top:6px!important;right:calc(50% - 22px)!important}
-
-/* Computadora: menú lateral */
-@media (min-width:900px){
-  body{padding-left:232px!important}
-  #app.wrap{padding:16px 28px 48px!important}
-  body.sx-con-barra #app.wrap{padding-bottom:48px!important}
-  .nav{top:0!important;bottom:0!important;left:0!important;right:auto!important;width:232px!important;height:100vh!important;padding:18px 12px!important;flex-direction:column!important;justify-content:flex-start!important;border-top:0!important;border-right:1px solid var(--sx-line)!important;overflow-y:auto!important}
-  .sx-side-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 20px}
-  .sx-side-brand img{width:36px;height:36px;object-fit:contain}
-  .sx-side-brand b{display:block;font-size:16px;color:var(--sx-ink)}
-  .sx-side-brand span{display:block;font-size:12.5px;color:var(--sx-muted)}
-  .sx-side-menu{display:flex;flex-direction:column;gap:2px}
-  .sx-side-menu.sec{margin-top:16px;padding-top:12px;border-top:1px solid var(--sx-line)}
-  .nav .nav-btn{flex:none!important;height:auto!important;min-height:46px!important;flex-direction:row!important;justify-content:flex-start!important;gap:10px!important;padding:0 12px!important;border-radius:10px!important;font-size:15px!important;font-weight:600!important;width:100%!important;text-align:left!important}
-  .nav .nav-btn .nav-ico{width:22px!important;height:22px!important;font-size:17px!important;display:grid!important;place-items:center!important}
-  .nav .nav-btn:hover{background:#F1F3F6!important}
-  .nav .nav-btn.on{background:var(--sx-red-soft)!important;color:var(--sx-red)!important}
-  .nav .nav-btn.on::before{display:none!important}
-  .nav .nav-badge{position:static!important;margin-left:auto!important}
-  .topbar .av-brand{display:none!important}
-}
-
+body.sx-con-barra #app.wrap{padding-bottom:calc(var(--nav-h,78px) + 120px + env(safe-area-inset-bottom))!important}
 /* ---------- Componentes ---------- */
 .sx-page{display:flex;flex-direction:column;gap:16px;max-width:1120px;margin:0 auto}
 .sx-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -175,7 +114,7 @@ body.sx-con-barra .sx-toast{bottom:calc(160px + env(safe-area-inset-bottom))}
 .sx-bottom-bar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:55;background:#fff;border-top:1px solid var(--sx-line);padding:10px 16px;display:none;flex-direction:column;gap:8px;box-shadow:0 -4px 16px rgba(17,24,39,.06)}
 body.sx-con-barra .sx-bottom-bar{display:flex}
 .sx-bottom-bar>span{font-size:15px;color:var(--sx-ink)}
-@media (min-width:900px) and (max-width:1179px){.sx-bottom-bar{left:232px;bottom:0;flex-direction:row;align-items:center;justify-content:space-between}.sx-bottom-bar .sx-btn{width:auto;min-width:260px}body.sx-con-barra #app.wrap{padding-bottom:110px!important}}
+@media (min-width:900px) and (max-width:1179px){.sx-bottom-bar{left:250px;bottom:0;flex-direction:row;align-items:center;justify-content:space-between}.sx-bottom-bar .sx-btn{width:auto;min-width:260px}body.sx-con-barra #app.wrap{padding-bottom:110px!important}}
 @media (min-width:1180px){body.sx-con-barra .sx-bottom-bar{display:none}}
 .sx-step-card h2{outline:none}
 .sx-prod-list{display:flex;flex-direction:column;gap:8px}
@@ -288,13 +227,6 @@ body.sx-con-barra .sx-bottom-bar{display:flex}
 .sx-renew-head b{display:block;font-size:16px}.sx-renew-head small{display:block;font-size:14px;color:var(--sx-muted)}
 @media (min-width:1024px){.sx-renews{display:grid;grid-template-columns:1fr 1fr}}
 
-/* Hoja "Más" del celular */
-.quick-sheet{border-radius:16px 16px 0 0!important;background:#fff!important}
-.quick-sheet h3{font-family:var(--sx-font)!important;font-size:18px!important}
-.quick-sheet-grid button{min-height:52px!important;border-radius:10px!important;border:1px solid var(--sx-line)!important;background:#fff!important;color:var(--sx-ink)!important;font-family:var(--sx-font)!important;font-size:16px!important;font-weight:600!important;box-shadow:none!important}
-/* Ventanas existentes (cobro / renovación) con la misma tipografía */
-.cobro-sheet{font-family:var(--sx-font)!important}
-.cobro-sheet h3{font-family:var(--sx-font)!important}
 @media (prefers-reduced-motion:reduce){.sx-toast{transition:none}}
 
 /* ========================================================================
@@ -340,3 +272,78 @@ body.sx-con-barra .sx-bottom-bar{display:flex}
 .sx-tg .sx-banner{margin-top:12px;flex-wrap:wrap}
 @media (max-width:599px){.sx-ent{flex-direction:column;align-items:stretch}.sx-ent .sx-row-actions .sx-btn{width:100%}.sx-dl div{grid-template-columns:1fr}.sx-hmsg{max-width:100%}.sx-nov{padding:64px 8px 8px}}
 .sx-card .sx-row-actions+.sx-field,.sx-code+.sx-field{margin-top:14px}
+
+
+/* ========================================================================
+   APARIENCIA DE SIEMPRE para los componentes nuevos
+   ======================================================================== */
+.sx-page{gap:14px;font-family:var(--sx-font);color:var(--sx-ink)}
+.sx-page-head h1,.sx-card h2,.sx-summary h2,.sx-confirm h1,.sx-nov-panel h2{font-family:var(--sx-head)!important;color:var(--sx-ink)}
+.sx-head-actions{justify-content:flex-end}
+.sx-card,.sx-kpi,.sx-summary,.sx-order,.sx-nov-panel{border-radius:var(--sx-r)}
+.sx-pend .sx-tasks{margin-top:4px}
+.sx-cli-extra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.sx-cli-ped{border:0;border-radius:999px;padding:7px 12px;font:800 12.5px var(--sx-font);cursor:pointer;background:var(--field,#f4f8fc);color:var(--sx-ink)}
+.sx-cli-ped.warn{background:#FFF4DE;color:#8a4b00}.sx-cli-ped.ok{background:#EAFBF1;color:#11834a}.sx-cli-ped.work,.sx-cli-ped.info{background:#E8F6FD;color:#0a6a9c}
+.sx-head-actions:empty{display:none}
+
+/* Celular: tarjetas, botones y campos como app.css */
+@media (max-width:899px){
+  .sx-page{max-width:none}
+  .sx-page>.operations-hero,.sx-page>.scr-title{margin-bottom:0}
+  .sx-page-head h1{font-size:25px;font-weight:700}
+  .sx-page-head small{font-family:var(--fn);font-weight:800}
+  .sx-card,.sx-kpi,.sx-summary,.sx-order,.sx-nov-panel{border:0;box-shadow:var(--sh-sm);background:#fff}
+  .sx-card h2{font-size:19px;font-weight:700}
+  .sx-card h3,.sx-prod-main h3,.sx-renglon-head h3,.sx-cat-item h3{font-family:var(--ff);font-weight:600}
+  .sx-help,.sx-hint,.sx-order small,.sx-list small,.sx-task small,.sx-ent-main small{font-weight:700}
+  .sx-btn{border-radius:18px;font-family:var(--ff);font-weight:600;border:0}
+  .sx-btn.pri{background:var(--accent);box-shadow:0 6px 0 var(--accent-d)}
+  .sx-btn.pri:hover{background:var(--accent)}
+  .sx-btn.pri:active{transform:translateY(3px);box-shadow:0 3px 0 var(--accent-d)}
+  .sx-btn.sec{background:#fff;color:var(--accent);box-shadow:0 4px 0 #E3EDF6;border:0}
+  .sx-btn.sec:active{transform:translateY(2px);box-shadow:0 2px 0 #E3EDF6}
+  .sx-link{color:var(--accent);font-family:var(--fn);font-weight:900;text-decoration:none}
+  .sx-field>span,.sx-field>legend,.sx-label{font-family:var(--fn);font-weight:900;color:var(--txt2,#3a567a)}
+  .sx-field input,.sx-field select,.sx-field textarea{background:var(--field);border:2px solid transparent;border-radius:16px;font-family:var(--fn);font-weight:800;color:var(--txt)}
+  .sx-field input:focus,.sx-field select:focus,.sx-field textarea:focus{border-color:var(--accent);outline:0;background:#fff}
+  .sx-chip{border:0;border-radius:14px;background:#fff;box-shadow:0 4px 0 #E3EDF6;font-family:var(--fn);font-weight:900;color:var(--txt)}
+  .sx-chip.on{border:0;background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent-d)}
+  .sx-chip.on::before{content:""}
+  .sx-steps button{border:0;border-radius:16px;box-shadow:0 4px 0 #E3EDF6;font-family:var(--fn);font-weight:900}
+  .sx-steps li.on button{border:0;box-shadow:0 4px 0 var(--accent-d);background:var(--accent);color:#fff}
+  .sx-steps li.on b{background:#fff;color:var(--accent)}
+  .sx-prod,.sx-sug,.sx-client-chosen,.sx-pay-info,.sx-receipt,.sx-consultas li,.sx-note,.sx-hmsg,.sx-qty{border-color:#E4EDF6;border-radius:18px}
+  .sx-prod.sel{border-color:var(--accent)}
+  .sx-prod-ic,.sx-avatar{background:var(--field)}
+  .sx-pill{font-family:var(--fn);font-weight:900}
+  .sx-banner{border-radius:18px;font-family:var(--fn);font-weight:800}
+  .sx-tabs{border-bottom:0;gap:8px;padding-bottom:4px}
+  .sx-tab{border:0;border-radius:14px;background:#fff;box-shadow:0 4px 0 #E3EDF6;font:900 14px var(--fn);color:var(--txt);min-height:44px}
+  .sx-tab.on{background:var(--accent);color:#fff;box-shadow:0 4px 0 var(--accent-d)}
+  .sx-tab.on .sx-dot{background:#fff;color:var(--accent)}
+  .sx-bottom-bar{bottom:calc(var(--nav-h,78px) + env(safe-area-inset-bottom));border-radius:22px 22px 0 0;border-top:0;box-shadow:0 -10px 26px rgba(29,90,150,.12)}
+  .sx-toast{bottom:calc(var(--nav-h,78px) + 14px + env(safe-area-inset-bottom));border-radius:16px;font-family:var(--fn);font-weight:800}
+  .sx-pend .sx-task{border-left-width:4px}
+  .sx-cli-extra .act{flex:none}
+}
+
+/* Computadora: como panel-web (Inter, rojo #E2231A, bordes #DFE8F1, sombra suave) */
+@media (min-width:900px){
+  .sx-page{max-width:none}
+  .sx-page>.web-page-hero{margin-bottom:0}
+  .sx-card,.sx-kpi,.sx-summary,.sx-order{border:1px solid var(--web-line);box-shadow:var(--web-shadow)}
+  .sx-card h2{font-size:19px;font-weight:800}
+  .sx-btn{border-radius:14px;font-weight:800}
+  .sx-btn.pri{background:var(--web-red);box-shadow:0 8px 18px rgba(226,35,26,.18)}
+  .sx-btn.pri:hover{background:var(--web-red-dark)}
+  .sx-btn.sec{border-color:var(--web-line);color:var(--web-ink)}
+  .sx-field input,.sx-field select,.sx-field textarea{border-color:var(--web-line);border-radius:12px}
+  .sx-field input:focus,.sx-field select:focus,.sx-field textarea:focus{border-color:var(--web-red);outline:3px solid rgba(226,35,26,.12)}
+  .sx-chip,.sx-steps button,.sx-prod,.sx-sug,.sx-client-chosen,.sx-pay-info,.sx-receipt,.sx-qty{border-color:var(--web-line);border-radius:12px}
+  .sx-link{color:var(--web-red);text-decoration:none;font-weight:700}
+  .sx-tab.on{color:var(--web-red)}
+  .sx-bottom-bar{left:250px}
+  .sx-pend.web-summary-card{margin-bottom:16px}
+  .sx-pend .sx-tasks{padding:0 4px}
+}

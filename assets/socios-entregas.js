@@ -62,7 +62,7 @@ function sxEntPintarLista() {
   if (current !== 'pedidos') return;
   const f = sxEnt.f;
   const chips = [['todos', 'Todas'], ['nuevas', 'Nuevas / sin ver'], ['publicada', 'Vigentes'], ['historico', 'Históricas'], ['revocada', 'Revocadas']];
-  content.innerHTML = `<div class="sx-page"><header class="sx-page-head"><div><small>Seguimiento</small><h1>Pedidos</h1></div><div class="sx-head-actions"><button type="button" class="sx-btn pri" data-act="nueva">Nueva compra</button></div></header>
+  content.innerHTML = `<div class="sx-page">${sxHero('buy', 'Pedidos y entregas', 'Siga cada pedido y abra las entregas de sus clientes.', 'SEGUIMIENTO')}<div class="sx-head-actions"><button type="button" class="sx-btn pri" data-act="nueva">Nueva compra</button></div>
     ${sxPedTabsHtml()}
     <form class="sx-tools sx-ent-filtros" id="sxEntForm" role="search">
       <label class="sx-field sx-search"><span>Cliente</span><input name="q" type="search" value="${sxAttr(f.q)}" placeholder="Nombre del cliente"></label>
@@ -269,7 +269,7 @@ function vSugerencias() {
     cuerpo = `<div class="sx-row-actions"><button type="button" class="sx-btn pri" data-bz="nueva">Nueva consulta</button><button type="button" class="sx-link" data-bz="recargar">Actualizar</button></div>
       ${l === null ? '<div class="sx-card"><p class="sx-help">Cargando consultas…</p></div>' : l.length ? `<ul class="sx-ents">${l.map((c) => `<li class="sx-card sx-ent ${c.noLeidas ? 'nueva' : ''}"><button type="button" class="sx-bz-item" data-bz="abrir" data-id="${sxAttr(c.id)}"><b>${c.numero ? `#${sxEsc(c.numero)} · ` : ''}${sxEsc(c.asunto)}</b><span><span class="sx-pill ${SX_BZ_EST[c.estado] || 'info'}">${sxEsc(c.estadoLabel)}</span>${c.noLeidas ? ` <span class="sx-pill new">${c.noLeidas} nueva${c.noLeidas === 1 ? '' : 's'}</span>` : ''}${c.pedidoRef ? ` · Pedido #${sxEsc(c.pedidoRef)}` : ''}</span><small>${sxEsc((c.mensajes || []).slice(-1)[0]?.texto?.slice(0, 120) || '')}</small></button></li>`).join('')}</ul>` : '<div class="sx-card sx-empty"><b>Sin consultas</b><p>Use “Nueva consulta” para escribirle al equipo. Para un pedido, también puede consultar desde su detalle.</p></div>'}`;
   }
-  content.innerHTML = `<div class="sx-page"><header class="sx-page-head"><div><small>Comunicación con el equipo</small><h1>Soporte y buzón</h1></div></header>${tabs}${cuerpo}</div>`;
+  content.innerHTML = `<div class="sx-page">${sxHero('inbox', 'Buzón', 'Consultas con el equipo y avisos de Sublicuentas. También responde desde Telegram.', 'COMUNICACIÓN')}${tabs}${cuerpo}</div>`;
   if (sxBz.lista === null && !sxBz.cargando) sxBzCargar();
   if (sxBz.nueva || sxBz.abierto) document.getElementById('sxBzTitulo')?.focus({ preventScroll: true });
   actualizarBadgeBuzon();
@@ -314,7 +314,7 @@ const sxPerfilBase = vPerfil;
 vPerfil = async function () {
   await sxPerfilBase();
   if (current !== 'perfil') return;
-  const host = content.querySelector('.profile-layout') || content;
+  const host = content.querySelector('.web-profile-layout') || content.querySelector('.profile-layout') || content;
   let card = document.getElementById('sxTgCard');
   if (!card) { card = document.createElement('section'); card.id = 'sxTgCard'; card.className = 'sx-card sx-tg'; host.appendChild(card); }
   card.innerHTML = '<h2>Telegram</h2><p class="sx-help">Consultando…</p>';
