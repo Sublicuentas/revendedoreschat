@@ -422,35 +422,58 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
   await ctx.close();
 });
 
-await caso('Interfaz de siempre: Inicio con pendientes, catálogo → mismo carrito, cliente → compra y pedidos, renovar con período, menús con Pedidos', async () => {
-  const { page, ctx, errores } = await abrir({ width: 1440, height: 900 });
-  assert.equal(await page.locator('.web-side-menu').count(), 1, 'menú lateral de siempre');
-  assert.equal(await page.locator('.web-page-hero.web-hero-home').count(), 1, 'cabecera de Inicio de siempre');
-  assert.match(await page.textContent('.web-side-menu'), /Pedidos/);
-  await page.evaluate(() => go('precios')); await page.click('[onclick="openCatalogCategory(0)"]');
-  await page.click('[onclick="buyFromCatalog(0)"]'); await page.waitForSelector('#sxCompra');
-  assert.equal(await page.evaluate(() => SX.renglones.length), 1, 'el catálogo de siempre alimenta el carrito nuevo');
-  await shot(page, '60-escritorio-catalogo-a-compra.png');
-  await page.evaluate(() => go('clientes'));
-  await page.waitForFunction(() => /ABC123/.test(document.querySelector('.sx-cli-extra[data-cli-id="c2"]')?.textContent || ''));
-  assert.match(await page.textContent('[data-client-id="c2"]'), /Disney Premium/);
+await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú ⋯, Inicio con tareas, cliente → ficha → compra/renovar, catálogo al mismo carrito, cierre de compra sin tapar contenido', async () => {
+  // Computadora: menú lateral con los mismos destinos y en el orden de la guía
+  const E = nuevoEstado();
+  const { page, ctx, errores } = await abrir({ width: 1440, height: 900 }, E);
+  const lateral = await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.textContent.trim()));
+  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Pedidos', 'Renovaciones', 'Catálogo', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']);
+  await page.waitForSelector('.sx-tasks'); assert.match(await page.textContent('.sx-tasks'), /falta información/);
+  await page.evaluate(() => go('precios')); await page.waitForSelector('.sx-cat-grid');
+  await page.click('[data-cat-act="agregar"][data-pid="cat_hbo_platino"]');
+  assert.equal(await page.evaluate(() => current), 'precios', 'agregar conserva la posición');
+  assert.match(await page.textContent('.sx-page-head'), /Ir a la compra \(1\)/);
+  await shot(page, '60-escritorio-catalogo.png');
+  await page.evaluate(() => go('clientes')); await page.click('[data-cli="abrir"][data-id="c2"]'); await page.waitForSelector('.sxo-ficha');
+  assert.match(await page.textContent('.sxo-ficha'), /Disney Premium/);
+  await page.waitForFunction(() => /ABC123/.test(document.querySelector('.sxo-peds')?.textContent || ''));
   await shot(page, '61-escritorio-cliente-ficha.png');
-  await page.click('.sx-cli-extra [data-cli="comprar"][data-id="c2"]'); await page.waitForSelector('#sxCompra');
+  await page.click('.sxo-ficha [data-cli="comprar"][data-id="c2"]'); await page.waitForSelector('#sxCompra');
   assert.equal(await page.evaluate(() => SX.principal.id), 'c2');
-  await page.evaluate(() => go('renovar')); await page.waitForSelector('.web-page-hero.web-hero-renew');
+  await page.evaluate(() => go('renovar')); await page.waitForSelector('.sx-renews');
   await shot(page, '62-escritorio-renovaciones.png');
-  await page.click('[onclick="openRenewGroup(0)"]'); await page.waitForSelector('#compOverlay.show');
+  await page.click('[data-ren="renovar"]'); await page.waitForSelector('#compOverlay.show');
   await page.click('#compOverlay .mini-seg button:first-child');
   assert.notEqual(await page.inputValue('#compNuevaFecha'), '', 'muestra la nueva fecha antes de confirmar');
   assert.deepEqual(errores, []);
   await ctx.close();
-  // Celular: barra inferior de siempre y "Más" con Pedidos y entregas
-  const m = await abrir({ width: 390, height: 844 });
-  assert.equal(await m.page.locator('#nav .main-plus').count(), 1, 'botón ＋ de siempre');
-  assert.equal(await m.page.locator('.operations-hero, .partner-hero').count() > 0, true);
-  await m.page.click('#nav .main-plus'); await m.page.click('#partnerQuick [data-qv="pedidos"]');
-  await m.page.waitForSelector('.sx-orders');
-  await shot(m.page, '63-movil-mas-pedidos.png');
+
+  // Celular
+  const m = await abrir({ width: 390, height: 844 }, E);
+  const barra = await m.page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
+  assert.deepEqual(barra, ['inicio', 'clientes', 'compras', 'pedidos', 'mas']);
+  const pedidosAntes = E.pedidos.size;
+  await m.page.click('#nav [data-v="mas"]'); await m.page.waitForSelector('.sxo-mas');
+  assert.equal(E.pedidos.size, pedidosAntes, '"Más" no crea pedidos');
+  await shot(m.page, '63-movil-mas.png');
+  for (const v of ['renovar', 'precios', 'buzon', 'aula', 'recompensas', 'perfil']) {
+    await m.page.click('#nav [data-v="mas"]'); await m.page.click(`.sxo-mas [data-go="${v}"]`);
+    assert.equal(await m.page.evaluate(() => current), v);
+    assert.equal(await m.page.locator('#nav [data-v="mas"].on').count(), 1, `"Más" queda marcado en ${v}`);
+  }
+  await m.page.click('#sxoMenuBtn'); await m.page.waitForSelector('#sxoMenu:not([hidden])');
+  assert.match(await m.page.textContent('#sxoMenu'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
+  await m.page.keyboard.press('Escape');
+  await m.page.click('#nav [data-v="clientes"]'); await m.page.click('[data-cli="abrir"][data-id="c1"]');
+  await m.page.click('.sxo-svc [data-cli="renovar"]'); await m.page.waitForSelector('#compOverlay.show');
+  await m.page.evaluate(() => { document.getElementById('compOverlay')?.classList.remove('show'); go('compras'); });
+  await m.page.waitForSelector('#sxCompra'); await agregar(m.page, 'cat_hbo_platino'); await agregar(m.page, 'cat_canva');
+  await m.page.evaluate(() => { window.scrollTo(0, 1e6); document.body.scrollTop = 1e6; }); await m.page.waitForTimeout(300);
+  const tapa = await m.page.evaluate(() => { const bar = document.getElementById('sxBottomBar').getBoundingClientRect(); const items = [...document.querySelectorAll('#sxMain .sx-card, #sxMain .sx-prod')]; const ult = items[items.length - 1].getBoundingClientRect(); return { ult: ult.bottom, bar: bar.top, nav: document.getElementById('nav').getBoundingClientRect().top, barBottom: bar.bottom }; });
+  assert.ok(tapa.ult <= tapa.bar + 1, `la última tarjeta queda sobre el cierre (${tapa.ult} ≤ ${tapa.bar})`);
+  assert.ok(tapa.barBottom <= tapa.nav + 1, 'el cierre queda sobre la barra inferior');
+  await shot(m.page, '64-movil-compra-final.png');
+  assert.equal(await m.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   assert.deepEqual(m.errores, []);
   await m.ctx.close();
 });
@@ -494,7 +517,8 @@ await caso('Entregas: parcial 1 de 2, campanita, "Mis entregas" paginado con fil
   E.pedidos.set('web_seedHBOCANVA', { ...E.pedidos.get('web_seedHBOCANVA'), entregas: c.entregas, estado: c.estado, detalleEstado: c.detalleEstado });
   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
   await page.waitForFunction(() => document.getElementById('sxBellBadge')?.textContent === '1');
-  await shot(page, '90-movil-campanita.png');
+  await page.waitForFunction(() => document.getElementById('sxoMenuDot')?.textContent === '1');
+  await shot(page, '90-movil-novedades.png');
   await page.evaluate(() => go('pedidos')); await page.waitForSelector('.sx-orders');
   assert.match(await page.textContent('.sx-orders'), /Entrega parcial · 1 de 2 servicios/);
   await page.click('[data-act="abrir"][data-id="web_seedHBOCANVA"]'); await page.waitForSelector('#sxPedTitulo');
