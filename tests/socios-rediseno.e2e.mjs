@@ -226,7 +226,8 @@ await caso('B · Un solo cliente: sin "otro cliente"; cambiar de cliente limpia 
   const [h, d] = await page.evaluate(() => SX.renglones.map((r) => r.rid));
   await page.click(`[data-act="opcion"][data-rid="${h}"][data-v="celular"]`); await page.click(`[data-act="opcion"][data-rid="${d}"][data-v="tv"]`);
   assert.match(await page.textContent(`#sxr_${h} [data-act="duplicar"]`), /Agregar otro perfil para Ana/);
-  assert.match(await page.textContent('[data-act="otro-servicio"]'), /Agregar otro servicio para Ana/);
+  for (const a of ['otro-servicio', 'otro-cliente']) assert.equal(await page.locator(`[data-act="${a}"]`).count(), 0, 'sin enlaces repetidos al pie');
+  assert.doesNotMatch(await page.textContent('#sxMain'), /Volver a productos|Nueva compra para otro cliente|Agregar otro servicio/);
   await shot(page, '10-escritorio-paso2-un-cliente.png');
   // Cambiar el cliente antes de enviar: avisa (diálogo aceptado) y limpia los datos personales; conserva productos.
   await page.click('[data-act="cliente-cambiar"][data-scope="p"]');
@@ -236,7 +237,7 @@ await caso('B · Un solo cliente: sin "otro cliente"; cambiar de cliente limpia 
   assert.match(await page.textContent(`#sxr_${d}`), /Asignado a Luis Ramos/);
   await page.click(`[data-act="opcion"][data-rid="${h}"][data-v="celular"]`); await page.click(`[data-act="opcion"][data-rid="${d}"][data-v="tv"]`);
   // Nueva compra para otro cliente: guarda la de Luis y empieza vacía
-  await page.click('[data-act="otro-cliente"]');
+  await page.evaluate(() => sxNuevaCompraOtroCliente()); // sigue disponible desde Clientes ("Nueva compra para este cliente")
   assert.equal(await page.evaluate(() => SX.renglones.length), 0);
   await page.waitForSelector('[data-act="borrador-abrir"]');
   assert.match(await page.textContent('#sxCompra'), /Compras guardadas[\s\S]*Luis Ramos/);
