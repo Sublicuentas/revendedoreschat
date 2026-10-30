@@ -446,7 +446,7 @@ function sxPaso2Html() {
       ${sxSelectorClienteHtml('p', SX.principal, sxBuscarCliente.p || '')}</section>
     ${SX.renglones.map(sxRenglonHtml).join('')}
     ${sxMsg.t ? `<div class="sx-msg ${sxMsg.c}" role="alert">${sxEsc(sxMsg.t)}</div>` : ''}
-    <div class="sx-nav-actions"><button type="button" class="sx-link" data-act="paso" data-n="1">← Volver a productos</button><button type="button" class="sx-link" data-act="otro-servicio">＋ Agregar otro servicio para ${sxEsc(sxNombreCorto())}</button><button type="button" class="sx-link" data-act="otro-cliente">Nueva compra para otro cliente</button></div>`;
+`;
 }
 
 /* --- Paso 3 · Revisar y pagar --- */
@@ -484,8 +484,7 @@ function sxPaso3Html() {
       <label class="sx-field"><span>Comentario general del pedido (opcional)</span><textarea data-sx="comentario" rows="3" maxlength="600" placeholder="Indicación para todo el pedido">${sxEsc(SX.comentario)}</textarea></label>
       <fieldset class="sx-field"><legend>Enviar a</legend><div class="sx-chips">${[['sublicuentas', 'Sublicuentas'], ['relojes', 'Relojes']].map(([v, l]) => `<button type="button" class="sx-chip ${SX.destino === v ? 'on' : ''}" aria-pressed="${SX.destino === v}" data-act="destino" data-v="${v}">${l}</button>`).join('')}</div></fieldset>
       ${sxMsg.t ? `<div class="sx-msg ${sxMsg.c}" role="alert">${sxEsc(sxMsg.t)}</div>` : ''}
-    </section>
-    <div class="sx-nav-actions"><button type="button" class="sx-link" data-act="paso" data-n="2">← Volver a datos de clientes</button></div>`;
+    </section>`;
 }
 
 /* --- Resumen (computadora: lateral · celular: barra inferior con espacio propio) --- */
