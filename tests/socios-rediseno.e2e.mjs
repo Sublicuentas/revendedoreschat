@@ -160,7 +160,7 @@ async function abrir(viewport = { width: 390, height: 844 }, E = nuevoEstado(), 
   const errores = []; page.on('pageerror', (e) => errores.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.goto(BASE);
-  await page.waitForSelector('.sx-page');
+  await page.waitForSelector('#app:not(.hide)'); await page.waitForFunction(() => typeof current !== 'undefined' && !!document.querySelector('#content > :not(.spin)'));
   return { ctx, page, E, errores };
 }
 const shot = (page, n) => page.screenshot({ path: path.join(OUT, n), fullPage: false });
@@ -365,7 +365,7 @@ await caso('Borrador y errores: atrás, cambio de sección, rotación y recarga 
   await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(150);
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(150);
   assert.equal(await page.inputValue('#sx_p_apellido'), 'López', 'rotación');
-  await page.reload(); await page.waitForSelector('.sx-page'); await irCompras(page);
+  await page.reload(); await page.waitForSelector('#app:not(.hide)'); await irCompras(page);
   assert.match(await page.textContent('.sx-banner.info'), /Recuperamos su compra/);
   assert.equal(await page.inputValue(`#sx_${c}_correo`), 'ana@ejemplo.com', 'recarga');
   const borrador = await page.evaluate(() => localStorage.getItem(sxBorradorKey()));
@@ -422,25 +422,37 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
   await ctx.close();
 });
 
-await caso('Inicio, catálogo, clientes y renovaciones: tareas, agregar desde catálogo al mismo carrito, ficha del cliente, renovar con período', async () => {
+await caso('Interfaz de siempre: Inicio con pendientes, catálogo → mismo carrito, cliente → compra y pedidos, renovar con período, menús con Pedidos', async () => {
   const { page, ctx, errores } = await abrir({ width: 1440, height: 900 });
-  await page.evaluate(() => go('precios')); await page.waitForSelector('.sx-cat-grid');
-  await page.click('[data-cat-act="agregar"][data-pid="cat_hbo_platino"]');
-  assert.match(await page.textContent('.sx-page-head'), /Ir a la compra \(1\)/);
-  await shot(page, '60-escritorio-catalogo.png');
-  await page.evaluate(() => go('clientes')); await page.click('[data-cli="abrir"][data-id="c2"]');
-  assert.match(await page.textContent('.sx-client.open'), /Disney Premium/);
-  assert.match(await page.textContent('.sx-client.open'), /#ABC123|ABC123/i);
+  assert.equal(await page.locator('.web-side-menu').count(), 1, 'menú lateral de siempre');
+  assert.equal(await page.locator('.web-page-hero.web-hero-home').count(), 1, 'cabecera de Inicio de siempre');
+  assert.match(await page.textContent('.web-side-menu'), /Pedidos/);
+  await page.evaluate(() => go('precios')); await page.click('[onclick="openCatalogCategory(0)"]');
+  await page.click('[onclick="buyFromCatalog(0)"]'); await page.waitForSelector('#sxCompra');
+  assert.equal(await page.evaluate(() => SX.renglones.length), 1, 'el catálogo de siempre alimenta el carrito nuevo');
+  await shot(page, '60-escritorio-catalogo-a-compra.png');
+  await page.evaluate(() => go('clientes'));
+  await page.waitForFunction(() => /ABC123/.test(document.querySelector('.sx-cli-extra[data-cli-id="c2"]')?.textContent || ''));
+  assert.match(await page.textContent('[data-client-id="c2"]'), /Disney Premium/);
   await shot(page, '61-escritorio-cliente-ficha.png');
-  await page.click('[data-cli="comprar"][data-id="c2"]'); await page.waitForSelector('#sxCompra');
+  await page.click('.sx-cli-extra [data-cli="comprar"][data-id="c2"]'); await page.waitForSelector('#sxCompra');
   assert.equal(await page.evaluate(() => SX.principal.id), 'c2');
-  await page.evaluate(() => go('renovar')); await page.waitForSelector('.sx-renews');
+  await page.evaluate(() => go('renovar')); await page.waitForSelector('.web-page-hero.web-hero-renew');
   await shot(page, '62-escritorio-renovaciones.png');
-  await page.click('[data-ren="renovar"]'); await page.waitForSelector('#compOverlay.show');
+  await page.click('[onclick="openRenewGroup(0)"]'); await page.waitForSelector('#compOverlay.show');
   await page.click('#compOverlay .mini-seg button:first-child');
   assert.notEqual(await page.inputValue('#compNuevaFecha'), '', 'muestra la nueva fecha antes de confirmar');
   assert.deepEqual(errores, []);
   await ctx.close();
+  // Celular: barra inferior de siempre y "Más" con Pedidos y entregas
+  const m = await abrir({ width: 390, height: 844 });
+  assert.equal(await m.page.locator('#nav .main-plus').count(), 1, 'botón ＋ de siempre');
+  assert.equal(await m.page.locator('.operations-hero, .partner-hero').count() > 0, true);
+  await m.page.click('#nav .main-plus'); await m.page.click('#partnerQuick [data-qv="pedidos"]');
+  await m.page.waitForSelector('.sx-orders');
+  await shot(m.page, '63-movil-mas-pedidos.png');
+  assert.deepEqual(m.errores, []);
+  await m.ctx.close();
 });
 
 await caso('Responsividad: 360, 390, 768, 1024, 1440 px y zoom 200 %; nombres largos; sin desplazamiento horizontal', async () => {
