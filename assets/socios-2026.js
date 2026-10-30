@@ -22,12 +22,9 @@ function sxSplitNombre(full) { const p = String(full || '').trim().split(/\s+/);
 function sxNombreCompleto(c) { return `${String(c?.nombre || '').trim()} ${String(c?.apellido || '').trim()}`.trim(); }
 function sxToast(t) { let el = document.getElementById('sxToast'); if (!el) { el = document.createElement('div'); el.id = 'sxToast'; el.className = 'sx-toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); } el.textContent = t; el.classList.add('on'); clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('on'), 2200); }
 function sxFecha(v) { const d = parseFecha(v); return d ? d.toLocaleDateString('es-HN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
-// Cabecera con la apariencia de siempre: celular = tarjeta de color con la mascota; computadora = cabecera web.
-function sxHero(tipo, titulo, sub, kicker = '') {
-  if (typeof webDesktopMode === 'function' && webDesktopMode() && typeof webPageHero === 'function') return webPageHero(tipo, titulo, sub, { kicker });
-  if (tipo === 'inbox') return `<div class="scr-title">📬 ${sxEsc(titulo)}</div>`;
-  const cls = tipo === 'clients' ? ' clients' : tipo === 'renew' ? ' renew' : '';
-  return `<section class="operations-hero${cls}"><h2>${sxEsc(titulo)}</h2><p>${sxEsc(sub)}</p><img src="${ROBOT_IMG}" alt="Mascota Sublicuentas"></section>`;
+// Cabecera compacta de página (guía de orden visual 30/10/2026): título + línea breve, sin bloque gigante.
+function sxHero(tipo, titulo, sub) {
+  return `<header class="sx-page-head sxo-head"><div><h1>${sxEsc(titulo)}</h1>${sub ? `<p class="sx-help">${sxEsc(sub)}</p>` : ''}</div></header>`;
 }
 function sxFechaHora(v) { const d = parseFecha(v); return d ? d.toLocaleString('es-HN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'; }
 
@@ -301,7 +298,7 @@ function buyFromCatalog(ix) {
   if (p) { sxAgregar(p.pid); SX.paso = 1; go('compras'); }
 }
 
-const SX_PASOS = [[1, 'Productos'], [2, 'Datos de clientes'], [3, 'Revisar y pagar']];
+const SX_PASOS = [[1, 'Productos'], [2, 'Cliente'], [3, 'Pago']];
 function sxIrPaso(n) {
   if (n >= 2 && !SX.renglones.length) { sxToast('Agregue al menos un producto.'); return; }
   if (n >= 3) {
@@ -318,7 +315,7 @@ function sxRender({ scroll = false } = {}) {
   const m = sxTotales();
   if (!m.ls.length && SX.paso > 1) SX.paso = 1;
   content.innerHTML = `<div class="sx-page sx-compra" id="sxCompra">
-    ${sxHero('buy', 'Nueva compra', 'Elija los servicios, complete los datos del cliente y envíe el comprobante.', 'COMPRA SERVICIOS Y ACTIVE AL INSTANTE')}
+    ${sxHero('buy', SX.paso === 2 ? 'Datos del cliente' : SX.paso === 3 ? 'Revisar y pagar' : 'Nueva compra', '')}
     <ol class="sx-steps" aria-label="Pasos de la compra">${SX_PASOS.map(([n, t]) => `<li class="${SX.paso === n ? 'on' : SX.paso > n ? 'done' : ''}"><button type="button" data-act="paso" data-n="${n}" ${n > SX.paso && !(n === 2 && m.ls.length) ? 'disabled' : ''} aria-current="${SX.paso === n ? 'step' : 'false'}"><b>${n}</b><span>${t}</span></button></li>`).join('')}</ol>
     ${SX.recuperado ? `<div class="sx-banner info" role="status"><span>Recuperamos su compra sin terminar${SX.paso === 3 ? '. El comprobante no se guarda: vuelva a adjuntarlo.' : '.'}</span><button type="button" class="sx-link" data-act="descartar">Descartar</button></div>` : ''}
     ${!sxCatalogoVivo() ? `<div class="sx-banner warn" role="status"><span>Validando precios y disponibilidad con el servidor…</span><button type="button" class="sx-link" data-act="recargar-catalogo">Reintentar</button></div>` : ''}
@@ -708,11 +705,11 @@ function sxConfirmacionHtml() {
     <span class="sx-confirm-ic" aria-hidden="true">✓</span>
     <h1 id="sxConfTitulo" tabindex="-1">Pedido #${sxEsc(c.ref)} ${c.duplicado ? 'ya estaba registrado' : 'recibido'}</h1>
     <p>${c.duplicado ? 'Este pedido ya había llegado antes: no se creó otro.' : `El servidor confirmó el registro${c.destinoLabel ? ` y avisó a ${sxEsc(c.destinoLabel.replace(/^[^\p{L}]+/u, ''))}` : ''}.`} Estado: <span class="sx-pill ${cls}">${label}</span></p>
-    <p class="sx-help">“Recibido” no significa pago verificado: el equipo revisa el comprobante y después entrega. Lo verá cambiar en Pedidos.</p>
+    <p class="sx-help"><b>Todavía no significa entregado.</b> “Recibido” no significa pago verificado: el equipo revisa el comprobante y después entrega. Lo verá cambiar en Pedidos.</p>
     <p class="sx-help">Cliente: <b>${sxEsc(c.principal)}</b></p>
     <ul class="sx-review">${c.lineas.map((l) => `<li><div><b>${sxEsc(l.nombre)}${l.cantidad > 1 ? ` × ${l.cantidad}` : ''}</b></div><span>${l.precio === null ? 'Por confirmar' : money(l.precio * l.cantidad)}</span></li>`).join('')}</ul>
     <dl class="sx-totals"><div><dt>Descuento</dt><dd>−${money(c.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(c.total)}</dd></div></dl>
-    <div class="sx-confirm-actions"><button type="button" class="sx-btn pri" data-act="ver-pedido">Ver pedido</button><button type="button" class="sx-btn sec" data-act="nueva-compra">Nueva compra</button></div>
+    <div class="sx-confirm-actions"><button type="button" class="sx-btn pri" data-act="ver-pedido">Ver mi pedido</button><button type="button" class="sx-btn sec" data-act="nueva-compra">Nueva compra</button></div>
     <p class="sx-help">¿Otro cliente? Use “Nueva compra”: cada cliente lleva su propio pedido y comprobante.</p>
   </section></div>`;
 }
@@ -761,7 +758,7 @@ function vPedidos() {
     return (sxPedFiltro === 'todos' || cls === sxPedFiltro) && (!q || sxNorm([x.ref, x.servicio, sxPedidoCliente(x), ...(x.productos || []).map((p) => `${p.servicio} ${p.clienteNombre}`)].join(' ')).includes(q));
   });
   const cuenta = (k) => (misCompras || []).filter((x) => sxEstadoPedido(x.estado)[0] === k).length;
-  content.innerHTML = `<div class="sx-page">${sxHero('buy', 'Pedidos y entregas', 'Siga cada pedido y abra las entregas de sus clientes.', 'SEGUIMIENTO')}<div class="sx-head-actions"><button type="button" class="sx-btn pri" data-act="nueva">Nueva compra</button></div>
+  content.innerHTML = `<div class="sx-page">${sxHero('buy', 'Pedidos y entregas', '')}
     ${sxPedTabsHtml()}
     <div class="sx-tools"><label class="sx-field sx-search"><span>Buscar pedido</span><input id="sxPedBuscar" type="search" value="${sxAttr(sxPedBuscar)}" placeholder="Número, cliente o servicio"></label></div>
     <div class="sx-filter" role="group" aria-label="Filtrar por estado">${SX_FILTROS_PED.map(([k, l]) => `<button type="button" class="sx-chip ${sxPedFiltro === k ? 'on' : ''}" aria-pressed="${sxPedFiltro === k}" data-act="filtro" data-v="${k}">${l}${k !== 'todos' && cuenta(k) ? ` · ${cuenta(k)}` : ''}</button>`).join('')}</div>
@@ -1066,67 +1063,7 @@ function sxSidebarNuevo() {
   }
   try { applyNavPermissions(); actualizarBadgeBuzon(); } catch (_) {}
 }
-// Menú "Más" del celular (el de siempre) + acceso a Pedidos y entregas.
-(function sxMasPedidos() {
-  const grid = document.querySelector('#partnerQuick .quick-sheet-grid'); if (!grid || grid.querySelector('[data-qv="pedidos"]')) return;
-  const b = document.createElement('button'); b.type = 'button'; b.dataset.qv = 'pedidos'; b.textContent = '📦 Pedidos y entregas';
-  b.addEventListener('click', () => { closePartnerQuick(); go('pedidos'); });
-  grid.insertBefore(b, grid.children[1] || null);
-})();
-// Menú lateral de computadora (el de siempre) + Pedidos debajo de Compras.
-try { if (typeof WEB_NAV_ITEMS !== 'undefined' && !WEB_NAV_ITEMS.some((x) => x.v === 'pedidos')) WEB_NAV_ITEMS.splice(WEB_NAV_ITEMS.findIndex((x) => x.v === 'compras') + 1, 0, { v: 'pedidos', label: 'Pedidos', tone: 'purple', icon: 'catalog' }); } catch (_) {}
 
-/* Funciones de hoy dentro de la interfaz de siempre ------------------------------------------------ */
-// Inicio de siempre + tarjeta "Pendientes de hoy" (solo si hay algo pendiente).
-function sxPendientesHtml() {
-  if (socioSinCompras()) return '';
-  const pedidos = misCompras || [];
-  const faltaInfo = pedidos.filter((x) => sxEstadoPedido(x.estado)[0] === 'warn'), enCurso = pedidos.filter((x) => ['info', 'work'].includes(sxEstadoPedido(x.estado)[0]));
-  const nuevas = typeof sxNovedades === 'object' && sxNovedades ? (sxNovedades.entregas || []).length : 0;
-  const tarea = (cls, titulo, detalle, accion, label) => `<li class="sx-task ${cls}"><div><b>${titulo}</b><small>${detalle}</small></div><button type="button" class="sx-btn sec sm" data-go="${accion}">${label}</button></li>`;
-  const t = [
-    sxTieneBorrador() ? tarea('info', 'Tiene una compra sin terminar', 'Se guardó en este dispositivo.', 'compras', 'Continuar') : '',
-    ...sxGuardados().slice(0, 2).map((g) => tarea('info', `Compra guardada para ${sxEsc(sxNombreCompleto(g.principal) || 'otro cliente')}`, `${g.renglones.length} servicio(s) sin enviar.`, 'compras', 'Ver')),
-    ...faltaInfo.slice(0, 3).map((x) => tarea('warn', `Pedido #${sxEsc(x.ref)}: falta información`, sxEsc(x.detalleEstado || 'Revise qué dato pide el equipo.'), `pedido:${x.id}`, 'Completar')),
-    nuevas ? tarea('info', `${nuevas} entrega${nuevas === 1 ? '' : 's'} nueva${nuevas === 1 ? '' : 's'}`, 'Datos de acceso listos para sus clientes.', 'entregas', 'Ver') : '',
-    enCurso.length ? tarea('', `${enCurso.length} pedido${enCurso.length === 1 ? '' : 's'} en curso`, 'Recibidos o en preparación por el equipo.', 'pedidos', 'Ver') : '',
-  ].filter(Boolean);
-  if (!t.length) return '';
-  return webDesktopMode()
-    ? `<section class="web-summary-card sx-pend"><header><h3>Pendientes de hoy</h3><span>${t.length}</span></header><ul class="sx-tasks">${t.join('')}</ul></section>`
-    : `<div class="card sx-pend"><div class="card-h"><h2>📌 Pendientes de hoy</h2></div><ul class="sx-tasks">${t.join('')}</ul></div>`;
-}
-function sxPintarPendientes() {
-  if (current !== 'inicio') return;
-  content.querySelector('.sx-pend')?.remove();
-  const html = sxPendientesHtml(); if (!html) return;
-  const ref = content.firstElementChild;
-  ref ? ref.insertAdjacentHTML('afterend', html) : content.insertAdjacentHTML('afterbegin', html);
-  content.querySelectorAll('.sx-pend [data-go]').forEach((b) => b.addEventListener('click', () => {
-    const g = b.dataset.go;
-    if (g.startsWith('pedido:')) { sxPedidoAbierto = g.slice(7); sxPedTab = 'pedidos'; go('pedidos'); return; }
-    if (g === 'entregas') { sxPedidoAbierto = ''; sxPedTab = 'entregas'; go('pedidos'); return; }
-    if (g === 'pedidos') sxPedTab = 'pedidos';
-    go(g);
-  }));
-}
-const sxVInicioBase = vInicio;
-vInicio = function () {
-  const r = sxVInicioBase.apply(this, arguments);
-  sxPintarPendientes();
-  if (!socioSinCompras() && !dataFresh('compras')) loadMisCompras()?.then?.(() => sxPintarPendientes());
-  return r;
-};
-// Tarjeta de cliente de siempre + "Nueva compra" para ese cliente y sus últimos pedidos.
-const sxCliCardBase = cliCard;
-cliCard = function (c) {
-  const html = sxCliCardBase.apply(this, arguments);
-  if (socioSinCompras() || !c) return html;
-  const peds = sxPedidosDeCliente(c).slice(0, 3);
-  const desk = webDesktopMode();
-  const extra = `<div class="sx-cli-extra" data-cli-id="${sxAttr(c.id)}"><button type="button" class="${desk ? 'web-secondary' : 'act ghost'}" data-cli="comprar" data-id="${sxAttr(c.id)}">🛒 Nueva compra</button>${peds.map((o) => { const [cls, label] = sxEstadoPedido(o.estado); return `<button type="button" class="sx-cli-ped ${cls}" data-cli="pedido" data-id="${sxAttr(o.id)}">📦 #${sxEsc(o.ref || String(o.id).slice(-6).toUpperCase())} · ${sxEsc(label)}</button>`; }).join('')}</div>`;
-  return html.replace(/(<\/(?:div|article)>\s*)$/, `${extra}$1`);
-};
 const sxGoBase = go;
 go = function (v) {
   if (v === 'pedidos') {
@@ -1149,7 +1086,6 @@ renderUnifiedSidebar();
 // Un solo receptor de clics por vista (no se acumulan al volver a entrar).
 content.addEventListener('click', (ev) => {
   if (current === 'pedidos') sxOnClickPedidos(ev);
-  else if (current === 'clientes' && ev.target.closest('.sx-cli-extra')) sxOnClickClientes(ev);
 });
 
 // La sesión guardada se abre (messaging.js) antes de que cargue este archivo: repintar con las vistas nuevas.
