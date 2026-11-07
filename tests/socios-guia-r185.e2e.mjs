@@ -289,8 +289,9 @@ await caso('R185-04 · Clientes: cinco filtros con contadores del mismo selector
   await page.click('.sxg-chip[data-v="todos"]');
   const nombres = await page.$$eval('.sxg-cli b', (bs) => bs.map((b) => b.textContent));
   assert.equal(new Set(nombres).size, nombres.length, 'sin clientes duplicados');
-  const chips = await page.$$eval('.sxg-chip', (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return r.right <= window.innerWidth && r.left >= 0; }));
-  assert.ok(chips.every(Boolean), 'los cinco filtros se ven completos en el celular');
+  // R191: una sola fila deslizante; cada chip con su texto completo en un renglón (antes se exigía que todos cupieran a la vez).
+  const chips = await page.$$eval('.sxg-chip', (bs) => bs.map((b) => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().height <= 48));
+  assert.ok(chips.every(Boolean) && chips.length === 5, 'los cinco filtros, completos y en un renglón');
   assert.match(await page.textContent('.sxg-cli[data-id="c4"]'), /4 servicios · Netflix \+ 3 más[\s\S]*L380 total/);
   await shot(page, 'm-03-clientes.png');
   await page.fill('#cliSearch', 'crunchy'); await page.waitForTimeout(80);
@@ -450,11 +451,12 @@ await caso('R190-01/02 · «Hola, <primer nombre>» del socio autenticado (Yami 
   const page = await ctx.newPage(); await page.goto(BASE); await page.waitForSelector('#sxgHola');
   assert.equal(await page.locator('#sxgHola .sxg-esq-nombre').count(), 1, 'mientras carga: esqueleto, no «Hola» suelto');
   await page.waitForFunction(() => document.getElementById('sxgHola')?.textContent === 'Hola, Yami', null, { timeout: 8000 });
-  assert.equal(await page.textContent('#sxgAvatar'), 'YV', 'iniciales reales, no un punto');
+  assert.equal(await page.getAttribute('#sxgAvatar img', 'src'), await page.evaluate(() => ROBOT_IMG), 'sin foto guardada: la imagen de Mi perfil (R191), no un punto');
+  assert.equal(await page.$eval('#sxgAvatar img', (i) => i.dataset.resp), 'YV', 'si la imagen falla: iniciales reales');
   await ctx.close();
 });
 
-await caso('R190-03/04 · Avatar: foto real del Perfil (toca → Mi perfil); sin foto → iniciales; nunca «·»', async () => {
+await caso('R190-03/04 · Avatar: foto real del Perfil (toca → Mi perfil); sin foto → la misma imagen de Mi perfil; si no carga → iniciales; nunca «·»', async () => {
   const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const E = estadoGuia(); E.gam = { perfil: { nombreMostrar: 'Jimena', avatar: foto, ventas: 12 } };
   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
@@ -468,7 +470,10 @@ await caso('R190-03/04 · Avatar: foto real del Perfil (toca → Mi perfil); sin
   await ctx.close();
   const E2 = estadoGuia(); E2.gam = { perfil: { nombreMostrar: 'Jimena López', ventas: 1 } };
   const b = await abrir({ width: 390, height: 844 }, E2);
-  await b.page.waitForFunction(() => document.getElementById('sxgAvatar')?.textContent === 'JL');
+  await b.page.waitForFunction(() => document.querySelector('#sxgAvatar img')?.getAttribute('src') === ROBOT_IMG, null, { timeout: 8000 });
+  await b.page.evaluate(() => { gamificacion.perfil.avatar = 'https://imagenes.invalidas.example/no-existe.png'; applySocioAvatar(); });
+  await b.page.route('https://imagenes.invalidas.example/**', (rt) => rt.abort());
+  await b.page.waitForFunction(() => document.getElementById('sxgAvatar')?.textContent === 'JL', null, { timeout: 8000 });
   assert.doesNotMatch(await b.page.textContent('#sxgAvatar'), /·/);
   await b.ctx.close();
 });
@@ -516,6 +521,100 @@ await caso('R190-13 · Escritorio: Compras abre la tienda desde el menú lateral
   await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra .sxg-mis-pedidos');
   assert.ok(await sinDesborde(page)); await shot(page, 'r190-compras-tienda-1440.png');
   for (const w of [320, 360, 430]) { await page.setViewportSize({ width: w, height: 800 }); await page.evaluate(() => go('inicio')); await page.waitForTimeout(120); assert.ok(await sinDesborde(page), `${w}px`); await page.evaluate(() => go('compras')); await page.waitForTimeout(120); assert.ok(await sinDesborde(page), `${w}px compras`); }
+  await ctx.close();
+});
+
+/* =========================== R191 · 3 correcciones visuales (PDF 07/11): avatar+nombre, filtros en una fila, Continuar compacto =========================== */
+await caso('R191-01/02 · Cuenta «Sublicuentas» (vista desde Admin): «Hola, Sublicuentas» y la MISMA imagen de Mi perfil en la cabecera; otro socio, la suya', async () => {
+  const E = estadoGuia(); E.me = { nombre: 'Sublicuentas', nombre_norm: 'sublicuentas', usuario: 'sublicuentas', nombreMostrar: 'Sublicuentas', capabilities: null };
+  E.gam = { perfil: { nombreMostrar: 'Sublicuentas', ventas: 331, nivel: 'Inmortal' } };
+  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+  await page.waitForFunction(() => document.getElementById('sxgHola')?.textContent === 'Hola, Sublicuentas', null, { timeout: 8000 });
+  await page.waitForSelector('#sxgAvatar img');
+  const cab = await page.getAttribute('#sxgAvatar img', 'src');
+  assert.equal(await page.locator('#sxgAvatar svg').count(), 0, 'sin ícono genérico');
+  await shot(page, 'r191-inicio-sublicuentas.png');
+  await page.click('#sxgAvatar'); await page.waitForSelector('.profile-photo');
+  assert.equal(await page.getAttribute('.profile-photo', 'src'), cab, 'la cabecera muestra la misma imagen que Mi perfil');
+  await shot(page, 'r191-perfil-sublicuentas.png');
+  assert.deepEqual(errores, []); await ctx.close();
+  const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const E2 = estadoGuia(); E2.me = { nombre: 'Yami Valladares', nombre_norm: 'yami', usuario: 'yami', capabilities: null }; E2.gam = { perfil: { nombreMostrar: 'Yami', avatar: foto } };
+  const b = await abrir({ width: 390, height: 844 }, E2);
+  await b.page.waitForFunction((f) => document.getElementById('sxgHola')?.textContent === 'Hola, Yami' && document.querySelector('#sxgAvatar img')?.getAttribute('src') === f, foto, { timeout: 8000 });
+  await b.ctx.close();
+});
+
+await caso('R191-03 · Cambiar foto o nombre en Mi perfil se refleja en la cabecera y el saludo sin recargar', async () => {
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, estadoGuia());
+  await page.waitForFunction(() => document.getElementById('sxgHola')?.textContent === 'Hola, Jimena');
+  const nueva = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  await page.evaluate((f) => { gamificacion.perfil = { ...(gamificacion.perfil || {}), avatar: f }; applySocioAvatar(); rev.nombreMostrar = 'Jime'; gamificacion.perfil.nombreMostrar = 'Jime'; renderTop(); }, nueva);
+  await page.waitForFunction((f) => document.querySelector('#sxgAvatar img')?.getAttribute('src') === f && document.getElementById('sxgHola')?.textContent === 'Hola, Jime', nueva);
+  await ctx.close();
+});
+
+await caso('R191-05/06 · Clientes 320–390 px: los cinco filtros en UNA fila deslizante, texto completo; cada filtro filtra y queda visible', async () => {
+  for (const w of [320, 360, 390]) {
+    const { page, ctx } = await abrir({ width: w, height: 800 }, estadoGuia());
+    await page.evaluate(() => go('clientes')); await page.waitForSelector('.sxg-cli:not(.sxg-cli-esq)');
+    const m = await page.$eval('.sxg-chips', (f) => { const cs = [...f.querySelectorAll('.sxg-chip')]; return { n: cs.length, tops: [...new Set(cs.map((c) => c.offsetTop))].length, alto: Math.max(...cs.map((c) => c.getBoundingClientRect().height)), desliza: f.scrollWidth > f.clientWidth, ov: getComputedStyle(f).overflowX, textos: cs.map((c) => c.textContent.trim()) }; });
+    assert.equal(m.n, 5); assert.equal(m.tops, 1, `${w}px: una sola fila`); assert.ok(m.alto <= 48, `${w}px: chips de un renglón (${m.alto})`); assert.equal(m.ov, 'auto');
+    assert.deepEqual(m.textos.map((t) => t.replace(/\s*\d+$/, '')), ['Todos', 'Vigentes', 'Renovaciones', 'Vencidos', 'Sin servicio']);
+    assert.ok(await sinDesborde(page), `${w}px sin desplazamiento horizontal de la página`);
+    if (w === 320) await shot(page, 'r191-clientes-320.png');
+    if (w === 390) await shot(page, 'r191-clientes-390.png');
+    for (const k of ['sin_servicio', 'vencidos', 'renovaciones', 'vigentes', 'todos']) {
+      const b = page.locator(`.sxg-chip[data-v="${k}"]`); if (!(await b.count())) continue;
+      const esperado = Number((await b.textContent()).match(/(\d+)\s*$/)?.[1] || 0);
+      await b.click(); await page.waitForTimeout(80);
+      const v = await page.$eval('.sxg-chips', (f) => { const on = f.querySelector('.sxg-chip.on'), a = on.getBoundingClientRect(), z = f.getBoundingClientRect(); return { k: on.dataset.v, visible: a.left >= z.left - 1 && a.right <= z.right + 1 }; });
+      assert.equal(v.k, k); assert.ok(v.visible, `${w}px: ${k} activo y a la vista`);
+      const n = await page.locator('#sxCliLista .sxg-cli').count();
+      assert.equal(n, esperado, `${k}: la lista cuadra con su contador`);
+    }
+    await ctx.close();
+  }
+});
+
+await caso('R191-07/08/09 · Compras: barra compacta «0 servicios · Total L0» + Continuar 40–44 px deshabilitado; con productos habilitado y sigue a Cliente', async () => {
+  for (const w of [320, 390]) {
+    const E = estadoGuia(); const antes = E.pedidos.size;
+    const { page, ctx, errores } = await abrir({ width: w, height: 760 }, E);
+    await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxBottomBar .sx-btn');
+    const b = await page.evaluate(() => { const bar = document.getElementById('sxBottomBar'), btn = bar.querySelector('.sx-btn'), nav = document.getElementById('nav'); const rb = btn.getBoundingClientRect(), rbar = bar.getBoundingClientRect(); return { txt: bar.querySelector('span').textContent.trim(), dis: btn.disabled, h: rb.height, w: rb.width, barH: rbar.height, barBottom: rbar.bottom, navTop: nav.getBoundingClientRect().top, fila: Math.abs(bar.querySelector('span').getBoundingClientRect().top - rb.top) < 30 }; });
+    assert.equal(b.txt, '0 servicios · Total L0'); assert.equal(b.dis, true, 'deshabilitado con carrito vacío');
+    assert.ok(b.h >= 40 && b.h <= 44, `${w}px: alto ${b.h}`); assert.ok(b.w < w * 0.6, `${w}px: ancho proporcionado ${b.w}`);
+    assert.ok(b.fila && b.barH <= 64, `${w}px: resumen y botón en una sola barra (${b.barH}px)`);
+    assert.ok(b.barBottom <= b.navTop + 1, 'la barra va ENCIMA del menú, no lo tapa');
+    // el último producto se puede ver completo: el contenido termina por encima de la barra
+    await page.evaluate(() => { const se = document.scrollingElement || document.documentElement; se.scrollTop = 1e6; document.body.scrollTop = 1e6; document.documentElement.scrollTop = 1e6; window.scrollTo(0, 1e6); }); await page.waitForTimeout(200);
+    const ult = await page.evaluate(() => { const ps = [...document.querySelectorAll('#sxCompra .sx-prod')]; return { fin: ps[ps.length - 1].getBoundingClientRect().bottom, bar: document.getElementById('sxBottomBar').getBoundingClientRect().top }; });
+    assert.ok(ult.fin <= ult.bar + 1, `${w}px: la barra no tapa el último producto (${ult.fin} ≤ ${ult.bar})`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    if (w === 390) await shot(page, 'r191-compras-vacio-390.png');
+    await page.locator('#sxCompra button[data-act="agregar"]:not([disabled])').first().click(); await page.waitForTimeout(120);
+    assert.match(await page.textContent('#sxBottomBar span'), /^1 servicio · Total L\d/);
+    assert.equal(await page.$eval('#sxBottomBar .sx-btn', (x) => x.disabled), false);
+    if (w === 390) await shot(page, 'r191-compras-1-producto-390.png');
+    await page.click('#sxBottomBar .sx-btn'); await page.waitForFunction(() => SX.paso === 2);
+    assert.equal(E.pedidos.size, antes, 'no se registró ningún pedido');
+    assert.deepEqual(errores, []); await ctx.close();
+  }
+});
+
+await caso('R191-10/11 · Teclado abierto: la barra de compra y el menú no tapan el campo; Mis pedidos sigue con su historial', async () => {
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, estadoGuia(), { hasTouch: true, isMobile: true });
+  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra');
+  const sinTeclado = await page.evaluate(() => { document.querySelector('#sxCompra input').focus(); return getComputedStyle(document.getElementById('nav')).display; });
+  assert.notEqual(sinTeclado, 'none', 'sin teclado en pantalla (p. ej. teclado físico) no se oculta nada');
+  const campo = page.locator('#sxCompra input[type="search"], #sxCompra input').first(); await campo.focus();
+  await page.setViewportSize({ width: 390, height: 500 }); await page.waitForTimeout(300); // el teclado ocupa la parte de abajo
+  const ocultos = await page.evaluate(() => ({ bar: getComputedStyle(document.getElementById('sxBottomBar')).display, nav: getComputedStyle(document.getElementById('nav')).display }));
+  assert.deepEqual(ocultos, { bar: 'none', nav: 'none' }, JSON.stringify(await page.evaluate(() => ({ cls: document.body.className, foco: document.activeElement?.tagName, w: innerWidth }))));
+  await campo.evaluate((x) => x.blur()); await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(500);
+  assert.notEqual(await page.evaluate(() => getComputedStyle(document.getElementById('nav')).display), 'none', 'al cerrar el teclado vuelven');
+  await page.click('.sxg-mis-pedidos'); await page.waitForSelector('.sxg-ped'); assert.equal(await page.locator('.sxg-ped').count(), 5);
   await ctx.close();
 });
 
