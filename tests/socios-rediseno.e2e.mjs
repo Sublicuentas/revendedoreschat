@@ -401,9 +401,9 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
   const E = nuevoEstado();
   const { page, ctx } = await abrir({ width: 1440, height: 900 }, E);
   await shot(page, '50-escritorio-inicio.png');
-  assert.match(await page.textContent('.sx-tasks'), /falta información/);
+  assert.match(await page.textContent('.sxg-alerta'), /falta información/); // R185: aviso de pedido incompleto en Inicio
   await page.evaluate(() => go('pedidos')); await page.waitForSelector('.sx-orders');
-  await page.click('[data-act="filtro"][data-v="warn"]');
+  await page.fill('#sxPedBuscar', 'ABC123'); await page.waitForTimeout(80); // R185: Compras = pestañas Todos/Entregados + búsqueda
   assert.equal(await page.locator('.sx-order').count(), 1);
   await shot(page, '51-escritorio-pedidos.png');
   await page.click('.sx-order'); await page.waitForSelector('#sxPedTitulo');
@@ -422,13 +422,13 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
   await ctx.close();
 });
 
-await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú ⋯, Inicio con tareas, cliente → ficha → compra/renovar, catálogo al mismo carrito, cierre de compra sin tapar contenido', async () => {
+await caso('Orden visual (R185): cinco accesos, "Más" con todos los destinos, menú ⋯, Inicio con tareas, cliente → ficha → compra/renovar, catálogo al mismo carrito, cierre de compra sin tapar contenido', async () => {
   // Computadora: menú lateral con los mismos destinos y en el orden de la guía
   const E = nuevoEstado();
   const { page, ctx, errores } = await abrir({ width: 1440, height: 900 }, E);
   const lateral = await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.textContent.trim()));
-  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Pedidos', 'Renovaciones', 'Catálogo', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']);
-  await page.waitForSelector('.sx-tasks'); assert.match(await page.textContent('.sx-tasks'), /falta información/);
+  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Catálogo', 'Renovaciones', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']); // R185
+  await page.waitForSelector('.sxg-alerta'); assert.match(await page.textContent('.sxg-alerta'), /falta información/);
   await page.evaluate(() => go('precios')); await page.waitForSelector('.sx-cat-grid');
   await page.click('[data-cat-act="agregar"][data-pid="cat_hbo_platino"]');
   assert.equal(await page.evaluate(() => current), 'precios', 'agregar conserva la posición');
@@ -451,7 +451,7 @@ await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú �
   // Celular
   const m = await abrir({ width: 390, height: 844 }, E);
   const barra = await m.page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
-  assert.deepEqual(barra, ['inicio', 'clientes', 'compras', 'pedidos', 'mas']);
+  assert.deepEqual(barra, ['inicio', 'clientes', 'pedidos', 'precios', 'mas']); // R185: Inicio | Clientes | Compras | Catálogo | Más
   const pedidosAntes = E.pedidos.size;
   await m.page.click('#nav [data-v="mas"]'); await m.page.waitForSelector('.sxo-mas');
   assert.equal(E.pedidos.size, pedidosAntes, '"Más" no crea pedidos');
@@ -459,7 +459,7 @@ await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú �
   for (const v of ['renovar', 'precios', 'buzon', 'aula', 'recompensas', 'perfil']) {
     await m.page.click('#nav [data-v="mas"]'); await m.page.click(`.sxo-mas [data-go="${v}"]`);
     assert.equal(await m.page.evaluate(() => current), v);
-    assert.equal(await m.page.locator('#nav [data-v="mas"].on').count(), 1, `"Más" queda marcado en ${v}`);
+    assert.equal(await m.page.locator(`#nav [data-v="${v === 'precios' ? 'precios' : 'mas'}"].on`).count(), 1, `botón marcado en ${v}`);
   }
   await m.page.click('#sxoMenuBtn'); await m.page.waitForSelector('#sxoMenu:not([hidden])');
   assert.match(await m.page.textContent('#sxoMenu'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
