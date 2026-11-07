@@ -1,4 +1,4 @@
-const CACHE='sublicuentas-socios-guia-20261107-r190';
+const CACHE='sublicuentas-socios-guia-20261107-r191';
 const SHELL=['./','./index.html','./assets/app.css','./assets/panel-web-20260925.css','./assets/core.js','./assets/operations.js','./assets/catalog-aula.js','./assets/panel-web-20260925.js','./assets/messaging.js','./assets/socios-2026.js','./assets/socios-2026.css','./assets/socios-entregas.js','./assets/socios-orden.js','./assets/socios-orden.css','./assets/socios-guia.js','./assets/socios-guia.css','./assets/logo-sublicuentas.webp','./assets/robot-socios.webp','./assets/icon-192.png','./assets/icon-512.png','./manifest.webmanifest'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
