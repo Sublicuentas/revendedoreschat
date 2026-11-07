@@ -267,3 +267,22 @@ body.sxg .sx-cat-btn.on,body.sxg .sx-cat-tabs .on{background:var(--g-red)!import
 .sxg-avatar,.sxg-kpi,.sxg-btn,.sxg-mis-pedidos{transition:transform .16s ease,box-shadow .16s ease}
 .sxg-avatar:active,.sxg-kpi:active,.sxg-btn:active{transform:scale(.98)}
 @media (prefers-reduced-motion: reduce){.sxg-avatar,.sxg-kpi,.sxg-btn,.sxg-mis-pedidos{transition:none}}
+/* R191 · avatar = imagen de Mi perfil (foto guardada o la de perfil por defecto), recortada en círculo */
+.sxg-avatar.es-robot{background:#fff}
+.sxg-avatar img{object-fit:cover}
+.sxg-avatar span{font:700 15px var(--g-font)}
+/* R191 · Clientes: los cinco filtros en UNA fila deslizante (sin saltar a 2–3 renglones) */
+.sxg-chips{flex-wrap:nowrap!important;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x proximity;padding:2px 2px 6px;margin:0 -2px 6px!important;scroll-padding-inline:16px}
+.sxg-chips::-webkit-scrollbar{display:none}
+.sxg-chips>.sxg-chip{flex:0 0 auto;white-space:nowrap;min-height:44px;scroll-snap-align:start}
+.sxg-chips-hint{display:none;margin:-2px 0 10px;font:500 12.5px var(--g-font);color:var(--g-muted)}
+@media (max-width:599px){.sxg-chips-hint{display:block}}
+/* R191 · Compras: barra compacta «N servicios · Total» + «Continuar» proporcionado, encima del menú, sin tapar productos */
+@media (max-width:899px){
+  body.sxg .sx-bottom-bar{flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:8px 12px!important;min-height:58px}
+  body.sxg .sx-bottom-bar>span{flex:1 1 auto;min-width:0;font-size:14px;line-height:1.25;overflow-wrap:anywhere}
+  body.sxg .sx-bottom-bar .sx-btn{flex:0 0 auto;width:auto!important;min-width:108px;height:42px;min-height:42px!important;padding:0 16px!important;font-size:15px!important;white-space:nowrap;border-radius:12px!important}
+  body.sxg.sx-con-barra #app.wrap{padding-bottom:calc(var(--g-nav) + 84px + env(safe-area-inset-bottom))!important}
+  html body.sxg.sxg-teclado .sx-bottom-bar,html body.sxg.sxg-teclado #nav,html body.sxg.sxg-teclado #nav.sxg-nav{display:none!important}
+  body.sxg-teclado.sx-con-barra #app.wrap{padding-bottom:16px!important}
+}

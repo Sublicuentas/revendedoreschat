@@ -185,7 +185,9 @@ vistaGeisellPermitida = function (v) { if (v === 'metas') return sxgPermBase('in
 // /rev/me o el login → el del token de sesión emitido por el servidor. Solo se usa para mostrar; los permisos no salen de aquí.
 // Causas del «Hola» sin nombre: (1) el login descartaba nombreMostrar; (2) Inicio no se repintaba cuando llegaba el perfil
 // (renderTop solo actualizaba el saludo viejo); (3) sin nombre, el avatar dibujaba «·» en vez de la foto o las iniciales.
-const SXG_NO_NOMBRE = ['', 'socio', 'sublicuentas', 'sublichat', 'admin', 'administrador'];
+// R191 · El nombre visible que el socio guardó en Mi perfil SIEMPRE se respeta (también «Sublicuentas»: es la cuenta de socio
+// de Sublicuentas, no el administrador). Antes ese nombre se descartaba y la cabecera quedaba con el ícono genérico.
+const SXG_NO_NOMBRE = ['', 'socio'];
 let sxgMeListo = false;
 function sxgTokenPerfil() {
   try { const p = String((typeof API !== 'undefined' && API.token) || '').split('.')[1]; if (!p) return {}; const b = atob(p.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(p.length / 4) * 4, '=')); return JSON.parse(decodeURIComponent(Array.from(b, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''))) || {}; } catch (_) { return {}; }
@@ -201,11 +203,15 @@ function sxgNombreSocio() {
 }
 function sxgPrimerNombre() { const n = sxgNombreSocio().split(' ')[0] || ''; return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''; }
 function sxgIniciales() { const p = sxgNombreSocio().split(' ').filter(Boolean); return p.length ? (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase() : ''; }
-function sxgFotoSocio() { const a = (typeof gamificacion === 'object' && gamificacion?.perfil?.avatar) || ''; return a ? safeImageSrc(a, '') : ''; }
+// R191 · La cabecera muestra EXACTAMENTE la imagen de «Mi perfil» (la misma regla que esa pantalla: la foto guardada, o la
+// imagen de perfil que ya muestra Mi perfil). Si la imagen no carga: iniciales del socio. Nunca el ícono genérico ni un punto.
+function sxgFotoGuardada() { const a = (typeof gamificacion === 'object' && gamificacion?.perfil?.avatar) || ''; return a ? safeImageSrc(a, '') : ''; }
+function sxgFotoSocio() { return sxgFotoGuardada() || (typeof ROBOT_IMG !== 'undefined' ? ROBOT_IMG : ''); }
 function sxgAvatarHtml() {
   const foto = sxgFotoSocio(), ini = sxgIniciales();
-  if (foto) return `<img src="${sxAttr(foto)}" alt="" width="44" height="44">`;
-  return ini ? `<span>${sxEsc(ini)}</span>` : sxgIc('user');
+  const resp = ini ? `<span>${sxEsc(ini)}</span>` : `<span>${sxEsc((sxgNombreSocio() || 'S').charAt(0).toUpperCase())}</span>`;
+  if (foto) return `<img src="${sxAttr(foto)}" alt="" width="44" height="44" data-resp="${sxAttr(ini || (sxgNombreSocio() || 'S').charAt(0).toUpperCase())}">`;
+  return resp;
 }
 function sxgSaludoHtml() {
   const n = sxgPrimerNombre();
@@ -216,7 +222,7 @@ function sxgSaludoHtml() {
 function sxgPintarIdentidad() {
   const h = document.getElementById('sxgHola'); if (h) { h.innerHTML = sxgSaludoHtml(); h.setAttribute('aria-busy', String(!sxgPrimerNombre() && !sxgMeListo)); }
   const av = document.getElementById('sxgAvatar');
-  if (av) { av.innerHTML = sxgAvatarHtml(); av.classList.toggle('con-foto', !!sxgFotoSocio()); av.setAttribute('aria-label', `Mi perfil${sxgNombreSocio() ? ` · ${sxgNombreSocio()}` : ''}`); }
+  if (av) { const clave = `${sxgFotoSocio().length}:${sxgFotoSocio().slice(-40)}:${sxgIniciales()}`; if (av.dataset.k !== clave) { av.dataset.k = clave; av.innerHTML = sxgAvatarHtml(); const im = av.querySelector('img'); if (im) im.addEventListener('error', () => { const sp = document.createElement('span'); sp.textContent = im.dataset.resp || ''; im.replaceWith(sp); av.classList.remove('con-foto'); }, { once: true }); } av.classList.toggle('con-foto', !!sxgFotoSocio()); av.classList.toggle('es-robot', !sxgFotoGuardada()); av.setAttribute('aria-label', `Mi perfil${sxgNombreSocio() ? ` · ${sxgNombreSocio()}` : ''}`); }
 }
 function sxgQuitarMenu() { // R190 · el ☰ abría un panel vacío: se quitan botón, panel y su superposición
   document.getElementById('sxoMenuBtn')?.remove(); document.getElementById('sxoMenu')?.remove();
@@ -352,7 +358,7 @@ function sxgClientesPintar(soloLista = false) {
   if (soloLista && document.getElementById('sxCliLista')) { document.getElementById('sxCliLista').innerHTML = listaHtml; const ch = content.querySelector('.sxg-chips'); if (ch) ch.innerHTML = chipsHtml; return; }
   content.innerHTML = `<div class="sx-page sxg-clientes">
     <header class="sxg-titulo"><h1>Clientes</h1></header>
-    <div class="sxg-chips" role="group" aria-label="Filtrar clientes">${chipsHtml}</div>
+    <div class="sxg-chips" role="group" aria-label="Filtrar clientes">${chipsHtml}</div><p class="sxg-chips-hint" aria-hidden="true">Deslice para ver más filtros →</p>
     <label class="sxg-buscar">${sxgIc('search')}<span class="sr">Buscar cliente</span><input id="cliSearch" type="search" value="${sxAttr(cliF || '')}" placeholder="Buscar cliente, teléfono o servicio" autocomplete="off"></label>
     <div id="sxCliLista">${listaHtml}</div>
     ${cargando ? '' : (() => { const fs = flat(), suma = (a) => a.reduce((t, x) => t + (x.precio || 0), 0); const vig = fs.filter((x) => esVigente(x.est)), sem = fs.filter((x) => x.est.n >= 0 && x.est.n <= sxgVentanaRenovacion()), ven = fs.filter((x) => x.est.n < 0);
@@ -510,6 +516,32 @@ content.addEventListener('change', (ev) => {
   if (box.dataset.sxgPer === 'av') { sxgAv.per = per; sxgAv.abierto = ''; vSugerencias(); }
   if (box.dataset.sxgPer === 'meta') { sxgMetaPer = per; sxgVMetas(); }
 });
+
+/* ---------------- R191 · Clientes: el filtro elegido queda a la vista en la fila deslizante ---------------- */
+function sxgChipVisible() {
+  const fila = content.querySelector('.sxg-chips'), on = fila && fila.querySelector('.sxg-chip.on'); if (!on) return;
+  const a = on.getBoundingClientRect(), z = fila.getBoundingClientRect();
+  if (a.left < z.left) fila.scrollLeft -= (z.left - a.left) + 16; else if (a.right > z.right) fila.scrollLeft += (a.right - z.right) + 16;
+}
+try { const sxgCliBase = sxgClientesPintar; sxgClientesPintar = function () { const pos = content.querySelector('.sxg-chips')?.scrollLeft || 0; const out = sxgCliBase.apply(this, arguments); const f = content.querySelector('.sxg-chips'); if (f) f.scrollLeft = pos; sxgChipVisible(); return out; }; sxoClientesPintar = sxgClientesPintar; } catch (_) {}
+
+/* ---------------- R191 · Compras: con el teclado abierto se ocultan la barra de compra y el menú inferior (no tapan campos) ---------------- */
+(function sxgTeclado() {
+  const vv = window.visualViewport; let alto = vv ? vv.height : window.innerHeight;
+  window.addEventListener('orientationchange', () => { alto = 0; });
+  const marcar = () => {
+    const foco = document.activeElement, campo = foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName) && foco.type !== 'checkbox' && foco.type !== 'radio' && foco.type !== 'file';
+    const h = vv ? vv.height : window.innerHeight; alto = Math.max(alto, h); // alto de la pantalla sin teclado
+    const teclado = window.innerWidth < 900 && h < alto * 0.78;            // el teclado ocupa parte de la pantalla
+    document.body.classList.toggle('sxg-teclado', !!campo && teclado);
+  };
+  // Se oculta al enfocar un campo; se muestra de nuevo un momento DESPUÉS de salir del campo, para que el toque que cerró
+  // el teclado caiga en el botón que se tocó y no en la barra que reaparece.
+  let t = 0;
+  document.addEventListener('focusin', () => { clearTimeout(t); const f = document.activeElement; if (f && /^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) marcar(); });
+  document.addEventListener('focusout', () => { clearTimeout(t); t = setTimeout(marcar, 350); });
+  vv?.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(marcar, 120); });
+})();
 
 /* ---------------- R190 · COMPRAS = tienda/carrito; «Mis pedidos» secundario ---------------- */
 try {
