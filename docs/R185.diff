@@ -1,0 +1,847 @@
+diff --git a/index.html b/index.html
+index f6f97c2..8dfe5dd 100644
+--- a/index.html
++++ b/index.html
+@@ -45,8 +45,9 @@ const ROBOT_IMG = "assets/robot-socios.webp";
+ <link rel="stylesheet" href="assets/panel-web-20260925.css">
+ <link rel="stylesheet" href="assets/socios-2026.css?v=20261030-5">
+ <link rel="stylesheet" href="assets/socios-orden.css?v=20261030-5">
++<link rel="stylesheet" href="assets/socios-guia.css?v=20261107-r185">
+ <link rel="manifest" href="manifest.webmanifest">
+-<meta name="theme-color" content="#E2231A">
++<meta name="theme-color" content="#FFFFFF">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-status-bar-style" content="default">
+ <link rel="apple-touch-icon" href="assets/icon-192.png">
+@@ -197,5 +198,6 @@ const ROBOT_IMG = "assets/robot-socios.webp";
+ <script src="assets/socios-2026.js?v=20261030-5" defer></script>
+ <script src="assets/socios-entregas.js?v=20261030-5" defer></script>
+ <script src="assets/socios-orden.js?v=20261030-5" defer></script>
++<script src="assets/socios-guia.js?v=20261107-r185" defer></script>
+ </body>
+ </html>
+diff --git a/service-worker.js b/service-worker.js
+index 70ea6ab..a4ce12a 100644
+--- a/service-worker.js
++++ b/service-worker.js
+@@ -1,5 +1,5 @@
+-const CACHE='sublicuentas-socios-rediseno-20261030-5';
+-const SHELL=['./','./index.html','./assets/app.css','./assets/panel-web-20260925.css','./assets/core.js','./assets/operations.js','./assets/catalog-aula.js','./assets/panel-web-20260925.js','./assets/messaging.js','./assets/socios-2026.js','./assets/socios-2026.css','./assets/socios-entregas.js','./assets/socios-orden.js','./assets/socios-orden.css','./assets/robot-socios.webp','./assets/icon-192.png','./assets/icon-512.png','./manifest.webmanifest'];
++const CACHE='sublicuentas-socios-guia-20261107-r185';
++const SHELL=['./','./index.html','./assets/app.css','./assets/panel-web-20260925.css','./assets/core.js','./assets/operations.js','./assets/catalog-aula.js','./assets/panel-web-20260925.js','./assets/messaging.js','./assets/socios-2026.js','./assets/socios-2026.css','./assets/socios-entregas.js','./assets/socios-orden.js','./assets/socios-orden.css','./assets/socios-guia.js','./assets/socios-guia.css','./assets/logo-sublicuentas.webp','./assets/robot-socios.webp','./assets/icon-192.png','./assets/icon-512.png','./manifest.webmanifest'];
+ self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
+ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+ async function networkFirst(req,fallback){
+diff --git a/tests/socios-rediseno.e2e.mjs b/tests/socios-rediseno.e2e.mjs
+index 1a400ca..ac76c85 100644
+--- a/tests/socios-rediseno.e2e.mjs
++++ b/tests/socios-rediseno.e2e.mjs
+@@ -401,9 +401,9 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
+   const E = nuevoEstado();
+   const { page, ctx } = await abrir({ width: 1440, height: 900 }, E);
+   await shot(page, '50-escritorio-inicio.png');
+-  assert.match(await page.textContent('.sx-tasks'), /falta información/);
++  assert.match(await page.textContent('.sxg-alerta'), /falta información/); // R185: aviso de pedido incompleto en Inicio
+   await page.evaluate(() => go('pedidos')); await page.waitForSelector('.sx-orders');
+-  await page.click('[data-act="filtro"][data-v="warn"]');
++  await page.fill('#sxPedBuscar', 'ABC123'); await page.waitForTimeout(80); // R185: Compras = pestañas Todos/Entregados + búsqueda
+   assert.equal(await page.locator('.sx-order').count(), 1);
+   await shot(page, '51-escritorio-pedidos.png');
+   await page.click('.sx-order'); await page.waitForSelector('#sxPedTitulo');
+@@ -422,13 +422,13 @@ await caso('Pedidos: lista filtrable, detalle, falta información con consulta v
+   await ctx.close();
+ });
+ 
+-await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú ⋯, Inicio con tareas, cliente → ficha → compra/renovar, catálogo al mismo carrito, cierre de compra sin tapar contenido', async () => {
++await caso('Orden visual (R185): cinco accesos, "Más" con todos los destinos, menú ⋯, Inicio con tareas, cliente → ficha → compra/renovar, catálogo al mismo carrito, cierre de compra sin tapar contenido', async () => {
+   // Computadora: menú lateral con los mismos destinos y en el orden de la guía
+   const E = nuevoEstado();
+   const { page, ctx, errores } = await abrir({ width: 1440, height: 900 }, E);
+   const lateral = await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.textContent.trim()));
+-  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Pedidos', 'Renovaciones', 'Catálogo', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']);
+-  await page.waitForSelector('.sx-tasks'); assert.match(await page.textContent('.sx-tasks'), /falta información/);
++  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Catálogo', 'Renovaciones', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']); // R185
++  await page.waitForSelector('.sxg-alerta'); assert.match(await page.textContent('.sxg-alerta'), /falta información/);
+   await page.evaluate(() => go('precios')); await page.waitForSelector('.sx-cat-grid');
+   await page.click('[data-cat-act="agregar"][data-pid="cat_hbo_platino"]');
+   assert.equal(await page.evaluate(() => current), 'precios', 'agregar conserva la posición');
+@@ -451,7 +451,7 @@ await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú 
+   // Celular
+   const m = await abrir({ width: 390, height: 844 }, E);
+   const barra = await m.page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
+-  assert.deepEqual(barra, ['inicio', 'clientes', 'compras', 'pedidos', 'mas']);
++  assert.deepEqual(barra, ['inicio', 'clientes', 'pedidos', 'precios', 'mas']); // R185: Inicio | Clientes | Compras | Catálogo | Más
+   const pedidosAntes = E.pedidos.size;
+   await m.page.click('#nav [data-v="mas"]'); await m.page.waitForSelector('.sxo-mas');
+   assert.equal(E.pedidos.size, pedidosAntes, '"Más" no crea pedidos');
+@@ -459,7 +459,7 @@ await caso('Orden visual: cinco accesos, "Más" con todos los destinos, menú 
+   for (const v of ['renovar', 'precios', 'buzon', 'aula', 'recompensas', 'perfil']) {
+     await m.page.click('#nav [data-v="mas"]'); await m.page.click(`.sxo-mas [data-go="${v}"]`);
+     assert.equal(await m.page.evaluate(() => current), v);
+-    assert.equal(await m.page.locator('#nav [data-v="mas"].on').count(), 1, `"Más" queda marcado en ${v}`);
++    assert.equal(await m.page.locator(`#nav [data-v="${v === 'precios' ? 'precios' : 'mas'}"].on`).count(), 1, `botón marcado en ${v}`);
+   }
+   await m.page.click('#sxoMenuBtn'); await m.page.waitForSelector('#sxoMenu:not([hidden])');
+   assert.match(await m.page.textContent('#sxoMenu'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
+diff --git a/assets/socios-guia.js b/assets/socios-guia.js
+new file mode 100644
+index 0000000..4d09bba
+--- /dev/null
++++ b/assets/socios-guia.js
+@@ -0,0 +1,496 @@
++'use strict';
++/* ========================================================================
++   SUBLICUENTAS · PORTAL DE SOCIOS · GUÍA MAESTRA (R185, 07/11/2026)
++   Diseño claro con relieve 3D suave (sin neón, sin degradados).
++   Barra inferior exacta: Inicio | Clientes | Compras | Catálogo | Más.
++   Capa de presentación: reutiliza datos, rutas de la API, permisos y flujos existentes
++   (compra, renovación con comprobante, entregas, buzón). No crea datos ni cambia reglas.
++   Se carga al final, después de socios-orden.js.
++   ======================================================================== */
++
++const SXG_TZ = 'America/Tegucigalpa';
++const SXG_IC = {
++  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/>',
++  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.5.2 4.3 1.8 4.9 4.6"/>',
++  cart: '<path d="M3 4h2.2l2.3 10.4h10.3L20 7H6.4"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>',
++  box: '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
++  more: '<circle cx="5.5" cy="12" r="1.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.9" fill="currentColor" stroke="none"/>',
++  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
++  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
++  renew: '<path d="M20 11a8 8 0 0 0-14.6-4.4L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M4 13a8 8 0 0 0 14.6 4.4l1.4-1.9"/><path d="M20 20v-4.5h-4.5"/>',
++  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
++  coins: '<ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/><path d="M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/>',
++  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/>',
++  mega: '<path d="M4 10v4h3l6 4V6L7 10z"/><path d="M16.5 9a4 4 0 0 1 0 6"/>',
++  cal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
++  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
++  chev: '<path d="m9 5 7 7-7 7"/>',
++  mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4.5 7 7.5 6 7.5-6"/>',
++  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
++  gift: '<rect x="4" y="9" width="16" height="11" rx="2"/><path d="M3 9h18M12 9v11M12 9c-1.5-3-5-4-5-1.5S10 9 12 9zm0 0c1.5-3 5-4 5-1.5S14 9 12 9z"/>',
++  user: '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c.8-3.8 3.7-6 7.5-6s6.7 2.2 7.5 6"/>',
++  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
++  plus: '<path d="M12 5v14M5 12h14"/>',
++  back: '<path d="m15 5-7 7 7 7"/>',
++};
++function sxgIc(n, cls = '') { return `<svg class="sxg-ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${SXG_IC[n] || ''}</svg>`; }
++
++/* ---------------- fechas en hora de Honduras ---------------- */
++function sxgPartes(d = new Date()) {
++  const p = {}; new Intl.DateTimeFormat('en-CA', { timeZone: SXG_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d).forEach((x) => { p[x.type] = x.value; });
++  return { y: Number(p.year), m: Number(p.month), d: Number(p.day) };
++}
++function sxgPeriodoHoy() { const p = sxgPartes(); return `${p.y}-${String(p.m).padStart(2, '0')}`; }
++function sxgPeriodoDe(ts) { const n = Number(ts); if (!Number.isFinite(n) || n <= 0) return ''; const p = sxgPartes(new Date(n)); return `${p.y}-${String(p.m).padStart(2, '0')}`; }
++const SXG_MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
++function sxgCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
++function sxgPeriodoTxt(per) { const [y, m] = String(per).split('-').map(Number); return `${sxgCap(SXG_MESES[(m || 1) - 1])} ${y}`; }
++function sxgFechaLarga(d = new Date()) { return sxgCap(d.toLocaleDateString('es-HN', { timeZone: SXG_TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })); }
++function sxgHora(d = new Date()) { return d.toLocaleTimeString('es-HN', { timeZone: SXG_TZ, hour: '2-digit', minute: '2-digit', hour12: true }); }
++function sxgFechaCorta(ts) { const n = Number(ts); if (!n) return ''; return new Date(n).toLocaleDateString('es-HN', { timeZone: SXG_TZ, day: '2-digit', month: 'short', year: 'numeric' }); }
++function sxgTs(v) { if (v == null || v === '') return 0; if (typeof v === 'number') return v; if (v._seconds) return v._seconds * 1000; if (v.seconds) return v.seconds * 1000; const d = parseFecha(v); return d ? d.getTime() : (Date.parse(v) || 0); }
++
++/* ---------------- selector común de clientes (Inicio, chips y lista usan lo mismo) ---------------- */
++const SXG_FILTROS = [['todos', 'Todos'], ['vigentes', 'Vigentes'], ['renovaciones', 'Renovaciones'], ['vencidos', 'Vencidos'], ['sinservicio', 'Sin servicio']];
++function sxgDiasSvc(s) { return sxoServicioEstado(s); }
++function sxgVentanaRenovacion() { return Number(CONFIG.avisoDias ?? 7); } // la misma ventana que ya usa el panel (estado())
++function sxgEnRenovacion(c) { const v = sxgVentanaRenovacion(); return (c.servicios || []).some((s) => { const n = sxgDiasSvc(s).n; return n >= 0 && n <= v; }); }
++function sxgConVencidos(c) { return (c.servicios || []).some((s) => sxgDiasSvc(s).n < 0); }
++function sxgCumple(c, f) {
++  if (f === 'vigentes') return esClienteVigente(c);
++  if (f === 'renovaciones') return sxgEnRenovacion(c);
++  if (f === 'vencidos') return sxgConVencidos(c);
++  if (f === 'sinservicio') return esClienteNoVigente(c);
++  return true;
++}
++function sxgClientesUnicos() { // sin duplicados en la lista
++  const vistos = new Set(), out = [];
++  for (const c of clientes || []) { const k = String(c.id || '') || `${nombreCli(c)}|${c.telefono || ''}`; if (vistos.has(k)) continue; vistos.add(k); out.push(c); }
++  return out;
++}
++function sxgConteos() { const l = sxgClientesUnicos(); return Object.fromEntries(SXG_FILTROS.map(([k]) => [k, l.filter((c) => sxgCumple(c, k)).length])); }
++function sxgEstadoCli(c) {
++  if (sxgConVencidos(c)) return ['warn', 'Vencido'];
++  if (sxgEnRenovacion(c)) return ['info', 'Por renovar'];
++  if (esClienteVigente(c)) return ['ok', 'Vigente'];
++  return ['off', 'Sin servicio'];
++}
++function sxgNombreSvc(s) { return pick(s, CONFIG.campos.servicio) || 'Servicio'; }
++function sxgProxima(c) {
++  const fs = (c.servicios || []).map((s) => ({ f: parseFecha(pick(s, CONFIG.campos.vencimiento)), e: sxgDiasSvc(s) })).filter((x) => x.f);
++  const futuras = fs.filter((x) => x.e.n >= 0).sort((a, b) => a.e.n - b.e.n);
++  if (futuras.length) return { t: 'Renueva', f: futuras[0].f };
++  const pasadas = fs.sort((a, b) => b.e.n - a.e.n);
++  return pasadas.length ? { t: 'Venció', f: pasadas[0].f } : null;
++}
++function sxgCargado(tipo) { return Number(syncAt?.[tipo] || 0) > 0; }
++
++/* ---------------- metas (solo datos reales; sin meta = "Meta no configurada") ---------------- */
++function sxgMeta(per) {
++  const r = rev || {};
++  const tabla = r.metas && typeof r.metas === 'object' ? r.metas : r.metasVentas && typeof r.metasVentas === 'object' ? r.metasVentas : null;
++  let v = tabla && tabla[per] != null ? tabla[per] : (r.metaMensual != null ? r.metaMensual : null);
++  if (v && typeof v === 'object') v = v.monto ?? v.objetivo ?? v.targetAmount;
++  v = Number(v);
++  return Number.isFinite(v) && v > 0 ? v : null; // 0 o vacío: no configurada (nunca se divide entre 0)
++}
++const sxgVentasPer = {}; // periodo -> { estado:'ok'|'cargando'|'sin_datos', monto, ops }
++function sxgVentas(per) {
++  const m = metricasNegocio && typeof metricasNegocio === 'object' ? metricasNegocio : null;
++  if (m && (m.periodo || sxgPeriodoHoy()) === per) {
++    const v = Number(m.operadoMes ?? m.costoMes);
++    if (Number.isFinite(v)) return { estado: 'ok', monto: v, ops: Number(m.operacionesMes) || 0 };
++  }
++  if (per === sxgPeriodoHoy() && !m) return { estado: 'cargando' };
++  return sxgVentasPer[per] || null;
++}
++async function sxgCargarVentas(per) {
++  if (sxgVentasPer[per] && sxgVentasPer[per].estado !== 'error') return;
++  sxgVentasPer[per] = { estado: 'cargando' };
++  try {
++    const d = await API.call(`/rev/metricas?periodo=${encodeURIComponent(per)}&_=${Date.now()}`, { cache: 'no-store', timeoutMs: 12000 });
++    // Si el servidor todavía no conoce ?periodo= devuelve el mes actual: no se mezclan meses.
++    sxgVentasPer[per] = d && d.periodo === per ? { estado: 'ok', monto: Number(d.operadoMes ?? d.costoMes) || 0, ops: Number(d.operacionesMes) || 0 } : { estado: 'sin_datos' };
++  } catch (_) { sxgVentasPer[per] = { estado: 'error' }; }
++  if (current === 'metas') sxgVMetas(); else if (current === 'inicio') vInicio();
++}
++
++/* ---------------- avisos por mes y año (fecha original del aviso) ---------------- */
++const sxgAv = { per: '', cache: {}, cargando: {}, abierto: '' };
++function sxgAvisosDe(per) {
++  const mapa = new Map();
++  [...(avisos || []), ...(sxgAv.cache[per] || [])].forEach((a, i) => { const k = String(a.id || `${a.ts}|${i}`); if (!mapa.has(k)) mapa.set(k, a); });
++  return [...mapa.values()].filter((a) => sxgPeriodoDe(a.ts) === per).sort((a, b) => (b.ts || 0) - (a.ts || 0));
++}
++async function sxgCargarAvisos(per) {
++  if (sxgAv.cache[per] || sxgAv.cargando[per]) return;
++  sxgAv.cargando[per] = true;
++  try { const d = await API.call(`/rev/avisos?periodo=${encodeURIComponent(per)}&_=${Date.now()}`, { cache: 'no-store', timeoutMs: 12000 }); sxgAv.cache[per] = Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : []; }
++  catch (_) { sxgAv.cache[per] = []; }
++  sxgAv.cargando[per] = false;
++  if (current === 'buzon') vSugerencias();
++}
++function sxgAvTitulo(a) { const t = String(a.texto || '').trim(); const l = t.split(/\n/)[0]; return l.length > 90 ? l.slice(0, 88) + '…' : (l || 'Aviso'); }
++function sxgAniosDisponibles() {
++  const hoy = sxgPartes().y; let min = hoy - 2;
++  (avisos || []).forEach((a) => { const p = sxgPeriodoDe(a.ts); if (p) min = Math.min(min, Number(p.slice(0, 4))); });
++  const out = []; for (let y = hoy; y >= min; y--) out.push(y); return out;
++}
++function sxgSelPeriodo(id, per, accion) {
++  const [y, m] = per.split('-').map(Number);
++  return `<div class="sxg-periodo" data-sxg-per="${accion}">
++    <label class="sxg-sel"><span class="sr">Mes</span><select id="${id}M" data-sxg="${accion}-mes">${SXG_MESES.map((n, i) => `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${sxgCap(n)}</option>`).join('')}</select></label>
++    <label class="sxg-sel"><span class="sr">Año</span><select id="${id}Y" data-sxg="${accion}-anio">${sxgAniosDisponibles().map((a) => `<option value="${a}" ${a === y ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
++  </div>`;
++}
++
++/* ---------------- navegación: 5 botones exactos ---------------- */
++function sxgNavItems() {
++  return [
++    { v: 'inicio', l: 'Inicio', ic: 'home' }, { v: 'clientes', l: 'Clientes', ic: 'users' },
++    { v: 'pedidos', l: 'Compras', ic: 'cart' }, { v: 'precios', l: 'Catálogo', ic: 'box' }, { v: 'mas', l: 'Más', ic: 'more' },
++  ].filter((it) => vistaGeisellPermitida(it.v));
++}
++function sxgNavActiva() {
++  if (['pedidos', 'compras'].includes(current)) return 'pedidos';
++  if (current === 'metas') return 'inicio';
++  if (['inicio', 'clientes', 'precios'].includes(current)) return current;
++  return 'mas';
++}
++function sxgMobileNav() {
++  const nav = document.getElementById('nav'); if (!nav) return;
++  const on = sxgNavActiva();
++  nav.classList.add('sxo-nav', 'sxg-nav'); nav.setAttribute('aria-label', 'Navegación principal');
++  nav.innerHTML = sxgNavItems().map((it) => `<button type="button" class="nav-btn sxg-nb ${on === it.v ? 'on' : ''}" data-v="${it.v}" ${on === it.v ? 'aria-current="page"' : ''} onclick="go('${it.v}')"><span class="nav-ico">${sxgIc(it.ic)}</span><span class="nav-lbl">${it.l}</span></button>`).join('');
++}
++sxoNavItems = sxgNavItems;
++sxoMobileNav = sxgMobileNav;
++renderMobileNav = sxgMobileNav;
++try {
++  WEB_NAV_ITEMS.splice(0, WEB_NAV_ITEMS.length,
++    { v: 'inicio', label: 'Inicio', tone: 'blue', icon: 'home' }, { v: 'clientes', label: 'Clientes', tone: 'purple', icon: 'users' },
++    { v: 'pedidos', label: 'Compras', tone: 'cyan', icon: 'cart' }, { v: 'precios', label: 'Catálogo', tone: 'orange', icon: 'catalog' },
++    { v: 'renovar', label: 'Renovaciones', tone: 'green', icon: 'renew' }, { v: 'buzon', label: 'Buzón', tone: 'cyan', icon: 'mail' },
++    { v: 'aula', label: 'Subli Aula', tone: 'amber', icon: 'spark' }, { v: 'recompensas', label: 'Recompensas', tone: 'red', icon: 'gift' },
++    { v: 'perfil', label: 'Mi perfil', tone: 'green', icon: 'user' });
++} catch (_) {}
++const sxgPermBase = vistaGeisellPermitida;
++vistaGeisellPermitida = function (v) { if (v === 'metas') return sxgPermBase('inicio'); return sxgPermBase(v); };
++
++/* ---------------- cabecera: ☰ · logo · campana · iniciales ---------------- */
++function sxgIniciales() { const p = String(revName() || '').trim().split(/\s+/).filter(Boolean); if (!p.length || norm(p[0]) === 'socio') return '·'; return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
++function sxgCabecera() {
++  document.body.classList.add('sxg');
++  const top = document.querySelector('#app .topbar'); if (!top) return;
++  const menu = document.getElementById('sxoMenuBtn');
++  if (menu && !menu.dataset.sxg) { menu.dataset.sxg = '1'; const dot = menu.querySelector('.nav-badge'); menu.innerHTML = sxgIc('menu'); if (dot) menu.appendChild(dot); menu.setAttribute('aria-label', 'Menú de la cuenta'); top.insertBefore(menu, top.firstChild); }
++  const tx = top.querySelector('.tb-txt');
++  if (tx && !tx.querySelector('.sxg-logo')) tx.insertAdjacentHTML('afterbegin', '<span class="sxg-logo"><img src="assets/logo-sublicuentas.webp" alt="Sublicuentas" width="160" height="31"><small>Portal de Socios</small></span>');
++  const buz = top.querySelector('.partner-inbox-btn');
++  if (buz && !buz.dataset.sxg) { buz.dataset.sxg = '1'; const b = buz.querySelector('.nav-badge'); buz.innerHTML = sxgIc('bell'); if (b) buz.appendChild(b); buz.setAttribute('aria-label', 'Buzón y avisos'); }
++  const acts = document.getElementById('topbarActions');
++  if (acts && !document.getElementById('sxgAvatar')) { const a = document.createElement('button'); a.type = 'button'; a.id = 'sxgAvatar'; a.className = 'sxg-avatar'; a.setAttribute('aria-label', 'Mi perfil'); a.addEventListener('click', () => go('perfil')); acts.appendChild(a); }
++  const av = document.getElementById('sxgAvatar'); if (av) av.textContent = sxgIniciales();
++}
++
++/* ---------------- INICIO ---------------- */
++function sxgEsq(n = 1) { return Array.from({ length: n }, () => '<span class="sxg-esq" aria-hidden="true"></span>').join(''); }
++function sxgTarjeta({ go: g, ic, tono, titulo, valor, listo, sub = '' }) {
++  return `<button type="button" class="sxg-kpi sxg-${tono}" data-sxg-go="${sxAttr(g)}" ${listo ? '' : 'aria-busy="true"'}><span class="sxg-kpi-ic">${sxgIc(ic)}</span><span class="sxg-kpi-tx"><small>${titulo}</small>${listo ? `<b>${valor}</b>` : sxgEsq()}${sub ? `<em>${sub}</em>` : ''}</span>${sxgIc('chev', 'sxg-chev')}</button>`;
++}
++function sxgMetaHtml(per, compacto) {
++  const meta = sxgMeta(per), v = sxgVentas(per);
++  const ventas = v && v.estado === 'ok' ? v.monto : null;
++  let cuerpo;
++  if (!v || v.estado === 'cargando') cuerpo = `<div class="sxg-meta-fila">${sxgEsq(2)}</div>`;
++  else if (v.estado !== 'ok') cuerpo = `<p class="sxg-meta-nota">${v.estado === 'sin_datos' ? 'Todavía no hay datos de ese mes en el sistema.' : 'No se pudo consultar. Toque para reintentar.'}</p>`;
++  else if (meta == null) cuerpo = `<div class="sxg-meta-fila"><span>Ventas: <b>${money(ventas)}</b></span><span class="sxg-meta-off">Meta no configurada</span></div>`;
++  else {
++    const pct = Math.round((ventas / meta) * 100);
++    cuerpo = `<div class="sxg-meta-fila"><span>Ventas: <b>${money(ventas)}</b> / ${money(meta)}</span><span class="sxg-pct ${pct >= 100 ? 'ok' : ''}">${pct}%</span></div>
++      <div class="sxg-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, pct)}" aria-label="Avance de la meta"><i style="width:${Math.min(100, Math.max(0, pct))}%"></i></div>`;
++  }
++  return compacto ? cuerpo : cuerpo;
++}
++function sxgVInicio() {
++  document.body.classList.remove('sx-con-barra');
++  sxgCabecera();
++  const restricted = socioSinCompras();
++  const per = sxgPeriodoHoy();
++  const cliListo = sxgCargado('clientes') || (clientes || []).length > 0;
++  const cnt = sxgConteos();
++  const comprasListo = restricted || sxgCargado('compras');
++  const entregados = (misCompras || []).filter((x) => sxEstadoPedido(x.estado)[0] === 'ok').length;
++  const ventas = sxgVentas(per);
++  const faltaInfo = restricted ? [] : (misCompras || []).filter((x) => sxEstadoPedido(x.estado)[0] === 'warn');
++  const avListos = sxgCargado('avisos');
++  const delMes = sxgAvisosDe(per);
++  const avLista = (delMes.length ? delMes : [...(avisos || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0))).slice(0, 3);
++  const nombre = revName(), conNombre = nombre && norm(nombre) !== 'socio';
++  content.innerHTML = `<div class="sx-page sxg-inicio">
++    <section class="sxg-hola" aria-label="Saludo">
++      <div class="sxg-hola-tx"><h1>Hola${conNombre ? `, <span>${sxEsc(nombre)}</span>` : ''}</h1>
++        <p>${sxgIc('cal')}<span id="sxgFecha">${sxEsc(sxgFechaLarga())}</span></p>
++        <p>${sxgIc('clock')}<span id="sxgReloj">${sxEsc(sxgHora())}</span></p></div>
++      <img src="${ROBOT_IMG}" alt="" width="112" height="112" class="sxg-robot">
++    </section>
++    ${faltaInfo.length ? `<button type="button" class="sxg-alerta" data-sxg-go="pedido:${sxAttr(faltaInfo[0].id)}"><b>Pedido #${sxEsc(faltaInfo[0].ref)}: falta información</b><small>${sxEsc(faltaInfo[0].detalleEstado || 'Revise qué dato pide el equipo.')}${faltaInfo.length > 1 ? ` · y ${faltaInfo.length - 1} más` : ''}</small><span>Completar</span></button>` : ''}
++    <div class="sxg-kpis">
++      ${sxgTarjeta({ go: 'clientes:todos', ic: 'users', tono: 'blue', titulo: 'Clientes', valor: cnt.todos.toLocaleString('es-HN'), listo: cliListo })}
++      ${sxgTarjeta({ go: 'clientes:renovaciones', ic: 'renew', tono: 'purple', titulo: 'Renovaciones', valor: cnt.renovaciones.toLocaleString('es-HN'), listo: cliListo })}
++      ${restricted ? '' : sxgTarjeta({ go: 'pedidos:ok', ic: 'check', tono: 'green', titulo: 'Pedidos entregados', valor: entregados.toLocaleString('es-HN'), listo: comprasListo })}
++      ${restricted ? '' : sxgTarjeta({ go: 'metas', ic: 'coins', tono: 'amber', titulo: 'Mis ventas', valor: ventas && ventas.estado === 'ok' ? money(ventas.monto) : '—', listo: !!ventas && ventas.estado !== 'cargando', sub: 'Este mes' })}
++    </div>
++    ${restricted ? '' : `<button type="button" class="sxg-card sxg-metas" data-sxg-go="metas"><span class="sxg-card-head"><span class="sxg-card-ic sxg-red">${sxgIc('target')}</span><b>Metas del mes</b><span class="sxg-chip-per">${sxEsc(sxgPeriodoTxt(per))}</span></span>${sxgMetaHtml(per)}</button>`}
++    ${restricted || !vistaGeisellPermitida('buzon') ? '' : `<section class="sxg-card sxg-avisos" aria-labelledby="sxgAvT"><div class="sxg-card-head"><span class="sxg-card-ic sxg-red">${sxgIc('mega')}</span><b id="sxgAvT">Avisos del equipo</b><span class="sxg-chip-per">${delMes.length || !avListos ? sxEsc(sxgPeriodoTxt(per)) : 'Últimos'}</span></div>
++      ${!avListos ? `<div class="sxg-av-esq">${sxgEsq(3)}</div>` : avLista.length ? `<ul class="sxg-av-lista">${avLista.map((a) => `<li><button type="button" data-sxg-go="aviso:${sxAttr(a.id || '')}"><i aria-hidden="true"></i><span><b>${sxEsc(sxgAvTitulo(a))}</b><small>${sxEsc(a.autor || 'Sublicuentas')} · ${sxEsc(sxgFechaCorta(a.ts))}</small></span>${sxgIc('chev', 'sxg-chev')}</button></li>`).join('')}</ul>` : '<p class="sxg-vacio">No hay avisos del equipo por ahora.</p>'}
++      <button type="button" class="sxg-link" data-sxg-go="buzon:avisos">Ver todos los avisos</button></section>`}
++  </div>`;
++  if (!restricted && !dataFresh('compras') && typeof loadMisCompras === 'function') loadMisCompras();
++}
++
++/* ---------------- METAS (detalle; no es categoría de la barra ni de Más) ---------------- */
++let sxgMetaPer = '';
++function sxgVMetas() {
++  document.body.classList.remove('sx-con-barra');
++  const per = sxgMetaPer || sxgPeriodoHoy();
++  if (!sxgVentas(per) && per !== sxgPeriodoHoy()) sxgCargarVentas(per);
++  if (per === sxgPeriodoHoy() && !metricasNegocio && typeof loadMetricas === 'function') loadMetricas()?.then?.(() => { if (current === 'metas') sxgVMetas(); });
++  const meta = sxgMeta(per);
++  content.innerHTML = `<div class="sx-page sxg-metas-pg">
++    <button type="button" class="sxg-volver" data-sxg-go="inicio">${sxgIc('back')} Inicio</button>
++    <header class="sxg-titulo"><h1>Metas del mes</h1></header>
++    ${sxgSelPeriodo('sxgMeta', per, 'meta')}
++    <section class="sxg-card"><h2>Meta de ventas</h2>${sxgMetaHtml(per)}
++      <p class="sxg-nota">Ventas = compras y renovaciones registradas a Sublicuentas en el mes (misma cifra del Centro Financiero).</p></section>
++    <section class="sxg-card"><h2>Objetivos adicionales</h2>
++      <p class="sxg-nota">${meta == null ? 'Sin meta asignada: <b>No configurada</b>. La meta la define Sublicuentas.' : 'Solo se muestran metas configuradas por Sublicuentas.'}</p></section>
++  </div>`;
++}
++
++/* ---------------- CLIENTES: cinco filtros + lista + ficha ---------------- */
++let sxgCliScroll = 0;
++function sxgColorSvc(nm) {
++  const n = norm(nm);
++  if (/netflix/.test(n)) return 'red'; if (/disney/.test(n)) return 'blue'; if (/max|hbo/.test(n)) return 'purple';
++  if (/prime/.test(n)) return 'sky'; if (/crunchy|vix/.test(n)) return 'amber'; if (/spotify|deezer/.test(n)) return 'green';
++  return 'slate';
++}
++function sxgClientesPintar(soloLista = false) {
++  if (sxoCliAbierto) { const c = (clientes || []).find((x) => String(x.id) === sxoCliAbierto); if (c) { sxgFichaPintar(c); return; } sxoCliAbierto = ''; }
++  if (!SXG_FILTROS.some(([k]) => k === cliEstado)) cliEstado = cliEstado === 'novigentes' ? 'sinservicio' : 'todos';
++  const f = sxNorm(cliF), dig = String(cliF || '').replace(/\D/g, '');
++  const base = sxgClientesUnicos();
++  const list = base.filter((c) => sxgCumple(c, cliEstado) && (!f || sxNorm(nombreCli(c)).includes(f)
++    || (dig.length >= 3 && String(c.telefono || c.telefono_norm || '').replace(/\D/g, '').includes(dig))
++    || (c.servicios || []).some((s) => sxNorm(sxgNombreSvc(s)).includes(f))))
++    .sort((a, b) => nombreCli(a).localeCompare(nombreCli(b), 'es', { numeric: true, sensitivity: 'base' }));
++  const cargando = !base.length && !sxgCargado('clientes');
++  const cnt = sxgConteos();
++  const listaHtml = cargando ? `<ul class="sxg-lista">${Array.from({ length: 4 }, () => `<li class="sxg-cli sxg-cli-esq">${sxgEsq(3)}</li>`).join('')}</ul>`
++    : list.length ? `<p class="sxg-cuenta" role="status">${list.length.toLocaleString('es-HN')} cliente${list.length === 1 ? '' : 's'}${cliEstado === 'todos' && !f ? ' en la cartera' : ''}</p><ul class="sxg-lista">${list.map((c) => {
++      const svcs = c.servicios || [], n = svcs.length, [cls, txt] = sxgEstadoCli(c), prox = sxgProxima(c);
++      const nombres = svcs.map(sxgNombreSvc); const resumen = nombres.length > 2 ? `${nombres[0]} + ${nombres.length - 1} más` : nombres.join(' + ');
++      const total = svcs.reduce((t, s) => t + (Number(pick(s, CONFIG.campos.precio)) || 0), 0);
++      return `<li><button type="button" class="sxg-cli" data-cli="abrir" data-id="${sxAttr(c.id)}"><span class="sxg-ini sxg-${sxgColorSvc(nombres[0] || '')}" aria-hidden="true">${sxEsc((nombreCli(c)[0] || '?').toUpperCase())}</span>
++        <span class="sxg-cli-tx"><b>${sxEsc(nombreCli(c))}</b><small>${n} servicio${n === 1 ? '' : 's'}${resumen ? ` · ${sxEsc(resumen)}` : ''}</small>
++        <small>${prox ? `${prox.t}: ${sxEsc(fmtFecha(prox.f))}` : 'Sin fecha de vencimiento'}${total ? ` · ${money(total)}${n > 1 ? ' total' : ''}` : ''}</small></span>
++        <span class="sxg-pill ${cls}">${txt}</span></button></li>`;
++    }).join('')}</ul>` : '<div class="sxg-card sxg-vacio-card"><b>Sin resultados</b><p>Pruebe otro nombre, teléfono, servicio o filtro.</p></div>';
++  const chipsHtml = SXG_FILTROS.map(([k, l]) => `<button type="button" class="sxg-chip ${cliEstado === k ? 'on' : ''}" aria-pressed="${cliEstado === k}" data-cli="filtro" data-v="${k}">${l}${cargando ? '' : ` <span>${cnt[k]}</span>`}</button>`).join('');
++  if (soloLista && document.getElementById('sxCliLista')) { document.getElementById('sxCliLista').innerHTML = listaHtml; const ch = content.querySelector('.sxg-chips'); if (ch) ch.innerHTML = chipsHtml; return; }
++  content.innerHTML = `<div class="sx-page sxg-clientes">
++    <header class="sxg-titulo"><h1>Clientes</h1></header>
++    <div class="sxg-chips" role="group" aria-label="Filtrar clientes">${chipsHtml}</div>
++    <label class="sxg-buscar">${sxgIc('search')}<span class="sr">Buscar cliente</span><input id="cliSearch" type="search" value="${sxAttr(cliF || '')}" placeholder="Buscar cliente, teléfono o servicio" autocomplete="off"></label>
++    <div id="sxCliLista">${listaHtml}</div>
++    ${cargando ? '' : (() => { const fs = flat(), suma = (a) => a.reduce((t, x) => t + (x.precio || 0), 0); const vig = fs.filter((x) => esVigente(x.est)), sem = fs.filter((x) => x.est.n >= 0 && x.est.n <= sxgVentanaRenovacion()), ven = fs.filter((x) => x.est.n < 0);
++      return `<details class="sxg-card sxg-resumen"><summary>${socioGeisell() ? 'Resumen de renovaciones' : 'Resumen de cobros'}</summary><dl>
++        <div><dt>Cartera vigente</dt><dd>${money(suma(vig))}<small>${vig.length} servicio(s)</small></dd></div>
++        <div><dt>Por renovar (${sxgVentanaRenovacion()} días)</dt><dd>${money(suma(sem))}<small>${sem.length} servicio(s)</small></dd></div>
++        <div><dt>Vencido por recuperar</dt><dd>${money(suma(ven))}<small>${ven.length} servicio(s)</small></dd></div></dl></details>`; })()}
++  </div>`;
++  content.querySelector('#cliSearch')?.addEventListener('input', (ev) => { cliF = ev.target.value; sxgClientesPintar(true); });
++}
++function sxgFichaPintar(c) {
++  const svcs = Array.isArray(c.servicios) ? c.servicios : [], tel = c.telefono || c.telefono_norm || '';
++  const nombre = nombreCli(c), corto = sxEsc(String(nombre).split(/\s+/)[0] || 'este cliente');
++  const peds = socioSinCompras() ? [] : sxPedidosDeCliente(c);
++  const puedeRenovar = vistaGeisellPermitida('renovar');
++  content.innerHTML = `<div class="sx-page sxg-ficha sxo-ficha">
++    <button type="button" class="sxg-volver" data-cli="volver">${sxgIc('back')} Clientes</button>
++    <header class="sxg-titulo"><h1>Ficha del cliente</h1></header>
++    <section class="sxg-card sxg-ficha-top"><span class="sxg-ini lg sxg-blue" aria-hidden="true">${sxEsc((nombre[0] || '?').toUpperCase())}</span><div><h2 id="sxoFichaT" tabindex="-1">${sxEsc(nombre)}</h2><p>${svcs.length} servicio${svcs.length === 1 ? '' : 's'} · ${sxEsc(tel || 'sin teléfono registrado')}</p></div></section>
++    <h2 class="sxg-sec">Servicios y renovaciones</h2>
++    ${svcs.length ? `<ul class="sxg-svcs">${svcs.map((s, ix) => {
++      const nm = sxgNombreSvc(s), f = parseFecha(pick(s, CONFIG.campos.vencimiento)), e = estado(f);
++      const orig = Number(s?.servicioIndexOriginal ?? s?._servicioIndexOriginal ?? ix);
++      const precio = Number(pick(s, CONFIG.campos.precio)) || 0;
++      const [cls, txt] = e.n < 0 ? ['warn', 'Vencido'] : e.n <= sxgVentanaRenovacion() ? ['info', 'Por renovar'] : e.n < 9999 ? ['ok', 'Vigente'] : ['off', 'Sin fecha'];
++      return `<li class="sxg-card sxg-svc sxo-svc"><div class="sxg-svc-top"><span class="sxg-ini sxg-${sxgColorSvc(nm)}" aria-hidden="true">${sxEsc((nm[0] || '?').toUpperCase())}</span>
++        <span class="sxg-svc-tx"><b>${sxEsc(nm)}</b><small>${f ? `${e.n < 0 ? 'Venció' : 'Renueva'}: ${sxEsc(fmtFecha(f))}` : 'Sin fecha de vencimiento'}</small><span class="sxg-pill ${cls}">${txt}</span></span>
++        <b class="sxg-precio">${precio ? money(precio) : ''}</b></div>
++        ${puedeRenovar ? `<button type="button" class="sxg-btn pri" data-cli="renovar" data-id="${sxAttr(c.id)}" data-nm="${sxAttr(nm)}" data-ix="${Number.isInteger(orig) ? orig : ix}">Renovar este servicio</button>` : ''}</li>`;
++    }).join('')}</ul>` : '<div class="sxg-card"><p class="sxg-nota">Este cliente no tiene servicios registrados.</p></div>'}
++    <div class="sxg-dos"><button type="button" class="sxg-btn sec" data-cli="cobro" data-id="${sxAttr(c.id)}">${sxEsc(etiquetaMensajeRenovacion())}</button>${waUrl(tel) ? `<a class="sxg-btn sec wa" href="${sxAttr(waUrl(tel))}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : '<button type="button" class="sxg-btn sec" disabled>Sin WhatsApp</button>'}</div>
++    ${socioSinCompras() ? '' : `<button type="button" class="sxg-btn sec full" data-cli="comprar" data-id="${sxAttr(c.id)}">${sxgIc('plus')} Nueva compra para ${corto}</button>
++    <section class="sxo-peds"><h2 class="sxg-sec">Pedidos de ${corto}</h2>${peds.length ? `<ul class="sxg-lista">${peds.slice(0, 5).map((o) => { const [cls, label] = sxEstadoPedido(o.estado); return `<li><button type="button" class="sxg-ped" data-cli="pedido" data-id="${sxAttr(o.id)}"><span class="sxg-cli-tx"><b>#${sxEsc(o.ref || String(o.id).slice(-6).toUpperCase())} · ${sxEsc((o.productos || []).map((p) => p.servicioBase || p.servicio).join(' + ') || o.servicio || '')}</b><small>${sxEsc(sxgFechaCorta(sxgTs(o.createdAt)))}</small></span><span class="sxg-pill ${cls}">${sxEsc(label)}</span></button></li>`; }).join('')}</ul>` : `<p class="sxg-nota">${dataFresh('compras') ? 'Sin pedidos registrados para este cliente.' : 'Consultando pedidos…'}</p>`}</section>`}
++  </div>`;
++}
++sxoClientesPintar = sxgClientesPintar;
++sxoFichaPintar = sxgFichaPintar;
++// Guardar y devolver el desplazamiento al entrar y salir de la ficha (filtro y búsqueda ya se conservan).
++content.addEventListener('click', (ev) => {
++  if (current !== 'clientes') return;
++  const b = ev.target.closest('[data-cli]'); if (!b) return;
++  if (b.dataset.cli === 'abrir') sxgCliScroll = window.scrollY;
++  if (b.dataset.cli === 'volver') { const y = sxgCliScroll; setTimeout(() => window.scrollTo(0, y), 0); }
++}, true);
++
++/* ---------------- COMPRAS: historial con pestañas Todos / Entregados ---------------- */
++const sxgPedBase = vPedidos;
++function sxgVPedidos() {
++  if (socioSinCompras()) { go('renovar'); return; }
++  if (sxPedTab === 'entregas' || sxPedidoAbierto) {
++    sxgPedBase();
++    content.querySelectorAll('[data-act="volver"]').forEach((b) => { if (/Pedidos/.test(b.textContent)) b.textContent = '← Compras'; });
++    content.querySelector('.sx-page-head h1')?.textContent === 'Pedidos y entregas' && (content.querySelector('.sx-page-head h1').textContent = 'Datos de entregas');
++    return;
++  }
++  document.body.classList.remove('sx-con-barra');
++  if (!['todos', 'ok'].includes(sxPedFiltro)) sxPedFiltro = 'todos';
++  const q = sxNorm(sxPedBuscar);
++  const todos = (misCompras || []).slice().sort((a, b) => sxgTs(b.createdAt) - sxgTs(a.createdAt));
++  const lista = todos.filter((x) => (sxPedFiltro === 'todos' || sxEstadoPedido(x.estado)[0] === 'ok')
++    && (!q || sxNorm([x.ref, x.id, x.servicio, sxPedidoCliente(x), ...(x.productos || []).map((p) => `${p.servicio} ${p.clienteNombre}`)].join(' ')).includes(q)));
++  const nOk = todos.filter((x) => sxEstadoPedido(x.estado)[0] === 'ok').length;
++  const cargando = !sxgCargado('compras') && !todos.length;
++  const icono = (cls) => cls === 'ok' ? 'check' : cls === 'off' ? 'back' : 'cart';
++  content.innerHTML = `<div class="sx-page sxg-compras">
++    <header class="sxg-titulo sxg-titulo-acc"><div><h1>Compras</h1><p>Historial de pedidos del socio</p></div>${vistaGeisellPermitida('compras') ? `<button type="button" class="sxg-btn pri sm" data-act="nueva">${sxgIc('plus')} Nueva compra</button>` : ''}</header>
++    <div class="sxg-tabs" role="tablist" aria-label="Historial"><button type="button" role="tab" class="sxg-tab ${sxPedFiltro === 'todos' ? 'on' : ''}" aria-selected="${sxPedFiltro === 'todos'}" data-act="filtro" data-v="todos">Todos${cargando ? '' : ` <span>${todos.length}</span>`}</button><button type="button" role="tab" class="sxg-tab ${sxPedFiltro === 'ok' ? 'on' : ''}" aria-selected="${sxPedFiltro === 'ok'}" data-act="filtro" data-v="ok">Entregados${cargando ? '' : ` <span>${nOk}</span>`}</button></div>
++    <label class="sxg-buscar">${sxgIc('search')}<span class="sr">Buscar pedido</span><input id="sxPedBuscar" type="search" value="${sxAttr(sxPedBuscar)}" placeholder="Buscar número de pedido, cliente o servicio" autocomplete="off"></label>
++    ${cargando ? `<ul class="sxg-lista">${Array.from({ length: 3 }, () => `<li class="sxg-cli sxg-cli-esq">${sxgEsq(3)}</li>`).join('')}</ul>`
++      : lista.length ? `<ul class="sxg-lista sx-orders">${lista.map((x) => { const [cls, label] = sxEstadoEntrega(x) || sxEstadoPedido(x.estado); const svc = (x.productos || []).map((p) => p.servicioBase || p.servicio).filter(Boolean).join(' + ') || x.servicio || 'Compra'; return `<li><button type="button" class="sxg-ped sx-order" data-act="abrir" data-id="${sxAttr(x.id)}"><span class="sxg-ped-ic ${cls}">${sxgIc(icono(cls))}</span><span class="sxg-cli-tx"><b>Pedido #${sxEsc(x.ref || String(x.id).slice(-6).toUpperCase())} · ${sxEsc(svc)}</b><small>Cliente: ${sxEsc(sxPedidoCliente(x) || '—')}</small><small>${sxEsc(sxgFechaCorta(sxgTs(x.createdAt)))} · ${money(x.totalCombo || x.monto)}</small></span><span class="sxg-pill ${cls}">${sxEsc(label)}</span></button></li>`; }).join('')}</ul>`
++      : `<div class="sxg-card sxg-vacio-card"><b>${q ? 'Sin resultados' : sxPedFiltro === 'ok' ? 'Todavía no hay pedidos entregados' : 'Todavía no hay pedidos'}</b><p>${q ? 'Pruebe con otro número, cliente o servicio.' : 'Aquí aparecerán sus compras con su estado real.'}</p></div>`}
++    ${todos.length >= 100 ? '<p class="sxg-nota">Se muestran los pedidos más recientes que entrega el servidor.</p>' : ''}
++    <button type="button" class="sxg-link" data-act="pedtab" data-v="entregas">Ver datos de entregas (cuentas, PIN y accesos) →</button>
++  </div>`;
++  sxBindPedidos();
++}
++vPedidos = sxgVPedidos;
++sxPedTabsHtml = function () { return sxPedTab === 'entregas' ? '<button type="button" class="sx-link" data-act="pedtab" data-v="pedidos">← Compras</button>' : ''; };
++// Historial: pedir el máximo que acepta el servidor (antes 60). Misma ruta y mismos permisos.
++loadMisCompras = (function (base) {
++  return async function () {
++    if (optionalUnavailable.has('compras')) return misCompras;
++    return runSocioRequest('compras', async (epoch) => {
++      try {
++        const data = await API.call('/rev/compras/mias?limit=500&_=' + Date.now(), { cache: 'no-store', timeoutMs: 15000 });
++        if (epoch !== socioEpoch) return misCompras;
++        misCompras = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []; writeSocioCache('compras', misCompras);
++      } catch (e) { if (e?.status === 404) optionalUnavailable.add('compras'); else { syncAt.compras = syncAt.compras || 1; } }
++      if (current === 'compras' && typeof renderCompraForm === 'function') renderCompraForm(); else if (current === 'pedidos') vPedidos(); else if (current === 'inicio') vInicio(); else if (current === 'clientes' && sxoCliAbierto) sxgClientesPintar();
++      return misCompras;
++    });
++  };
++})(loadMisCompras);
++
++/* ---------------- BUZÓN: mismas dos pestañas + avisos por mes y año ---------------- */
++const sxgBuzonBase = vSugerencias;
++vSugerencias = function () {
++  sxgBuzonBase.apply(this, arguments);
++  if (current !== 'buzon' || typeof sxBz !== 'object' || sxBz.tab !== 'avisos') return;
++  const per = sxgAv.per || sxgPeriodoHoy(); sxgAv.per = per;
++  sxgCargarAvisos(per);
++  const lista = sxgAvisosDe(per), cargando = !!sxgAv.cargando[per] && !lista.length;
++  const card = [...content.querySelectorAll('.sx-page > section.sx-card')].find((s) => /Avisos del equipo/.test(s.textContent));
++  const html = `<section class="sxg-card sxg-av-pg" aria-labelledby="sxgAvPgT"><div class="sxg-card-head"><b id="sxgAvPgT">Avisos del equipo</b><button type="button" class="sxg-link sm" data-bz="avisos-recargar">Actualizar</button></div>
++    ${sxgSelPeriodo('sxgAvPer', per, 'av')}
++    ${cargando ? `<div class="sxg-av-esq">${sxgEsq(3)}</div>` : lista.length ? `<ul class="sxg-av-full">${lista.map((a) => { const id = String(a.id || a.ts); const ab = sxgAv.abierto === id; return `<li class="${ab ? 'ab' : ''}"><button type="button" data-sxg="av-abrir" data-id="${sxAttr(id)}" aria-expanded="${ab}"><i aria-hidden="true"></i><span><b>${sxEsc(sxgAvTitulo(a))}</b><small>${sxEsc(a.autor || 'Sublicuentas')} · ${sxEsc(sxgFechaCorta(a.ts))}</small></span>${sxgIc('chev', 'sxg-chev')}</button>${ab ? `<p class="sxg-av-texto">${sxEsc(a.texto || '')}</p>` : ''}</li>`; }).join('')}</ul>` : '<p class="sxg-vacio">No hay avisos para este periodo.</p>'}
++    <p class="sxg-nota">Los avisos se muestran como los publicó el equipo; no se borran ni se reescriben.</p></section>`;
++  if (card) card.outerHTML = html; else content.querySelector('.sx-page')?.insertAdjacentHTML('beforeend', html);
++};
++
++/* ---------------- MÁS: las seis categorías originales + Salir ---------------- */
++const SXG_MAS = [
++  { v: 'renovar', t: 'Renovaciones', d: 'Cobros y próximos vencimientos', ic: 'renew', tone: 'green' },
++  { v: 'precios', t: 'Catálogo', d: 'Precios y condiciones', ic: 'box', tone: 'orange' },
++  { v: 'buzon', t: 'Buzón', d: 'Consultas, respuestas y avisos', ic: 'mail', tone: 'sky' },
++  { v: 'aula', t: 'Subli Aula', d: 'Formación y herramientas', ic: 'spark', tone: 'amber' },
++  { v: 'recompensas', t: 'Recompensas', d: 'Progreso y beneficios', ic: 'gift', tone: 'red' },
++  { v: 'perfil', t: 'Mi perfil', d: 'Telegram y configuración', ic: 'user', tone: 'purple' },
++];
++function sxgVMas() {
++  document.body.classList.remove('sx-con-barra');
++  const items = SXG_MAS.filter((x) => vistaGeisellPermitida(x.v));
++  content.innerHTML = `<div class="sx-page sxg-mas sxo-mas"><header class="sxg-titulo"><h1>Más opciones</h1></header>
++    <ul class="sxg-mas-lista">${items.map((x) => `<li><button type="button" class="sxg-mas-item" data-go="${x.v}"><span class="sxg-mas-ic sxg-${x.tone}">${sxgIc(x.ic)}</span><span class="sxg-cli-tx"><b>${x.t}</b><small>${x.d}</small></span>${sxgIc('chev', 'sxg-chev')}</button></li>`).join('')}</ul>
++    <button type="button" class="sxg-salir" data-m="salir">Salir de mi cuenta</button>
++  </div>`;
++  content.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
++  content.querySelector('[data-m="salir"]')?.addEventListener('click', () => logout());
++}
++sxoVMas = sxgVMas;
++
++/* ---------------- enlaces de Inicio y selectores de periodo ---------------- */
++function sxgIr(g) {
++  if (g.startsWith('clientes:')) { cliEstado = g.slice(9); cliF = ''; sxoCliAbierto = ''; go('clientes'); return; }
++  if (g.startsWith('pedidos:')) { sxPedTab = 'pedidos'; sxPedidoAbierto = ''; sxPedFiltro = g.slice(8); sxPedBuscar = ''; go('pedidos'); return; }
++  if (g.startsWith('pedido:')) { sxPedTab = 'pedidos'; sxPedidoAbierto = g.slice(7); go('pedidos'); return; }
++  if (g.startsWith('aviso:')) { sxBz.tab = 'avisos'; sxBz.abierto = ''; sxgAv.abierto = g.slice(6); const a = (avisos || []).find((x) => String(x.id || x.ts) === sxgAv.abierto); sxgAv.per = a ? sxgPeriodoDe(a.ts) : sxgPeriodoHoy(); go('buzon'); return; }
++  if (g === 'buzon:avisos') { sxBz.tab = 'avisos'; sxBz.abierto = ''; sxgAv.per = sxgPeriodoHoy(); go('buzon'); return; }
++  if (g === 'metas') { sxgMetaPer = sxgPeriodoHoy(); go('metas'); return; }
++  go(g);
++}
++content.addEventListener('click', (ev) => {
++  const b = ev.target.closest('[data-sxg-go]');
++  if (b) { const g = b.dataset.sxgGo; if (g === 'metas' && current === 'inicio') { const per = sxgPeriodoHoy(); const v = sxgVentas(per); if (v && v.estado === 'error') { delete sxgVentasPer[per]; } } sxgIr(g); return; }
++  const a = ev.target.closest('[data-sxg="av-abrir"]');
++  if (a) { sxgAv.abierto = sxgAv.abierto === a.dataset.id ? '' : a.dataset.id; vSugerencias(); return; }
++});
++content.addEventListener('change', (ev) => {
++  const s = ev.target.closest('select[data-sxg]'); if (!s) return;
++  const box = s.closest('[data-sxg-per]'), m = box.querySelector('select[data-sxg$="-mes"]').value, y = box.querySelector('select[data-sxg$="-anio"]').value;
++  const per = `${y}-${String(m).padStart(2, '0')}`;
++  if (box.dataset.sxgPer === 'av') { sxgAv.per = per; sxgAv.abierto = ''; vSugerencias(); }
++  if (box.dataset.sxgPer === 'meta') { sxgMetaPer = per; sxgVMetas(); }
++});
++
++/* ---------------- enlazar vistas y router ---------------- */
++vInicio = sxgVInicio;
++sxoVInicio = sxgVInicio; // socios-orden.js se llama a sí misma por nombre al llegar los pedidos
++const sxgGoBase = go;
++go = function (v) {
++  if (v === 'metas') {
++    if (!vistaGeisellPermitida('metas')) { sxgGoBase('inicio'); return; }
++    try { sxoCerrarMenu(); } catch (_) {}
++    current = 'metas'; window.scrollTo(0, 0); sxgVMetas(); renderUnifiedSidebar();
++    try { updateSyncStatus(); actualizarBadgeBuzon(); } catch (_) {}
++    return;
++  }
++  if (v === 'pedidos' && !vistaGeisellPermitida('pedidos')) v = socioSinCompras() ? 'clientes' : 'inicio';
++  sxgGoBase(v);
++  sxgCabecera();
++  renderUnifiedSidebar();
++};
++setInterval(() => { const r = document.getElementById('sxgReloj'), f = document.getElementById('sxgFecha'); if (r) r.textContent = sxgHora(); if (f) f.textContent = sxgFechaLarga(); }, 20000);
++
++const sxgSidebarBase = renderUnifiedSidebar;
++renderUnifiedSidebar = function () {
++  const r = sxgSidebarBase.apply(this, arguments);
++  if (webDesktopMode()) { const ped = document.querySelector('#nav [data-v="pedidos"] .nav-ico'); if (ped) ped.innerHTML = sxgIc('cart'); document.querySelectorAll('#nav .nav-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === sxgNavActiva() || b.dataset.v === current)); }
++  return r;
++};
++sxgCabecera();
++renderUnifiedSidebar();
++// Si la sesión guardada ya pidió los pedidos con el límite anterior (60), se vuelve a pedir una vez con el nuevo.
++(function sxgHistorialCompleto() {
++  if (typeof API === 'undefined' || !API.token || socioSinCompras()) return;
++  const enCurso = dataRequests?.compras?.promise;
++  Promise.resolve(enCurso).finally(() => { if (Number(syncAt.compras || 0) > 0 || enCurso) { syncAt.compras = 0; loadMisCompras(); } });
++})();
++(function sxgRepintar() {
++  if (document.getElementById('app')?.classList.contains('hide') || typeof current === 'undefined') return;
++  try { go(current || 'inicio'); } catch (_) {}
++})();
+diff --git a/assets/socios-guia.css b/assets/socios-guia.css
+new file mode 100644
+index 0000000..01b0d38
+--- /dev/null
++++ b/assets/socios-guia.css
+@@ -0,0 +1,254 @@
++/* ========================================================================
++   SUBLICUENTAS · PORTAL DE SOCIOS · GUÍA MAESTRA (R185, 07/11/2026)
++   Claro, juvenil y limpio: fondo #F6F7FA, tarjetas blancas, relieve 3D suave
++   (borde fino + sombra baja). Cero neón, cero degradados, cero resplandores.
++   Inter: 700 títulos/métricas · 600 botones · 400/500 texto secundario. Se carga al final.
++   ======================================================================== */
++:root{
++  --g-red:#E2231A;--g-red-d:#B9180F;--g-red-soft:#FDEBEA;
++  --g-ink:#101827;--g-muted:#5B6575;--g-bg:#F6F7FA;--g-card:#FFFFFF;--g-line:#E1E5EE;
++  --g-blue:#1686D1;--g-blue-soft:#E6F2FB;--g-purple:#7448CA;--g-purple-soft:#F0EAFB;
++  --g-green:#16925A;--g-green-soft:#E5F5EC;--g-amber:#E9A31F;--g-amber-soft:#FDF3DF;
++  --g-sky:#1595C7;--g-sky-soft:#E4F4FB;--g-orange:#E5762A;--g-orange-soft:#FDEEE3;--g-slate:#55657A;--g-slate-soft:#EDF0F4;
++  --g-r:18px;--g-nav:70px;
++  --g-sombra:0 4px 0 rgba(16,24,39,.07),0 8px 18px rgba(16,24,39,.07);
++  --g-sombra-baja:0 2px 0 rgba(16,24,39,.06),0 4px 10px rgba(16,24,39,.06);
++  --g-font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
++}
++body.sxg{background:var(--g-bg)!important;color:var(--g-ink);font-family:var(--g-font)!important}
++body.sxg #app,body.sxg #content{background:transparent!important}
++body.sxg .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
++.sxg-ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
++.sxg-chev{width:18px;height:18px;color:#8A94A6;margin-left:auto}
++
++/* ---------- Relieve 3D suave común (guía pág. 11) ---------- */
++body.sxg .sxg-kpi,body.sxg .sxg-cli,body.sxg .sxg-ped,body.sxg .sxg-mas-item,body.sxg .sxg-btn,body.sxg .sxg-chip,body.sxg .sxg-tab,body.sxg .sxg-metas,
++body.sxg .sxg-av-lista button,body.sxg .sxg-av-full>li>button,body.sxg .sxg-alerta,body.sxg .sx-btn,body.sxg .sx-cat-card,body.sxg #nav .nav-btn{
++  transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,border-color .18s ease}
++@media (hover:hover){
++  body.sxg .sxg-kpi:hover,body.sxg .sxg-cli:hover,body.sxg .sxg-ped:hover,body.sxg .sxg-mas-item:hover,body.sxg .sxg-btn:not(:disabled):hover,body.sxg .sxg-metas:hover,body.sxg .sxg-alerta:hover,body.sxg .sx-btn:not(:disabled):hover{transform:translateY(-2px) scale(1.01);box-shadow:0 6px 0 rgba(16,24,39,.07),0 12px 22px rgba(16,24,39,.09)}
++}
++body.sxg .sxg-kpi:active,body.sxg .sxg-cli:active,body.sxg .sxg-ped:active,body.sxg .sxg-mas-item:active,body.sxg .sxg-btn:not(:disabled):active,body.sxg .sxg-chip:active,body.sxg .sxg-tab:active,body.sxg .sxg-metas:active,body.sxg .sxg-alerta:active,body.sxg .sx-btn:not(:disabled):active,body.sxg #nav .nav-btn:active{transform:translateY(2px) scale(.975);box-shadow:var(--g-sombra-baja)}
++body.sxg :is(button,a,select,input,textarea,summary):focus-visible{outline:3px solid #1686D1!important;outline-offset:2px!important}
++@media (prefers-reduced-motion:reduce){body.sxg *{transition:none!important;animation:none!important}body.sxg *:hover,body.sxg *:active{transform:none!important}}
++
++/* ---------- Cabecera: ☰ · logo · campana · iniciales ---------- */
++body.sxg #app .topbar{display:flex!important;align-items:center!important;gap:10px!important;background:#fff!important;border:0!important;border-bottom:1px solid var(--g-line)!important;margin:-10px -16px 14px!important;padding:10px 16px!important;box-shadow:none!important;border-radius:0!important;position:relative}
++body.sxg #app .topbar .av-brand{display:none!important}
++body.sxg #app .topbar .tb-txt{flex:1 1 auto!important;min-width:0!important;display:flex!important;justify-content:center!important;text-align:center}
++body.sxg #app .topbar .tb-txt>:not(.sxg-logo){display:none!important}
++.sxg-logo{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1}
++.sxg-logo img{width:150px;height:auto;max-width:100%;display:block}
++.sxg-logo small{font:600 12.5px var(--g-font);color:#3E4756;letter-spacing:.01em}
++body.sxg #sxoMenuBtn{order:-1;flex:none;width:44px!important;height:44px!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--g-ink)!important;display:grid!important;place-items:center;border-radius:12px!important;position:relative}
++body.sxg #sxoMenuBtn .sxg-ic{width:26px;height:26px}
++body.sxg #topbarActions{display:flex!important;align-items:center!important;gap:6px!important;margin-left:0!important;flex:none!important}
++body.sxg #topbarActions .partner-inbox-btn{width:44px!important;height:44px!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--g-ink)!important;display:grid!important;place-items:center;border-radius:12px!important;position:relative}
++body.sxg #topbarActions .partner-inbox-btn .sxg-ic{width:25px;height:25px}
++body.sxg #topbarActions .nav-badge{background:var(--g-red)!important;color:#fff!important;border:2px solid #fff!important;font:700 11px var(--g-font)!important;min-width:20px;height:20px;top:2px!important;right:2px!important}
++.sxg-avatar{width:44px;height:44px;border-radius:50%;border:0;background:var(--g-red);color:#fff;font:700 15px var(--g-font);display:grid;place-items:center;cursor:pointer;box-shadow:var(--g-sombra-baja);flex:none}
++@media (min-width:900px){
++  body.sxg #app .topbar{margin:0 0 16px!important;border-radius:16px!important;border:1px solid var(--g-line)!important}
++  body.sxg #app .topbar .tb-txt{justify-content:flex-start!important;text-align:left}
++  .sxg-logo{align-items:flex-start}
++}
++
++/* ---------- Barra inferior exacta (5 botones) ---------- */
++@media (max-width:899px){
++  body.sxg #app.wrap{padding:10px 16px calc(var(--g-nav) + 28px + env(safe-area-inset-bottom))!important;max-width:720px!important}
++  body.sxg.sx-con-barra #app.wrap{padding-bottom:calc(var(--g-nav) + 136px + env(safe-area-inset-bottom))!important}
++  body.sxg #nav.sxg-nav{height:calc(var(--g-nav) + env(safe-area-inset-bottom))!important;padding:7px 8px calc(7px + env(safe-area-inset-bottom))!important;gap:4px!important;justify-content:space-between!important;background:#fff!important;border-top:1px solid var(--g-line)!important;border-radius:22px 22px 0 0!important;box-shadow:0 -6px 18px rgba(16,24,39,.07)!important}
++  body.sxg #nav.sxg-nav .nav-btn{flex:1 1 0!important;min-height:56px!important;border-radius:16px!important;color:#4A5565!important;font:600 12.5px var(--g-font)!important;gap:3px!important}
++  body.sxg #nav.sxg-nav .nav-btn .nav-ico{background:transparent!important;color:inherit!important;width:30px!important;height:26px!important}
++  body.sxg #nav.sxg-nav .nav-btn .nav-ico .sxg-ic{width:24px;height:24px}
++  body.sxg #nav.sxg-nav .nav-btn.on{background:var(--g-red)!important;color:#fff!important;box-shadow:0 3px 0 var(--g-red-d),0 6px 14px rgba(226,35,26,.22)!important;font-weight:700!important}
++  body.sxg #nav.sxg-nav .nav-btn.on .nav-ico{background:transparent!important;color:#fff!important}
++  body.sxg #nav.sxg-nav .nav-btn .nav-lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
++}
++@media (max-width:359px){body.sxg #nav.sxg-nav .nav-btn{font-size:11.5px!important}}
++
++/* ---------- Comunes ---------- */
++body.sxg .sx-page{font-family:var(--g-font)!important}
++.sxg-titulo h1,body.sxg .sx-page-head h1{font:700 26px/1.15 var(--g-font)!important;color:var(--g-ink)!important;margin:2px 0 4px!important;letter-spacing:-.01em}
++.sxg-titulo p{margin:0;color:var(--g-muted);font:500 14px var(--g-font)}
++.sxg-titulo{margin:0 0 14px}
++.sxg-titulo-acc{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
++.sxg-card{display:block;width:100%;background:var(--g-card);border:1px solid var(--g-line);border-radius:var(--g-r);box-shadow:var(--g-sombra);padding:16px;margin:0 0 14px;text-align:left;color:var(--g-ink);font-family:var(--g-font)}
++.sxg-card h2{font:700 18px var(--g-font);margin:0 0 10px}
++.sxg-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
++.sxg-card-head>b{font:700 18px var(--g-font)}
++.sxg-card-ic{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;flex:none}
++.sxg-chip-per{margin-left:auto;font:600 12.5px var(--g-font);color:#3E4756;background:#F2F4F8;border:1px solid var(--g-line);border-radius:999px;padding:6px 12px;white-space:nowrap}
++.sxg-sec{font:700 17px var(--g-font);margin:18px 0 10px;color:var(--g-ink)}
++.sxg-nota{font:500 13.5px/1.5 var(--g-font);color:var(--g-muted);margin:8px 0 0}
++.sxg-vacio{font:500 14px var(--g-font);color:var(--g-muted);margin:4px 0 8px}
++.sxg-vacio-card{text-align:center}.sxg-vacio-card b{display:block;font:700 16px var(--g-font);margin-bottom:4px}.sxg-vacio-card p{margin:0;color:var(--g-muted);font-size:14px}
++.sxg-link{display:inline-flex;align-items:center;min-height:44px;border:0;background:none;padding:0 2px;color:var(--g-red);font:600 14.5px var(--g-font);cursor:pointer}
++.sxg-link.sm{min-height:36px;font-size:13.5px;margin-left:auto}
++.sxg-volver{display:inline-flex;align-items:center;gap:4px;min-height:44px;border:0;background:none;color:var(--g-ink);font:600 15px var(--g-font);cursor:pointer;padding:0;margin:0 0 2px}
++.sxg-volver .sxg-ic{width:18px;height:18px}
++.sxg-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 18px;border-radius:14px;border:1px solid transparent;font:600 15.5px var(--g-font);cursor:pointer;text-decoration:none;box-shadow:var(--g-sombra-baja)}
++.sxg-btn .sxg-ic{width:18px;height:18px}
++.sxg-btn.pri{background:var(--g-red);color:#fff;box-shadow:0 3px 0 var(--g-red-d),0 6px 14px rgba(226,35,26,.18)}
++.sxg-btn.sec{background:#fff;color:var(--g-ink);border-color:var(--g-line)}
++.sxg-btn.sec.wa{color:var(--g-green)}
++.sxg-btn.sm{min-height:44px;padding:0 14px;font-size:14px}
++.sxg-btn.full{width:100%}
++.sxg-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
++.sxg-dos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}
++.sxg-pill{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:999px;font:600 12px var(--g-font);white-space:nowrap;flex:none;border:1px solid transparent}
++.sxg-pill.ok{background:var(--g-green-soft);color:#0E6E42;border-color:#C8E8D6}
++.sxg-pill.info{background:var(--g-blue-soft);color:#0F5F96;border-color:#C9E1F4}
++.sxg-pill.warn{background:var(--g-red-soft);color:#A3140D;border-color:#F6CBC8}
++.sxg-pill.work{background:var(--g-amber-soft);color:#8A5A06;border-color:#F3DDAE}
++.sxg-pill.off{background:#F0F2F5;color:#4A5565;border-color:#E1E5EE}
++.sxg-blue{background:var(--g-blue-soft);color:var(--g-blue)}.sxg-purple{background:var(--g-purple-soft);color:var(--g-purple)}
++.sxg-green{background:var(--g-green-soft);color:var(--g-green)}.sxg-amber{background:var(--g-amber-soft);color:#B67908}
++.sxg-red{background:var(--g-red-soft);color:var(--g-red)}.sxg-sky{background:var(--g-sky-soft);color:var(--g-sky)}
++.sxg-orange{background:var(--g-orange-soft);color:var(--g-orange)}.sxg-slate{background:var(--g-slate-soft);color:var(--g-slate)}
++/* Esqueleto: bloques lisos mientras llega el dato (nunca un cero aparente) */
++.sxg-esq{display:block;height:14px;border-radius:7px;background:#ECEFF4;margin:6px 0;animation:sxgPulso 1.2s ease-in-out infinite}
++.sxg-esq:first-child{width:62%}.sxg-esq+.sxg-esq{width:84%}.sxg-esq+.sxg-esq+.sxg-esq{width:46%}
++.sxg-kpi .sxg-esq{width:70px;height:22px;margin:4px 0}
++@keyframes sxgPulso{50%{opacity:.55}}
++
++/* ---------- Inicio ---------- */
++.sxg-hola{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--g-line);border-radius:22px;box-shadow:var(--g-sombra);padding:18px 16px 18px 20px;margin:0 0 14px;min-height:132px}
++.sxg-hola::before{content:"";position:absolute;left:0;top:0;width:86px;height:10px;background:var(--g-red);border-radius:0 0 10px 0}
++.sxg-hola::after{content:"";position:absolute;right:0;bottom:0;width:120px;height:8px;background:var(--g-red);border-radius:10px 0 0 0;opacity:.9}
++.sxg-hola-tx{flex:1;min-width:0;position:relative;z-index:1}
++.sxg-hola h1{font:700 30px/1.1 var(--g-font)!important;margin:4px 0 10px!important;color:var(--g-ink)!important;letter-spacing:-.015em;overflow-wrap:anywhere}
++.sxg-hola h1 span{color:var(--g-red)}
++.sxg-hola p{display:flex;align-items:center;gap:8px;margin:4px 0;font:500 14.5px var(--g-font);color:#2B3443}
++.sxg-hola p .sxg-ic{width:19px;height:19px;color:var(--g-red)}
++.sxg-robot{width:104px;height:104px;object-fit:contain;flex:none;position:relative;z-index:1}
++.sxg-alerta{display:grid;grid-template-columns:1fr auto;gap:2px 10px;width:100%;text-align:left;background:#fff;border:1px solid #F6CBC8;border-left:5px solid var(--g-red);border-radius:16px;padding:12px 14px;margin:0 0 14px;cursor:pointer;box-shadow:var(--g-sombra-baja);font-family:var(--g-font)}
++.sxg-alerta b{font:700 15px var(--g-font);color:var(--g-ink)}.sxg-alerta small{grid-column:1;font:500 13px var(--g-font);color:var(--g-muted)}
++.sxg-alerta span{grid-column:2;grid-row:1/3;align-self:center;color:var(--g-red);font:700 14px var(--g-font)}
++.sxg-kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px}
++.sxg-kpi{position:relative;display:flex;align-items:center;gap:10px;min-height:84px;width:100%;text-align:left;background:#fff;border:1px solid var(--g-line);border-radius:var(--g-r);box-shadow:var(--g-sombra);padding:12px 10px 14px 12px;cursor:pointer;overflow:hidden;font-family:var(--g-font);color:var(--g-ink)}
++.sxg-kpi::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:currentColor;opacity:.9}
++.sxg-kpi.sxg-blue{color:var(--g-blue)}.sxg-kpi.sxg-purple{color:var(--g-purple)}.sxg-kpi.sxg-green{color:var(--g-green)}.sxg-kpi.sxg-amber{color:var(--g-amber)}
++.sxg-kpi{background:#fff!important}
++.sxg-kpi-ic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;flex:none;background:currentColor;box-shadow:0 3px 0 rgba(16,24,39,.12)}
++.sxg-kpi-ic .sxg-ic{color:#fff;width:24px;height:24px}
++.sxg-kpi-tx{display:flex;flex-direction:column;min-width:0;color:var(--g-ink)}
++.sxg-kpi-tx small{font:600 13.5px/1.2 var(--g-font);color:#2B3443}
++.sxg-kpi-tx b{font:700 clamp(19px,5.6vw,24px)/1.15 var(--g-font);color:var(--g-ink);white-space:nowrap;letter-spacing:-.01em}
++.sxg-kpi-tx{flex:1}
++.sxg-kpi-tx em{font:500 11.5px var(--g-font);font-style:normal;color:var(--g-muted)}
++.sxg-kpi .sxg-chev{color:#8A94A6}
++.sxg-metas{cursor:pointer}
++.sxg-meta-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;font:500 15px var(--g-font);color:#2B3443;flex-wrap:wrap}
++.sxg-meta-fila b{font-weight:700;color:var(--g-ink)}
++.sxg-meta-off{font:600 13px var(--g-font);color:var(--g-muted);background:#F2F4F8;border-radius:999px;padding:4px 10px}
++.sxg-pct{font:700 20px var(--g-font);color:var(--g-ink)}.sxg-pct.ok{color:var(--g-green)}
++.sxg-barra{height:12px;border-radius:999px;background:#E7EAF0;margin-top:10px;overflow:hidden}
++.sxg-barra i{display:block;height:100%;background:var(--g-red);border-radius:999px}
++.sxg-meta-nota{margin:0;font:500 14px var(--g-font);color:var(--g-muted)}
++.sxg-av-lista,.sxg-av-full{list-style:none;margin:0;padding:0}
++.sxg-av-lista li+li,.sxg-av-full li+li{border-top:1px solid #EEF0F4}
++.sxg-av-lista button,.sxg-av-full>li>button{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;background:none;border:0;padding:8px 2px;text-align:left;cursor:pointer;font-family:var(--g-font);color:var(--g-ink)}
++.sxg-av-lista i,.sxg-av-full i{width:10px;height:10px;border-radius:50%;background:var(--g-red);flex:none}
++.sxg-av-lista span,.sxg-av-full span{display:flex;flex-direction:column;min-width:0}
++.sxg-av-lista b,.sxg-av-full b{font:600 15px/1.3 var(--g-font);overflow-wrap:anywhere}
++.sxg-av-lista small,.sxg-av-full small{font:500 12.5px var(--g-font);color:var(--g-muted)}
++.sxg-av-full li.ab .sxg-chev{transform:rotate(90deg)}
++.sxg-av-texto{margin:0 0 12px 22px;white-space:pre-wrap;font:400 14.5px/1.55 var(--g-font);color:#2B3443;overflow-wrap:anywhere}
++
++/* ---------- Selector de mes y año ---------- */
++.sxg-periodo{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin:0 0 12px}
++.sxg-sel select{width:100%;min-height:48px;border:1px solid var(--g-line);border-radius:14px;background:#fff;padding:0 14px;font:600 15px var(--g-font);color:var(--g-ink);box-shadow:var(--g-sombra-baja);appearance:auto}
++
++/* ---------- Clientes ---------- */
++.sxg-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
++.sxg-chip{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--g-line);background:#fff;color:#2B3443;font:600 14px var(--g-font);cursor:pointer;box-shadow:var(--g-sombra-baja);white-space:nowrap}
++.sxg-chip span{font-weight:700;color:var(--g-muted);margin-left:2px}
++.sxg-chip.on{background:var(--g-red);border-color:var(--g-red);color:#fff;box-shadow:0 3px 0 var(--g-red-d)}
++.sxg-chip.on span{color:#fff}
++.sxg-buscar{display:flex;align-items:center;gap:8px;min-height:50px;background:#fff;border:1px solid var(--g-line);border-radius:14px;padding:0 14px;margin:0 0 12px;box-shadow:var(--g-sombra-baja);color:#8A94A6}
++.sxg-buscar input{flex:1;min-width:0;border:0!important;outline:0;background:transparent!important;font:500 15px var(--g-font);color:var(--g-ink);min-height:46px;box-shadow:none!important;padding:0!important}
++.sxg-cuenta{font:600 13.5px var(--g-font);color:var(--g-muted);margin:2px 2px 8px}
++.sxg-lista{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:10px}
++.sxg-cli,.sxg-ped{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;text-align:left;background:#fff;border:1px solid var(--g-line);border-radius:var(--g-r);box-shadow:var(--g-sombra);padding:12px 14px;cursor:pointer;font-family:var(--g-font);color:var(--g-ink)}
++.sxg-cli-esq{display:block;cursor:default}
++.sxg-cli-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
++.sxg-cli-tx b{font:700 16px/1.25 var(--g-font);overflow-wrap:anywhere}
++.sxg-cli-tx small{font:500 13px/1.35 var(--g-font);color:var(--g-muted);overflow-wrap:anywhere}
++.sxg-ini{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 18px var(--g-font);flex:none}
++.sxg-ini.lg{width:58px;height:58px;font-size:24px}
++.sxg-ficha-top{display:flex;align-items:center;gap:14px}
++.sxg-ficha-top h2{margin:0 0 2px;font:700 22px var(--g-font);overflow-wrap:anywhere}
++.sxg-ficha-top p{margin:0;font:500 14px var(--g-font);color:var(--g-muted)}
++.sxg-svcs{list-style:none;margin:0 0 4px;padding:0}
++.sxg-svc{padding:14px}
++.sxg-svc-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
++.sxg-svc .sxg-ini{border-radius:12px}
++.sxg-svc-tx{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
++.sxg-svc-tx b{font:700 17px var(--g-font);overflow-wrap:anywhere}.sxg-svc-tx small{font:500 13.5px var(--g-font);color:var(--g-muted)}
++.sxg-svc-tx .sxg-pill{align-self:flex-start}
++.sxg-precio{font:700 17px var(--g-font);white-space:nowrap}
++.sxg-svc .sxg-btn{width:100%}
++
++/* ---------- Compras ---------- */
++.sxg-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px}
++.sxg-tab{min-height:48px;border-radius:14px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font:600 15px var(--g-font);cursor:pointer;box-shadow:var(--g-sombra-baja)}
++.sxg-tab span{color:var(--g-muted);font-weight:700}
++.sxg-tab.on{background:var(--g-red);border-color:var(--g-red);color:#fff;box-shadow:0 3px 0 var(--g-red-d)}
++.sxg-tab.on span{color:#fff}
++.sxg-ped-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none;background:#1F2937;color:#fff}
++.sxg-ped-ic.ok{background:#1F2937}.sxg-ped-ic.warn{background:var(--g-red)}.sxg-ped-ic.info,.sxg-ped-ic.work{background:var(--g-blue)}.sxg-ped-ic.off{background:#8A94A6}
++.sxg-ped .sxg-pill{align-self:flex-end}
++
++/* ---------- Más ---------- */
++.sxg-mas-lista{list-style:none;margin:0 0 6px;padding:0;display:flex;flex-direction:column;gap:12px}
++.sxg-mas-item{display:flex;align-items:center;gap:14px;width:100%;min-height:76px;text-align:left;background:#fff;border:1px solid var(--g-line);border-radius:var(--g-r);box-shadow:var(--g-sombra);padding:12px 16px;cursor:pointer;font-family:var(--g-font);color:var(--g-ink)}
++.sxg-mas-ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;flex:none}
++.sxg-salir{display:inline-flex;align-items:center;min-height:48px;margin:6px 2px 0;border:0;background:none;color:var(--g-red);font:700 16px var(--g-font);cursor:pointer;padding:0}
++
++/* ---------- Pantallas existentes: mismo estilo claro sin cambiar su lógica ---------- */
++body.sxg .sx-card,body.sxg .sxo-item,body.sxg .sx-cat-card,body.sxg .sx-prod,body.sxg .sx-order,body.sxg .sx-ent,body.sxg .sxo-grupo{background:#fff!important;border:1px solid var(--g-line)!important;border-radius:var(--g-r)!important;box-shadow:var(--g-sombra)!important}
++body.sxg .sxg-ped.sx-order{border-radius:var(--g-r)!important}
++body.sxg .sx-btn.pri{background:var(--g-red)!important;color:#fff!important;border-radius:14px!important;box-shadow:0 3px 0 var(--g-red-d),0 6px 14px rgba(226,35,26,.18)!important;font-family:var(--g-font)!important;font-weight:600!important}
++body.sxg .sx-btn.sec{border-radius:14px!important;box-shadow:var(--g-sombra-baja)!important;font-family:var(--g-font)!important;font-weight:600!important}
++body.sxg .sx-chip.on,body.sxg .sx-tab.on{background:var(--g-red)!important;border-color:var(--g-red)!important;color:#fff!important}
++body.sxg .sx-link{color:var(--g-red)!important}
++body.sxg .sx-page h2,body.sxg .sx-page h3{font-family:var(--g-font)!important}
++
++/* ---------- Tablet y computadora ---------- */
++@media (min-width:600px) and (max-width:899px){.sxg-kpis{grid-template-columns:repeat(4,1fr)}.sxg-kpi{flex-direction:column;align-items:flex-start}.sxg-kpi .sxg-chev{position:absolute;right:10px;top:14px}}
++@media (min-width:900px){
++  .sxg-inicio,.sxg-clientes,.sxg-compras,.sxg-mas,.sxg-ficha,.sxg-metas-pg{max-width:1080px}
++  .sxg-kpis{grid-template-columns:repeat(4,1fr);gap:16px}
++  .sxg-inicio{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
++  .sxg-inicio>.sxg-hola,.sxg-inicio>.sxg-kpis,.sxg-inicio>.sxg-alerta{grid-column:1/-1}
++  .sxg-lista.sx-orders,.sxg-clientes .sxg-lista{display:grid;grid-template-columns:1fr 1fr}
++  .sxg-mas-lista{display:grid;grid-template-columns:1fr 1fr}
++}
++@media (max-width:370px){
++  .sxg-hola h1{font-size:26px!important}.sxg-robot{width:84px;height:84px}
++  .sxg-kpi{gap:8px;padding:10px 8px 12px 10px}.sxg-kpi-ic{width:40px;height:40px}.sxg-kpi-tx b{font-size:21px}.sxg-kpi .sxg-chev{display:none}
++  .sxg-chip{padding:0 12px;font-size:13.5px}
++}
++
++/* ---------- Ajustes finos ---------- */
++.sxg-kpi{padding-right:26px}
++.sxg-kpi .sxg-chev{position:absolute;right:8px;top:50%;margin-top:-9px}
++.sxg-kpi-tx small{white-space:normal}
++button.sxg-card{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;cursor:pointer}
++.sxg-titulo-acc .sxg-btn{white-space:nowrap;flex:none}
++@media (max-width:420px){.sxg-titulo-acc .sxg-btn{padding:0 12px}}
++@media (min-width:900px){
++  body.sxg #app .topbar .sxg-logo{display:none}
++  body.sxg #nav .nav-btn.on{background:var(--g-red-soft)!important;color:var(--g-red)!important}
++  body.sxg #nav .nav-btn.on .nav-ico{background:var(--g-red)!important;color:#fff!important}
++}
++@media (max-width:899px){
++  body.sxg{--o-nav:var(--g-nav)}
++  body.sxg .sx-bottom-bar{bottom:calc(var(--g-nav) + env(safe-area-inset-bottom))!important;border-radius:18px 18px 0 0!important;border-color:var(--g-line)!important}
++}
++body.sxg .sxo-conds summary,body.sxg .sx-page a:not(.sx-btn):not(.sxg-btn){color:var(--g-red)!important}
++body.sxg .sx-cat-btn.on,body.sxg .sx-cat-tabs .on{background:var(--g-red)!important;border-color:var(--g-red)!important;color:#fff!important}
++.sxg-resumen summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font:600 15px var(--g-font);color:var(--g-red)}
++.sxg-resumen dl{margin:8px 0 0;display:grid;gap:8px}.sxg-resumen dl div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #EEF0F4;padding-top:8px}
++.sxg-resumen dt{font:500 14px var(--g-font);color:var(--g-muted)}.sxg-resumen dd{margin:0;text-align:right;font:700 15px var(--g-font)}.sxg-resumen dd small{display:block;font:500 12px var(--g-font);color:var(--g-muted)}
