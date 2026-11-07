@@ -148,11 +148,14 @@ function sxgSelPeriodo(id, per, accion) {
 function sxgNavItems() {
   return [
     { v: 'inicio', l: 'Inicio', ic: 'home' }, { v: 'clientes', l: 'Clientes', ic: 'users' },
-    { v: 'pedidos', l: 'Compras', ic: 'cart' }, { v: 'precios', l: 'Catálogo', ic: 'box' }, { v: 'mas', l: 'Más', ic: 'more' },
+    { v: sxgDestinoCompras(), l: 'Compras', ic: 'cart' }, { v: 'precios', l: 'Catálogo', ic: 'box' }, { v: 'mas', l: 'Más', ic: 'more' },
   ].filter((it) => vistaGeisellPermitida(it.v));
 }
+// R190 · «Compras» abre la TIENDA (nueva compra con carrito). El historial queda en «Mis pedidos» (vista secundaria).
+// Si el socio no puede comprar, la pestaña sigue llevando a su historial (como antes), sin inventar otra ruta.
+function sxgDestinoCompras() { return vistaGeisellPermitida('compras') && !socioSinCompras() ? 'compras' : 'pedidos'; }
 function sxgNavActiva() {
-  if (['pedidos', 'compras'].includes(current)) return 'pedidos';
+  if (['pedidos', 'compras'].includes(current)) return sxgDestinoCompras();
   if (current === 'metas') return 'inicio';
   if (['inicio', 'clientes', 'precios'].includes(current)) return current;
   return 'mas';
@@ -169,7 +172,7 @@ renderMobileNav = sxgMobileNav;
 try {
   WEB_NAV_ITEMS.splice(0, WEB_NAV_ITEMS.length,
     { v: 'inicio', label: 'Inicio', tone: 'blue', icon: 'home' }, { v: 'clientes', label: 'Clientes', tone: 'purple', icon: 'users' },
-    { v: 'pedidos', label: 'Compras', tone: 'cyan', icon: 'cart' }, { v: 'precios', label: 'Catálogo', tone: 'orange', icon: 'catalog' },
+    { v: sxgDestinoCompras(), label: 'Compras', tone: 'cyan', icon: 'cart' }, { v: 'precios', label: 'Catálogo', tone: 'orange', icon: 'catalog' },
     { v: 'renovar', label: 'Renovaciones', tone: 'green', icon: 'renew' }, { v: 'buzon', label: 'Buzón', tone: 'cyan', icon: 'mail' },
     { v: 'aula', label: 'Subli Aula', tone: 'amber', icon: 'spark' }, { v: 'recompensas', label: 'Recompensas', tone: 'red', icon: 'gift' },
     { v: 'perfil', label: 'Mi perfil', tone: 'green', icon: 'user' });
@@ -177,21 +180,70 @@ try {
 const sxgPermBase = vistaGeisellPermitida;
 vistaGeisellPermitida = function (v) { if (v === 'metas') return sxgPermBase('inicio'); return sxgPermBase(v); };
 
-/* ---------------- cabecera: ☰ · logo · campana · iniciales ---------------- */
-function sxgIniciales() { const p = String(revName() || '').trim().split(/\s+/).filter(Boolean); if (!p.length || norm(p[0]) === 'socio') return '·'; return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
+/* ---------------- cabecera: logo · campana · avatar (R190: sin ☰ ni panel vacío) ---------------- */
+// R190 · Nombre del socio desde la identidad AUTENTICADA, en este orden: nombre visible del Perfil (servidor) → el que devolvió
+// /rev/me o el login → el del token de sesión emitido por el servidor. Solo se usa para mostrar; los permisos no salen de aquí.
+// Causas del «Hola» sin nombre: (1) el login descartaba nombreMostrar; (2) Inicio no se repintaba cuando llegaba el perfil
+// (renderTop solo actualizaba el saludo viejo); (3) sin nombre, el avatar dibujaba «·» en vez de la foto o las iniciales.
+const SXG_NO_NOMBRE = ['', 'socio', 'sublicuentas', 'sublichat', 'admin', 'administrador'];
+let sxgMeListo = false;
+function sxgTokenPerfil() {
+  try { const p = String((typeof API !== 'undefined' && API.token) || '').split('.')[1]; if (!p) return {}; const b = atob(p.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(p.length / 4) * 4, '=')); return JSON.parse(decodeURIComponent(Array.from(b, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''))) || {}; } catch (_) { return {}; }
+}
+function sxgNombreSocio() {
+  const t = sxgTokenPerfil(), g = (typeof gamificacion === 'object' && gamificacion?.perfil) || {}, r = (typeof rev === 'object' && rev) || {};
+  for (const v of [g.nombreMostrar, r.nombreMostrar, t.nombreMostrar, r.nombre, t.nombre, r.usuario]) {
+    let n = String(v == null ? '' : v).trim().replace(/\s+/g, ' ');
+    if (norm(n) === 'geissel') n = 'Geisell';
+    if (!SXG_NO_NOMBRE.includes(norm(n))) return n.slice(0, 60);
+  }
+  return '';
+}
+function sxgPrimerNombre() { const n = sxgNombreSocio().split(' ')[0] || ''; return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''; }
+function sxgIniciales() { const p = sxgNombreSocio().split(' ').filter(Boolean); return p.length ? (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase() : ''; }
+function sxgFotoSocio() { const a = (typeof gamificacion === 'object' && gamificacion?.perfil?.avatar) || ''; return a ? safeImageSrc(a, '') : ''; }
+function sxgAvatarHtml() {
+  const foto = sxgFotoSocio(), ini = sxgIniciales();
+  if (foto) return `<img src="${sxAttr(foto)}" alt="" width="44" height="44">`;
+  return ini ? `<span>${sxEsc(ini)}</span>` : sxgIc('user');
+}
+function sxgSaludoHtml() {
+  const n = sxgPrimerNombre();
+  if (n) return `Hola, <span id="sxgHolaNombre">${sxEsc(n)}</span>`;
+  return sxgMeListo ? 'Hola' : 'Hola, <span class="sxg-esq sxg-esq-nombre" aria-hidden="true"></span>';
+}
+// Repinta solo saludo y avatar cuando llega el perfil (sin re-renderizar Inicio ni perder el scroll).
+function sxgPintarIdentidad() {
+  const h = document.getElementById('sxgHola'); if (h) { h.innerHTML = sxgSaludoHtml(); h.setAttribute('aria-busy', String(!sxgPrimerNombre() && !sxgMeListo)); }
+  const av = document.getElementById('sxgAvatar');
+  if (av) { av.innerHTML = sxgAvatarHtml(); av.classList.toggle('con-foto', !!sxgFotoSocio()); av.setAttribute('aria-label', `Mi perfil${sxgNombreSocio() ? ` · ${sxgNombreSocio()}` : ''}`); }
+}
+function sxgQuitarMenu() { // R190 · el ☰ abría un panel vacío: se quitan botón, panel y su superposición
+  document.getElementById('sxoMenuBtn')?.remove(); document.getElementById('sxoMenu')?.remove();
+}
+try { sxoMontarCabecera = function () { document.body.classList.add('sxo'); sxgQuitarMenu(); }; } catch (_) {}
 function sxgCabecera() {
   document.body.classList.add('sxg');
+  sxgQuitarMenu();
   const top = document.querySelector('#app .topbar'); if (!top) return;
-  const menu = document.getElementById('sxoMenuBtn');
-  if (menu && !menu.dataset.sxg) { menu.dataset.sxg = '1'; const dot = menu.querySelector('.nav-badge'); menu.innerHTML = sxgIc('menu'); if (dot) menu.appendChild(dot); menu.setAttribute('aria-label', 'Menú de la cuenta'); top.insertBefore(menu, top.firstChild); }
   const tx = top.querySelector('.tb-txt');
   if (tx && !tx.querySelector('.sxg-logo')) tx.insertAdjacentHTML('afterbegin', '<span class="sxg-logo"><img src="assets/logo-sublicuentas.webp" alt="Sublicuentas" width="160" height="31"><small>Portal de Socios</small></span>');
   const buz = top.querySelector('.partner-inbox-btn');
   if (buz && !buz.dataset.sxg) { buz.dataset.sxg = '1'; const b = buz.querySelector('.nav-badge'); buz.innerHTML = sxgIc('bell'); if (b) buz.appendChild(b); buz.setAttribute('aria-label', 'Buzón y avisos'); }
   const acts = document.getElementById('topbarActions');
-  if (acts && !document.getElementById('sxgAvatar')) { const a = document.createElement('button'); a.type = 'button'; a.id = 'sxgAvatar'; a.className = 'sxg-avatar'; a.setAttribute('aria-label', 'Mi perfil'); a.addEventListener('click', () => go('perfil')); acts.appendChild(a); }
-  const av = document.getElementById('sxgAvatar'); if (av) av.textContent = sxgIniciales();
+  if (acts && !document.getElementById('sxgAvatar')) { const a = document.createElement('button'); a.type = 'button'; a.id = 'sxgAvatar'; a.className = 'sxg-avatar'; a.addEventListener('click', () => go('perfil')); acts.appendChild(a); }
+  sxgPintarIdentidad();
 }
+// Cuando llegan /rev/me (renderTop) o el perfil con foto (applySocioAvatar), se actualizan saludo y avatar.
+try { const sxgRenderTopBase = renderTop; renderTop = function () { const out = sxgRenderTopBase.apply(this, arguments); sxgPintarIdentidad(); return out; }; } catch (_) {}
+try { const sxgAvatarBase = applySocioAvatar; applySocioAvatar = function () { const out = sxgAvatarBase.apply(this, arguments); sxgPintarIdentidad(); return out; }; } catch (_) {}
+try { const sxgSesionBase = loadSocioSession; loadSocioSession = async function () { try { return await sxgSesionBase.apply(this, arguments); } finally { sxgMeListo = true; sxgPintarIdentidad(); } }; } catch (_) {}
+setTimeout(() => { sxgMeListo = true; sxgPintarIdentidad(); }, 12000); // sin respuesta del servidor: no dejar el esqueleto para siempre
+(function sxgPerfilAlEntrar() { // la sesión guardada pudo abrir Inicio antes de cargar este archivo: pedir perfil y foto otra vez
+  if (typeof API === 'undefined' || !API.token || (typeof isAdmin !== 'undefined' && isAdmin && !impersonating)) { sxgMeListo = true; return; }
+  try { loadSocioSession(); } catch (_) {}
+  try { if (!gamificacion?.perfil && typeof loadGamificacion === 'function') loadGamificacion(); } catch (_) {}
+})();
 
 /* ---------------- INICIO ---------------- */
 function sxgEsq(n = 1) { return Array.from({ length: n }, () => '<span class="sxg-esq" aria-hidden="true"></span>').join(''); }
@@ -226,10 +278,9 @@ function sxgVInicio() {
   const avListos = sxgCargado('avisos');
   const delMes = sxgAvisosDe(per);
   const avLista = (delMes.length ? delMes : [...(avisos || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0))).slice(0, 3);
-  const nombre = revName(), conNombre = nombre && norm(nombre) !== 'socio';
   content.innerHTML = `<div class="sx-page sxg-inicio">
     <section class="sxg-hola" aria-label="Saludo">
-      <div class="sxg-hola-tx"><h1>Hola${conNombre ? `, <span>${sxEsc(nombre)}</span>` : ''}</h1>
+      <div class="sxg-hola-tx"><h1 id="sxgHola">${sxgSaludoHtml()}</h1>
         <p>${sxgIc('cal')}<span id="sxgFecha">${sxEsc(sxgFechaLarga())}</span></p>
         <p>${sxgIc('clock')}<span id="sxgReloj">${sxEsc(sxgHora())}</span></p></div>
       <img src="${ROBOT_IMG}" alt="" width="112" height="112" class="sxg-robot">
@@ -241,7 +292,7 @@ function sxgVInicio() {
       ${restricted ? '' : sxgTarjeta({ go: 'pedidos:ok', ic: 'check', tono: 'green', titulo: 'Pedidos entregados', valor: entregados.toLocaleString('es-HN'), listo: comprasListo })}
       ${restricted ? '' : sxgTarjeta({ go: 'metas', ic: 'coins', tono: 'amber', titulo: 'Mis ventas', valor: ventas && ventas.estado === 'ok' ? money(ventas.monto) : '—', listo: !!ventas && ventas.estado !== 'cargando', sub: 'Este mes' })}
     </div>
-    ${restricted ? '' : `<button type="button" class="sxg-card sxg-metas" data-sxg-go="metas"><span class="sxg-card-head"><span class="sxg-card-ic sxg-red">${sxgIc('target')}</span><b>Metas del mes</b><span class="sxg-chip-per">${sxEsc(sxgPeriodoTxt(per))}</span></span>${sxgMetaHtml(per)}</button>`}
+    ${''/* R190 · «Metas del mes» ya no se muestra en Inicio (los datos de metas no se tocan). */}
     ${restricted || !vistaGeisellPermitida('buzon') ? '' : `<section class="sxg-card sxg-avisos" aria-labelledby="sxgAvT"><div class="sxg-card-head"><span class="sxg-card-ic sxg-red">${sxgIc('mega')}</span><b id="sxgAvT">Avisos del equipo</b><span class="sxg-chip-per">${delMes.length || !avListos ? sxEsc(sxgPeriodoTxt(per)) : 'Últimos'}</span></div>
       ${!avListos ? `<div class="sxg-av-esq">${sxgEsq(3)}</div>` : avLista.length ? `<ul class="sxg-av-lista">${avLista.map((a) => `<li><button type="button" data-sxg-go="aviso:${sxAttr(a.id || '')}"><i aria-hidden="true"></i><span><b>${sxEsc(sxgAvTitulo(a))}</b><small>${sxEsc(a.autor || 'Sublicuentas')} · ${sxEsc(sxgFechaCorta(a.ts))}</small></span>${sxgIc('chev', 'sxg-chev')}</button></li>`).join('')}</ul>` : '<p class="sxg-vacio">No hay avisos del equipo por ahora.</p>'}
       <button type="button" class="sxg-link" data-sxg-go="buzon:avisos">Ver todos los avisos</button></section>`}
@@ -367,7 +418,7 @@ function sxgVPedidos() {
   const cargando = !sxgCargado('compras') && !todos.length;
   const icono = (cls) => cls === 'ok' ? 'check' : cls === 'off' ? 'back' : 'cart';
   content.innerHTML = `<div class="sx-page sxg-compras">
-    <header class="sxg-titulo sxg-titulo-acc"><div><h1>Compras</h1><p>Historial de pedidos del socio</p></div>${vistaGeisellPermitida('compras') ? `<button type="button" class="sxg-btn pri sm" data-act="nueva">${sxgIc('plus')} Nueva compra</button>` : ''}</header>
+    <header class="sxg-titulo sxg-titulo-acc"><div><h1>Mis pedidos</h1><p>Historial de pedidos del socio</p></div>${sxgDestinoCompras() === 'compras' ? `<button type="button" class="sxg-btn sm" data-act="nueva">← Compras</button>` : ''}</header>
     <div class="sxg-tabs" role="tablist" aria-label="Historial"><button type="button" role="tab" class="sxg-tab ${sxPedFiltro === 'todos' ? 'on' : ''}" aria-selected="${sxPedFiltro === 'todos'}" data-act="filtro" data-v="todos">Todos${cargando ? '' : ` <span>${todos.length}</span>`}</button><button type="button" role="tab" class="sxg-tab ${sxPedFiltro === 'ok' ? 'on' : ''}" aria-selected="${sxPedFiltro === 'ok'}" data-act="filtro" data-v="ok">Entregados${cargando ? '' : ` <span>${nOk}</span>`}</button></div>
     <label class="sxg-buscar">${sxgIc('search')}<span class="sr">Buscar pedido</span><input id="sxPedBuscar" type="search" value="${sxAttr(sxPedBuscar)}" placeholder="Buscar número de pedido, cliente o servicio" autocomplete="off"></label>
     ${cargando ? `<ul class="sxg-lista">${Array.from({ length: 3 }, () => `<li class="sxg-cli sxg-cli-esq">${sxgEsq(3)}</li>`).join('')}</ul>`
@@ -426,8 +477,11 @@ function sxgVMas() {
   const items = SXG_MAS.filter((x) => vistaGeisellPermitida(x.v));
   content.innerHTML = `<div class="sx-page sxg-mas sxo-mas"><header class="sxg-titulo"><h1>Más opciones</h1></header>
     <ul class="sxg-mas-lista">${items.map((x) => `<li><button type="button" class="sxg-mas-item" data-go="${x.v}"><span class="sxg-mas-ic sxg-${x.tone}">${sxgIc(x.ic)}</span><span class="sxg-cli-tx"><b>${x.t}</b><small>${x.d}</small></span>${sxgIc('chev', 'sxg-chev')}</button></li>`).join('')}</ul>
+    <div class="sxg-mas-acc"><button type="button" class="sxg-link sm" data-m="sync">↻ Actualizar datos</button>${document.getElementById('installAppBtn') && !document.getElementById('installAppBtn').classList.contains('hide') ? '<button type="button" class="sxg-link sm" data-m="instalar">📲 Instalar aplicación</button>' : ''}</div>
     <button type="button" class="sxg-salir" data-m="salir">Salir de mi cuenta</button>
   </div>`;
+  content.querySelector('[data-m="sync"]')?.addEventListener('click', () => refreshCurrentData(true)); // R190 · lo que tenía el menú ☰
+  content.querySelector('[data-m="instalar"]')?.addEventListener('click', () => { if (typeof installPwa === 'function') installPwa(); });
   content.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
   content.querySelector('[data-m="salir"]')?.addEventListener('click', () => logout());
 }
@@ -457,6 +511,22 @@ content.addEventListener('change', (ev) => {
   if (box.dataset.sxgPer === 'meta') { sxgMetaPer = per; sxgVMetas(); }
 });
 
+/* ---------------- R190 · COMPRAS = tienda/carrito; «Mis pedidos» secundario ---------------- */
+try {
+  const sxgRenderCompraBase = sxRender;
+  sxRender = function () {
+    const out = sxgRenderCompraBase.apply(this, arguments);
+    if (current !== 'compras' || sxConfirmacion) return out;
+    const head = content.querySelector('#sxCompra .sx-page-head');
+    if (head && !head.querySelector('.sxg-mis-pedidos')) {
+      const h1 = head.querySelector('h1'); if (h1 && SX.paso === 1) { h1.textContent = 'Compras'; if (!head.querySelector('.sx-help')) h1.insertAdjacentHTML('afterend', '<p class="sx-help">Seleccione aplicaciones y planes</p>'); }
+      head.classList.add('sxg-titulo-acc');
+      head.insertAdjacentHTML('beforeend', '<button type="button" class="sxg-link sm sxg-mis-pedidos" data-sxg-go="pedidos:todos">Mis pedidos ›</button>');
+    }
+    return out;
+  };
+} catch (_) {}
+
 /* ---------------- enlazar vistas y router ---------------- */
 vInicio = sxgVInicio;
 sxoVInicio = sxgVInicio; // socios-orden.js se llama a sí misma por nombre al llegar los pedidos
@@ -478,8 +548,9 @@ setInterval(() => { const r = document.getElementById('sxgReloj'), f = document.
 
 const sxgSidebarBase = renderUnifiedSidebar;
 renderUnifiedSidebar = function () {
+  try { const it = WEB_NAV_ITEMS.find((x) => x.label === 'Compras'); if (it) it.v = sxgDestinoCompras(); } catch (_) {} // R190 · tienda, no historial
   const r = sxgSidebarBase.apply(this, arguments);
-  if (webDesktopMode()) { const ped = document.querySelector('#nav [data-v="pedidos"] .nav-ico'); if (ped) ped.innerHTML = sxgIc('cart'); document.querySelectorAll('#nav .nav-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === sxgNavActiva() || b.dataset.v === current)); }
+  if (webDesktopMode()) { const ped = document.querySelector(`#nav [data-v="${sxgDestinoCompras()}"] .nav-ico`); if (ped) ped.innerHTML = sxgIc('cart'); document.querySelectorAll('#nav .nav-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === sxgNavActiva() || b.dataset.v === current)); }
   return r;
 };
 sxgCabecera();

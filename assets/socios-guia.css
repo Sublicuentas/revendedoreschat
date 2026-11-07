@@ -252,3 +252,18 @@ body.sxg .sx-cat-btn.on,body.sxg .sx-cat-tabs .on{background:var(--g-red)!import
 .sxg-resumen summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font:600 15px var(--g-font);color:var(--g-red)}
 .sxg-resumen dl{margin:8px 0 0;display:grid;gap:8px}.sxg-resumen dl div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #EEF0F4;padding-top:8px}
 .sxg-resumen dt{font:500 14px var(--g-font);color:var(--g-muted)}.sxg-resumen dd{margin:0;text-align:right;font:700 15px var(--g-font)}.sxg-resumen dd small{display:block;font:500 12px var(--g-font);color:var(--g-muted)}
+/* R190 · cabecera sin ☰: avatar real (foto o iniciales, nunca un punto) y Compras = tienda */
+.sxg .sxo-menu-btn,.sxg #sxoMenu{display:none!important}
+.sxg-avatar{background:#FDECEC;color:#E2231A;border:1px solid #F3C7C5;overflow:hidden;padding:0;box-shadow:0 3px 0 #EDE3E3,0 6px 12px #14243612}
+.sxg-avatar.con-foto{background:#fff;border-color:#E1E5EC}
+.sxg-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.sxg-avatar .sxg-ic{width:22px;height:22px;color:#E2231A}
+.sxg-avatar:focus-visible,.sxg-mis-pedidos:focus-visible{outline:3px solid #E2231A;outline-offset:2px}
+.sxg-esq-nombre{display:inline-block;width:5.5em;height:.8em;vertical-align:middle;border-radius:8px}
+#sxCompra .sx-page-head.sxg-titulo-acc{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sxg-mis-pedidos{flex:none;min-height:44px;padding:0 4px;color:#E2231A;font-weight:700;white-space:nowrap}
+.sxg-mas-acc{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:6px 0 2px}
+.sxg-mas-acc .sxg-link{min-height:44px}
+.sxg-avatar,.sxg-kpi,.sxg-btn,.sxg-mis-pedidos{transition:transform .16s ease,box-shadow .16s ease}
+.sxg-avatar:active,.sxg-kpi:active,.sxg-btn:active{transform:scale(.98)}
+@media (prefers-reduced-motion: reduce){.sxg-avatar,.sxg-kpi,.sxg-btn,.sxg-mis-pedidos{transition:none}}
