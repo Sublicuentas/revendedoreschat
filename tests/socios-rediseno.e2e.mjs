@@ -451,7 +451,7 @@ await caso('Orden visual (R185): cinco accesos, "Más" con todos los destinos, m
   // Celular
   const m = await abrir({ width: 390, height: 844 }, E);
   const barra = await m.page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
-  assert.deepEqual(barra, ['inicio', 'clientes', 'pedidos', 'precios', 'mas']); // R185: Inicio | Clientes | Compras | Catálogo | Más
+  assert.deepEqual(barra, ['inicio', 'clientes', 'compras', 'precios', 'mas']); // R185: Inicio | Clientes | Compras | Catálogo | Más · R190: Compras abre la tienda
   const pedidosAntes = E.pedidos.size;
   await m.page.click('#nav [data-v="mas"]'); await m.page.waitForSelector('.sxo-mas');
   assert.equal(E.pedidos.size, pedidosAntes, '"Más" no crea pedidos');
@@ -461,9 +461,8 @@ await caso('Orden visual (R185): cinco accesos, "Más" con todos los destinos, m
     assert.equal(await m.page.evaluate(() => current), v);
     assert.equal(await m.page.locator(`#nav [data-v="${v === 'precios' ? 'precios' : 'mas'}"].on`).count(), 1, `botón marcado en ${v}`);
   }
-  await m.page.click('#sxoMenuBtn'); await m.page.waitForSelector('#sxoMenu:not([hidden])');
-  assert.match(await m.page.textContent('#sxoMenu'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
-  await m.page.keyboard.press('Escape');
+  assert.equal(await m.page.locator('#sxoMenuBtn, #sxoMenu').count(), 0, 'R190: sin menú ☰/⋯ (sus acciones están en Más)');
+  await m.page.click('#nav [data-v="mas"]'); assert.match(await m.page.textContent('.sxg-mas'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
   await m.page.click('#nav [data-v="clientes"]'); await m.page.click('[data-cli="abrir"][data-id="c1"]');
   await m.page.click('.sxo-svc [data-cli="renovar"]'); await m.page.waitForSelector('#compOverlay.show');
   await m.page.evaluate(() => { document.getElementById('compOverlay')?.classList.remove('show'); go('compras'); });
@@ -517,7 +516,7 @@ await caso('Entregas: parcial 1 de 2, campanita, "Mis entregas" paginado con fil
   E.pedidos.set('web_seedHBOCANVA', { ...E.pedidos.get('web_seedHBOCANVA'), entregas: c.entregas, estado: c.estado, detalleEstado: c.detalleEstado });
   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
   await page.waitForFunction(() => document.getElementById('sxBellBadge')?.textContent === '1');
-  await page.waitForFunction(() => document.getElementById('sxoMenuDot')?.textContent === '1');
+  assert.equal(await page.locator('#sxoMenuDot').count(), 0, 'R190: el aviso queda en la campanita (sin menú ☰)');
   await shot(page, '90-movil-novedades.png');
   await page.evaluate(() => go('pedidos')); await page.waitForSelector('.sx-orders');
   assert.match(await page.textContent('.sx-orders'), /Entrega parcial · 1 de 2 servicios/);

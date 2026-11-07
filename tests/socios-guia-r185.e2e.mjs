@@ -102,7 +102,7 @@ async function api(route, E) {
   if (p === '/rev/metricas') { if (E.demora) await new Promise((r) => setTimeout(r, E.demora)); return ok(E.metricas ? E.metricas(url) : { operadoMes: 1450, comprasMes: 6, renovacionesMes: 9, pedidosPendientes: 1 }); }
   if (p === '/rev/avisos' && E.avisos) return ok(E.avisos(url));
   if (p === '/rev/avisos') return ok([{ id: 'a1', texto: 'Nuevo: Oleada TV ya se entrega con instalación guiada.', autor: 'Sublicuentas', ts: Date.now() - 3600000 }]);
-  if (p === '/rev/gamificacion') return ok({ perfil: { nombreMostrar: 'Jimena', ventas: 12, nivel: 'Leyenda' }, ranking: [], insignias: [], recompensas: [], solicitudes: [] });
+  if (p === '/rev/gamificacion') return ok({ perfil: { nombreMostrar: 'Jimena', ventas: 12, nivel: 'Leyenda' }, ranking: [], insignias: [], recompensas: [], solicitudes: [], ...(E.gam || {}) });
   if (p === '/rev/metodos-pago') return ok({ ok: true, metodos: [{ id: 'bac', nombre: 'BAC Credomatic', titular: 'NOMBRE DE PRUEBA', cuenta: '000000000', nota: '' }, { id: 'tigo', nombre: 'Tigo Money', titular: 'NOMBRE DE PRUEBA', cuenta: '00000000', nota: '+6.5% comisión' }] });
   if (p === '/rev/compras/mias') { if (E.demora) await new Promise((r) => setTimeout(r, E.demora)); E.limites = [...(E.limites || []), url.searchParams.get('limit')]; } if (p === '/rev/compras/mias') return ok({ ok: true, items: [...E.pedidos.entries()].reverse().map(([id, x]) => CS.pedidoPublico(id, x)) });
   if (p === '/rev/sugerencias/mias') return ok(E.sugerencias);
@@ -231,7 +231,7 @@ await caso('R185-01 · Barra exacta y Más con las categorías originales', asyn
   await ctx.close();
 });
 
-await caso('R185-02 · Inicio: nombre real, fecha/hora de Honduras, 4 tarjetas que cuadran con su destino, metas y avisos reales', async () => {
+await caso('R185-02 · Inicio: nombre real, fecha/hora de Honduras, 4 tarjetas que cuadran con su destino y avisos reales (R190: sin Metas)', async () => {
   const E = estadoGuia();
   const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
   await page.waitForFunction(() => document.querySelectorAll('.sxg-kpi[aria-busy]').length === 0 && document.querySelector('.sxg-av-lista'));
@@ -241,7 +241,7 @@ await caso('R185-02 · Inicio: nombre real, fecha/hora de Honduras, 4 tarjetas q
   assert.equal(fecha.toLowerCase(), esperadaF.toLowerCase()); assert.match(hora, /^\d{2}:\d{2}\s?[ap]\.\s?m\.$/);
   const kpi = await page.$$eval('.sxg-kpi', (ks) => ks.map((k) => [k.dataset.sxgGo, k.querySelector('b')?.textContent.trim()]));
   assert.deepEqual(kpi, [['clientes:todos', '6'], ['clientes:renovaciones', '2'], ['pedidos:ok', '2'], ['metas', 'L1,450']]);
-  assert.match(await page.textContent('.sxg-metas'), /Ventas: L1,450 \/ L2,000[\s\S]*73%/);
+  assert.equal(await page.locator('.sxg-metas').count(), 0, 'R190: Metas del mes ya no va en Inicio');
   const txt = await page.textContent('#content');
   assert.doesNotMatch(txt, /Nueva compra|Accesos rápidos|Actualización de planes|Promo Black|Hola, socio/);
   assert.match(await page.textContent('.sxg-avisos'), /Cuentas completas Disney y HBO/);
@@ -324,10 +324,10 @@ await caso('R185-05 · Ficha: todos los servicios, "Renovar este servicio" dentr
   await ctx.close();
 });
 
-await caso('R185-06 · Compras: un solo botón, pestañas Todos/Entregados, búsqueda, detalle con historial y Nueva compra', async () => {
+await caso('R185-06 · Mis pedidos (R190: vista secundaria de Compras): pestañas, búsqueda, detalle con historial y volver a la tienda', async () => {
   const E = estadoGuia();
   const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
-  await page.click('#nav [data-v="pedidos"]'); await page.waitForSelector('.sxg-ped');
+  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra'); await page.click('.sxg-mis-pedidos'); await page.waitForSelector('.sxg-ped');
   assert.equal(await page.locator('.sxg-ped').count(), 5, 'todo el historial (también cancelados y pendientes)');
   assert.ok((E.limites || []).includes('500'), 'pide el historial completo que permita el servidor');
   assert.match(await page.textContent('.sxg-tab[data-v="todos"]'), /Todos 5/); assert.match(await page.textContent('.sxg-tab[data-v="ok"]'), /Entregados 2/);
@@ -336,11 +336,11 @@ await caso('R185-06 · Compras: un solo botón, pestañas Todos/Entregados, bús
   await page.click('.sxg-tab[data-v="ok"]'); assert.equal(await page.locator('.sxg-ped').count(), 2);
   await page.fill('#sxPedBuscar', 'DSN002'); await page.waitForTimeout(80); assert.equal(await page.locator('.sxg-ped').count(), 1);
   await page.click('.sxg-ped'); await page.waitForSelector('#sxPedTitulo');
-  assert.match(await page.textContent('.sx-timeline'), /Entregado/); assert.match(await page.textContent('[data-act="volver"]'), /Compras/);
+  assert.match(await page.textContent('.sx-timeline'), /Entregado/); assert.match(await page.textContent('[data-act="volver"]'), /Pedidos|Compras/);
   await page.click('[data-act="volver"]'); await page.waitForSelector('.sxg-compras');
   assert.equal(await page.inputValue('#sxPedBuscar'), 'DSN002', 'la búsqueda se conserva al volver');
   await page.click('[data-act="nueva"]'); await page.waitForSelector('#sxCompra');
-  assert.equal(await page.locator('#nav [data-v="pedidos"].on').count(), 1, 'Compras queda marcado durante la compra');
+  assert.equal(await page.locator('#nav [data-v="compras"].on').count(), 1, 'Compras queda marcado durante la compra');
   await page.evaluate(() => go('pedidos')); await page.click('[data-act="pedtab"][data-v="entregas"]'); await page.waitForSelector('.sx-ent-filtros');
   assert.deepEqual(errores, []);
   await ctx.close();
@@ -363,10 +363,10 @@ await caso('R185-07 · Buzón: Mis consultas + Avisos del equipo por mes y año 
   await ctx.close(); R.srv.close();
 });
 
-await caso('R185-08 · Metas: meta real del socio, "Meta no configurada" sin meta, cambia con mes y año', async () => {
+await caso('R185-08 · Metas (detalle desde «Mis ventas»; los datos de metas siguen intactos): meta real, sin meta, mes y año', async () => {
   let { page, ctx } = await abrir({ width: 390, height: 844 }, estadoGuia());
-  await page.waitForFunction(() => /73%/.test(document.querySelector('.sxg-metas')?.textContent || ''));
-  await page.click('.sxg-metas'); await page.waitForSelector('.sxg-metas-pg');
+  await page.waitForSelector('.sxg-kpi[data-sxg-go="metas"]:not([aria-busy])');
+  await page.click('.sxg-kpi[data-sxg-go="metas"]'); await page.waitForSelector('.sxg-metas-pg');
   assert.match(await page.textContent('.sxg-metas-pg'), /L1,450 \/ L2,000/);
   await shot(page, 'm-10-metas.png');
   const prev = AM === 1 ? [AY - 1, 12] : [AY, AM - 1];
@@ -376,9 +376,10 @@ await caso('R185-08 · Metas: meta real del socio, "Meta no configurada" sin met
   assert.equal(await page.locator('#nav [data-v="inicio"].on').count(), 1, 'Metas no agrega botón a la barra');
   await ctx.close();
   ({ page, ctx } = await abrir({ width: 390, height: 844 }, estadoGuia({ metas: false, apiNueva: false })));
-  await page.waitForFunction(() => /Meta no configurada/.test(document.querySelector('.sxg-metas')?.textContent || ''));
-  assert.doesNotMatch(await page.textContent('.sxg-metas'), /%|L60,000/);
-  await page.click('.sxg-metas'); await page.selectOption('#sxgMetaY', String(AY - 1));
+  await page.waitForSelector('.sxg-kpi[data-sxg-go="metas"]:not([aria-busy])');
+  await page.click('.sxg-kpi[data-sxg-go="metas"]'); await page.waitForSelector('.sxg-metas-pg');
+  assert.match(await page.textContent('.sxg-metas-pg'), /Meta no configurada/); assert.doesNotMatch(await page.textContent('.sxg-metas-pg'), /L60,000/);
+  await page.selectOption('#sxgMetaY', String(AY - 1));
   await page.waitForFunction(() => /Todavía no hay datos de ese mes/.test(document.querySelector('.sxg-metas-pg')?.textContent || ''));
   await ctx.close();
 });
@@ -386,7 +387,7 @@ await caso('R185-08 · Metas: meta real del socio, "Meta no configurada" sin met
 await caso('R185-09 · Responsive (360, 390, 768, 1024, 1440) sin desplazamiento horizontal ni contenido tapado', async () => {
   for (const w of [360, 390, 768, 1024, 1440]) {
     const { page, ctx } = await abrir({ width: w, height: w < 900 ? 800 : 900 }, estadoGuia());
-    for (const v of ['inicio', 'clientes', 'pedidos', 'precios', 'buzon', 'metas', 'mas', 'perfil']) {
+    for (const v of ['inicio', 'clientes', 'compras', 'pedidos', 'precios', 'buzon', 'metas', 'mas', 'perfil']) {
       await page.evaluate((v) => go(v), v); await page.waitForTimeout(90);
       assert.ok(await sinDesborde(page), `${w}px ${v}: desplazamiento horizontal`);
     }
@@ -406,7 +407,7 @@ await caso('R185-10 · Permisos: socio sin compras no ve Compras ni Inicio; Más
   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
   await page.evaluate(() => { rev.capabilities = { comprar: false }; applySocioMode(); go('clientes'); });
   const barra = await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
-  assert.ok(!barra.includes('pedidos'), 'sin Compras'); assert.deepEqual(barra, ['clientes', 'precios', 'mas']);
+  assert.ok(!barra.includes('pedidos') && !barra.includes('compras'), 'sin Compras'); assert.deepEqual(barra, ['clientes', 'precios', 'mas']);
   await page.evaluate(() => go('pedidos')); assert.notEqual(await page.evaluate(() => current), 'pedidos');
   await page.evaluate(() => go('metas')); assert.notEqual(await page.evaluate(() => current), 'metas');
   await page.evaluate(() => go('clientes')); await page.waitForSelector('.sxg-cli');
@@ -427,6 +428,94 @@ await caso('R185-11 · Accesibilidad: foco visible, botones táctiles ≥ 44 px,
   const tr = await page.$eval('.sxg-kpi', (k) => getComputedStyle(k).transitionDuration);
   assert.match(tr, /^0s/, 'sin animación con movimiento reducido');
   assert.ok(await page.$$eval('#nav .nav-btn, .sxg-kpi, .sxg-avatar, #sxoMenuBtn, .partner-inbox-btn', (bs) => bs.every((b) => b.textContent.trim() || b.getAttribute('aria-label'))), 'todos tienen nombre accesible');
+  await ctx.close();
+});
+
+/* =========================== R190 · Correcciones finales (PDF 07/11): saludo, avatar, sin ☰, sin Metas, Compras = tienda =========================== */
+await caso('R190-01/02 · «Hola, <primer nombre>» del socio autenticado (Yami / otro socio); nunca fijo ni «Hola» suelto si hay nombre', async () => {
+  for (const [nombre, esperado] of [['Yami Valladares', 'Yami'], ['Carlos Mejía', 'Carlos']]) {
+    const E = estadoGuia(); E.me = { ...(E.me || {}), nombre, nombreMostrar: '', nombre_norm: nombre.toLowerCase().split(' ')[0], usuario: nombre.toLowerCase().split(' ')[0] };
+    E.gam = { perfil: { nombreMostrar: '', ventas: 1 } };
+    const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+    await page.waitForFunction((n) => (document.getElementById('sxgHola')?.textContent || '') === `Hola, ${n}`, esperado, { timeout: 8000 });
+    assert.doesNotMatch(await page.textContent('#content'), /Hola, Jimena/);
+    await shot(page, `r190-inicio-${esperado.toLowerCase()}.png`);
+    assert.deepEqual(errores, []); await ctx.close();
+  }
+  // Sesión guardada SIN nombre (versión anterior): primero esqueleto, luego el nombre que devuelve el servidor (antes quedaba «Hola»).
+  const E = estadoGuia(); E.me = { nombre: 'Yami Valladares', nombre_norm: 'yami', usuario: 'yami', capabilities: null }; E.gam = { perfil: { nombreMostrar: '', ventas: 1 } };
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => { if (!sessionStorage.getItem('_i')) { sessionStorage.setItem('_i', '1'); localStorage.setItem('rev_token', 'tok'); localStorage.setItem('rev_data', JSON.stringify({ nombre_norm: '', usuario: '' })); localStorage.setItem('rev_last', String(Date.now())); } });
+  await ctx.route(`${API_HOST}/**`, async (route) => { if (new URL(route.request().url()).pathname === '/rev/me') await new Promise((r) => setTimeout(r, 900)); return api(route, E); });
+  const page = await ctx.newPage(); await page.goto(BASE); await page.waitForSelector('#sxgHola');
+  assert.equal(await page.locator('#sxgHola .sxg-esq-nombre').count(), 1, 'mientras carga: esqueleto, no «Hola» suelto');
+  await page.waitForFunction(() => document.getElementById('sxgHola')?.textContent === 'Hola, Yami', null, { timeout: 8000 });
+  assert.equal(await page.textContent('#sxgAvatar'), 'YV', 'iniciales reales, no un punto');
+  await ctx.close();
+});
+
+await caso('R190-03/04 · Avatar: foto real del Perfil (toca → Mi perfil); sin foto → iniciales; nunca «·»', async () => {
+  const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const E = estadoGuia(); E.gam = { perfil: { nombreMostrar: 'Jimena', avatar: foto, ventas: 12 } };
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+  await page.waitForSelector('#sxgAvatar img');
+  assert.equal(await page.getAttribute('#sxgAvatar img', 'src'), foto);
+  const box = await page.$eval('#sxgAvatar', (a) => { const r = a.getBoundingClientRect(); return { right: window.innerWidth - r.right, top: r.top, w: r.width, otros: [...document.querySelectorAll('#app .topbar *')].filter((e) => e.offsetParent && e.getBoundingClientRect().left > r.right - 2 && e.children.length === 0).map((e) => e.outerHTML.slice(0, 80)) }; });
+  await shot(page, 'r190-avatar-foto.png');
+  assert.ok(box.right < 60 && box.otros.length === 0 && box.top < 70 && box.w >= 44, 'arriba a la derecha (último de la cabecera) y táctil: ' + JSON.stringify(box));
+
+  await page.click('#sxgAvatar'); assert.equal(await page.evaluate(() => current), 'perfil');
+  await ctx.close();
+  const E2 = estadoGuia(); E2.gam = { perfil: { nombreMostrar: 'Jimena López', ventas: 1 } };
+  const b = await abrir({ width: 390, height: 844 }, E2);
+  await b.page.waitForFunction(() => document.getElementById('sxgAvatar')?.textContent === 'JL');
+  assert.doesNotMatch(await b.page.textContent('#sxgAvatar'), /·/);
+  await b.ctx.close();
+});
+
+await caso('R190-05/06 · Sin ☰ ni panel vacío, sin Metas en Inicio; barra exacta; Actualizar/Instalar/Salir siguen en Más', async () => {
+  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, estadoGuia());
+  await page.waitForSelector('.sxg-kpi:not([aria-busy])');
+  assert.equal(await page.locator('#sxoMenuBtn, #sxoMenu, .sxo-menu').count(), 0, 'sin menú de tres rayas ni su panel');
+  assert.equal(await page.locator('.sxg-metas').count(), 0); assert.doesNotMatch(await page.textContent('#content'), /Metas del mes/);
+  assert.deepEqual(await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.textContent.trim())), ['Inicio', 'Clientes', 'Compras', 'Catálogo', 'Más']);
+  assert.ok(await page.locator('.partner-inbox-btn').isVisible(), 'la campana del Buzón se conserva');
+  await page.click('#nav [data-v="mas"]'); await page.waitForSelector('.sxg-mas');
+  assert.match(await page.textContent('.sxg-mas'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
+  assert.deepEqual(await page.$$eval('.sxg-mas-item b', (bs) => bs.map((b) => b.textContent.trim())), ['Renovaciones', 'Catálogo', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil'], 'Más sin categorías nuevas');
+  assert.deepEqual(errores, []); await ctx.close();
+});
+
+await caso('R190-07/08/09/10/11 · Compras abre la tienda; cliente + 2 apps = 1 pedido; Mis pedidos secundario; volver conserva el carrito', async () => {
+  const E = estadoGuia(); const antes = JSON.stringify([...E.pedidos.entries()]);
+  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra');
+  assert.equal(await page.evaluate(() => current), 'compras', 'tienda, no historial');
+  assert.match(await page.textContent('#sxCompra .sx-page-head h1'), /^Compras$/);
+  assert.equal(await page.locator('.sxg-ped').count(), 0, 'el historial no está en la portada de Compras');
+  await shot(page, 'r190-compras-tienda-390.png');
+  // agregar 2 aplicaciones al carrito
+  const add = () => page.locator('#sxCompra button[data-act="agregar"]:not([disabled])').first();
+  assert.ok(await page.locator('#sxCompra button[data-act="agregar"]:not([disabled])').count() >= 2, 'hay productos para elegir');
+  await add().click(); await page.waitForTimeout(120); await add().click(); await page.waitForTimeout(150);
+  const enCarrito = await page.evaluate(() => SX.renglones.length); assert.ok(enCarrito >= 2, 'dos apps en el carrito');
+  // Mis pedidos y volver: el carrito sigue
+  await page.click('.sxg-mis-pedidos'); await page.waitForSelector('.sxg-ped');
+  assert.equal(await page.evaluate(() => current), 'pedidos'); assert.equal(await page.locator('#nav [data-v="compras"].on').count(), 1, 'la pestaña inferior no cambia');
+  assert.match(await page.textContent('.sxg-compras h1'), /Mis pedidos/);
+  assert.equal(JSON.stringify([...E.pedidos.entries()]), antes, 'el historial no se tocó');
+  await shot(page, 'r190-mis-pedidos-390.png');
+  await page.click('[data-act="nueva"]'); await page.waitForSelector('#sxCompra');
+  assert.equal(await page.evaluate(() => SX.renglones.length), enCarrito, 'al volver, el carrito sigue');
+  assert.deepEqual(errores, []); await ctx.close();
+});
+
+await caso('R190-13 · Escritorio: Compras abre la tienda desde el menú lateral; sin desborde', async () => {
+  const { page, ctx } = await abrir({ width: 1440, height: 900 }, estadoGuia());
+  await page.waitForSelector('.sxg-kpi:not([aria-busy])'); await shot(page, 'r190-inicio-1440.png');
+  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra .sxg-mis-pedidos');
+  assert.ok(await sinDesborde(page)); await shot(page, 'r190-compras-tienda-1440.png');
+  for (const w of [320, 360, 430]) { await page.setViewportSize({ width: w, height: 800 }); await page.evaluate(() => go('inicio')); await page.waitForTimeout(120); assert.ok(await sinDesborde(page), `${w}px`); await page.evaluate(() => go('compras')); await page.waitForTimeout(120); assert.ok(await sinDesborde(page), `${w}px compras`); }
   await ctx.close();
 });
 
