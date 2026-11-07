@@ -1,0 +1,458 @@
+--- R185/assets/socios-guia.js
++++ R190/assets/socios-guia.js
+@@ -148,11 +148,14 @@
+ function sxgNavItems() {
+   return [
+     { v: 'inicio', l: 'Inicio', ic: 'home' }, { v: 'clientes', l: 'Clientes', ic: 'users' },
+-    { v: 'pedidos', l: 'Compras', ic: 'cart' }, { v: 'precios', l: 'Catálogo', ic: 'box' }, { v: 'mas', l: 'Más', ic: 'more' },
++    { v: sxgDestinoCompras(), l: 'Compras', ic: 'cart' }, { v: 'precios', l: 'Catálogo', ic: 'box' }, { v: 'mas', l: 'Más', ic: 'more' },
+   ].filter((it) => vistaGeisellPermitida(it.v));
+ }
++// R190 · «Compras» abre la TIENDA (nueva compra con carrito). El historial queda en «Mis pedidos» (vista secundaria).
++// Si el socio no puede comprar, la pestaña sigue llevando a su historial (como antes), sin inventar otra ruta.
++function sxgDestinoCompras() { return vistaGeisellPermitida('compras') && !socioSinCompras() ? 'compras' : 'pedidos'; }
+ function sxgNavActiva() {
+-  if (['pedidos', 'compras'].includes(current)) return 'pedidos';
++  if (['pedidos', 'compras'].includes(current)) return sxgDestinoCompras();
+   if (current === 'metas') return 'inicio';
+   if (['inicio', 'clientes', 'precios'].includes(current)) return current;
+   return 'mas';
+@@ -169,7 +172,7 @@
+ try {
+   WEB_NAV_ITEMS.splice(0, WEB_NAV_ITEMS.length,
+     { v: 'inicio', label: 'Inicio', tone: 'blue', icon: 'home' }, { v: 'clientes', label: 'Clientes', tone: 'purple', icon: 'users' },
+-    { v: 'pedidos', label: 'Compras', tone: 'cyan', icon: 'cart' }, { v: 'precios', label: 'Catálogo', tone: 'orange', icon: 'catalog' },
++    { v: sxgDestinoCompras(), label: 'Compras', tone: 'cyan', icon: 'cart' }, { v: 'precios', label: 'Catálogo', tone: 'orange', icon: 'catalog' },
+     { v: 'renovar', label: 'Renovaciones', tone: 'green', icon: 'renew' }, { v: 'buzon', label: 'Buzón', tone: 'cyan', icon: 'mail' },
+     { v: 'aula', label: 'Subli Aula', tone: 'amber', icon: 'spark' }, { v: 'recompensas', label: 'Recompensas', tone: 'red', icon: 'gift' },
+     { v: 'perfil', label: 'Mi perfil', tone: 'green', icon: 'user' });
+@@ -177,21 +180,70 @@
+ const sxgPermBase = vistaGeisellPermitida;
+ vistaGeisellPermitida = function (v) { if (v === 'metas') return sxgPermBase('inicio'); return sxgPermBase(v); };
+ 
+-/* ---------------- cabecera: ☰ · logo · campana · iniciales ---------------- */
+-function sxgIniciales() { const p = String(revName() || '').trim().split(/\s+/).filter(Boolean); if (!p.length || norm(p[0]) === 'socio') return '·'; return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
++/* ---------------- cabecera: logo · campana · avatar (R190: sin ☰ ni panel vacío) ---------------- */
++// R190 · Nombre del socio desde la identidad AUTENTICADA, en este orden: nombre visible del Perfil (servidor) → el que devolvió
++// /rev/me o el login → el del token de sesión emitido por el servidor. Solo se usa para mostrar; los permisos no salen de aquí.
++// Causas del «Hola» sin nombre: (1) el login descartaba nombreMostrar; (2) Inicio no se repintaba cuando llegaba el perfil
++// (renderTop solo actualizaba el saludo viejo); (3) sin nombre, el avatar dibujaba «·» en vez de la foto o las iniciales.
++const SXG_NO_NOMBRE = ['', 'socio', 'sublicuentas', 'sublichat', 'admin', 'administrador'];
++let sxgMeListo = false;
++function sxgTokenPerfil() {
++  try { const p = String((typeof API !== 'undefined' && API.token) || '').split('.')[1]; if (!p) return {}; const b = atob(p.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(p.length / 4) * 4, '=')); return JSON.parse(decodeURIComponent(Array.from(b, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''))) || {}; } catch (_) { return {}; }
++}
++function sxgNombreSocio() {
++  const t = sxgTokenPerfil(), g = (typeof gamificacion === 'object' && gamificacion?.perfil) || {}, r = (typeof rev === 'object' && rev) || {};
++  for (const v of [g.nombreMostrar, r.nombreMostrar, t.nombreMostrar, r.nombre, t.nombre, r.usuario]) {
++    let n = String(v == null ? '' : v).trim().replace(/\s+/g, ' ');
++    if (norm(n) === 'geissel') n = 'Geisell';
++    if (!SXG_NO_NOMBRE.includes(norm(n))) return n.slice(0, 60);
++  }
++  return '';
++}
++function sxgPrimerNombre() { const n = sxgNombreSocio().split(' ')[0] || ''; return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''; }
++function sxgIniciales() { const p = sxgNombreSocio().split(' ').filter(Boolean); return p.length ? (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase() : ''; }
++function sxgFotoSocio() { const a = (typeof gamificacion === 'object' && gamificacion?.perfil?.avatar) || ''; return a ? safeImageSrc(a, '') : ''; }
++function sxgAvatarHtml() {
++  const foto = sxgFotoSocio(), ini = sxgIniciales();
++  if (foto) return `<img src="${sxAttr(foto)}" alt="" width="44" height="44">`;
++  return ini ? `<span>${sxEsc(ini)}</span>` : sxgIc('user');
++}
++function sxgSaludoHtml() {
++  const n = sxgPrimerNombre();
++  if (n) return `Hola, <span id="sxgHolaNombre">${sxEsc(n)}</span>`;
++  return sxgMeListo ? 'Hola' : 'Hola, <span class="sxg-esq sxg-esq-nombre" aria-hidden="true"></span>';
++}
++// Repinta solo saludo y avatar cuando llega el perfil (sin re-renderizar Inicio ni perder el scroll).
++function sxgPintarIdentidad() {
++  const h = document.getElementById('sxgHola'); if (h) { h.innerHTML = sxgSaludoHtml(); h.setAttribute('aria-busy', String(!sxgPrimerNombre() && !sxgMeListo)); }
++  const av = document.getElementById('sxgAvatar');
++  if (av) { av.innerHTML = sxgAvatarHtml(); av.classList.toggle('con-foto', !!sxgFotoSocio()); av.setAttribute('aria-label', `Mi perfil${sxgNombreSocio() ? ` · ${sxgNombreSocio()}` : ''}`); }
++}
++function sxgQuitarMenu() { // R190 · el ☰ abría un panel vacío: se quitan botón, panel y su superposición
++  document.getElementById('sxoMenuBtn')?.remove(); document.getElementById('sxoMenu')?.remove();
++}
++try { sxoMontarCabecera = function () { document.body.classList.add('sxo'); sxgQuitarMenu(); }; } catch (_) {}
+ function sxgCabecera() {
+   document.body.classList.add('sxg');
++  sxgQuitarMenu();
+   const top = document.querySelector('#app .topbar'); if (!top) return;
+-  const menu = document.getElementById('sxoMenuBtn');
+-  if (menu && !menu.dataset.sxg) { menu.dataset.sxg = '1'; const dot = menu.querySelector('.nav-badge'); menu.innerHTML = sxgIc('menu'); if (dot) menu.appendChild(dot); menu.setAttribute('aria-label', 'Menú de la cuenta'); top.insertBefore(menu, top.firstChild); }
+   const tx = top.querySelector('.tb-txt');
+   if (tx && !tx.querySelector('.sxg-logo')) tx.insertAdjacentHTML('afterbegin', '<span class="sxg-logo"><img src="assets/logo-sublicuentas.webp" alt="Sublicuentas" width="160" height="31"><small>Portal de Socios</small></span>');
+   const buz = top.querySelector('.partner-inbox-btn');
+   if (buz && !buz.dataset.sxg) { buz.dataset.sxg = '1'; const b = buz.querySelector('.nav-badge'); buz.innerHTML = sxgIc('bell'); if (b) buz.appendChild(b); buz.setAttribute('aria-label', 'Buzón y avisos'); }
+   const acts = document.getElementById('topbarActions');
+-  if (acts && !document.getElementById('sxgAvatar')) { const a = document.createElement('button'); a.type = 'button'; a.id = 'sxgAvatar'; a.className = 'sxg-avatar'; a.setAttribute('aria-label', 'Mi perfil'); a.addEventListener('click', () => go('perfil')); acts.appendChild(a); }
+-  const av = document.getElementById('sxgAvatar'); if (av) av.textContent = sxgIniciales();
++  if (acts && !document.getElementById('sxgAvatar')) { const a = document.createElement('button'); a.type = 'button'; a.id = 'sxgAvatar'; a.className = 'sxg-avatar'; a.addEventListener('click', () => go('perfil')); acts.appendChild(a); }
++  sxgPintarIdentidad();
+ }
++// Cuando llegan /rev/me (renderTop) o el perfil con foto (applySocioAvatar), se actualizan saludo y avatar.
++try { const sxgRenderTopBase = renderTop; renderTop = function () { const out = sxgRenderTopBase.apply(this, arguments); sxgPintarIdentidad(); return out; }; } catch (_) {}
++try { const sxgAvatarBase = applySocioAvatar; applySocioAvatar = function () { const out = sxgAvatarBase.apply(this, arguments); sxgPintarIdentidad(); return out; }; } catch (_) {}
++try { const sxgSesionBase = loadSocioSession; loadSocioSession = async function () { try { return await sxgSesionBase.apply(this, arguments); } finally { sxgMeListo = true; sxgPintarIdentidad(); } }; } catch (_) {}
++setTimeout(() => { sxgMeListo = true; sxgPintarIdentidad(); }, 12000); // sin respuesta del servidor: no dejar el esqueleto para siempre
++(function sxgPerfilAlEntrar() { // la sesión guardada pudo abrir Inicio antes de cargar este archivo: pedir perfil y foto otra vez
++  if (typeof API === 'undefined' || !API.token || (typeof isAdmin !== 'undefined' && isAdmin && !impersonating)) { sxgMeListo = true; return; }
++  try { loadSocioSession(); } catch (_) {}
++  try { if (!gamificacion?.perfil && typeof loadGamificacion === 'function') loadGamificacion(); } catch (_) {}
++})();
+ 
+ /* ---------------- INICIO ---------------- */
+ function sxgEsq(n = 1) { return Array.from({ length: n }, () => '<span class="sxg-esq" aria-hidden="true"></span>').join(''); }
+@@ -226,10 +278,9 @@
+   const avListos = sxgCargado('avisos');
+   const delMes = sxgAvisosDe(per);
+   const avLista = (delMes.length ? delMes : [...(avisos || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0))).slice(0, 3);
+-  const nombre = revName(), conNombre = nombre && norm(nombre) !== 'socio';
+   content.innerHTML = `<div class="sx-page sxg-inicio">
+     <section class="sxg-hola" aria-label="Saludo">
+-      <div class="sxg-hola-tx"><h1>Hola${conNombre ? `, <span>${sxEsc(nombre)}</span>` : ''}</h1>
++      <div class="sxg-hola-tx"><h1 id="sxgHola">${sxgSaludoHtml()}</h1>
+         <p>${sxgIc('cal')}<span id="sxgFecha">${sxEsc(sxgFechaLarga())}</span></p>
+         <p>${sxgIc('clock')}<span id="sxgReloj">${sxEsc(sxgHora())}</span></p></div>
+       <img src="${ROBOT_IMG}" alt="" width="112" height="112" class="sxg-robot">
+@@ -241,7 +292,7 @@
+       ${restricted ? '' : sxgTarjeta({ go: 'pedidos:ok', ic: 'check', tono: 'green', titulo: 'Pedidos entregados', valor: entregados.toLocaleString('es-HN'), listo: comprasListo })}
+       ${restricted ? '' : sxgTarjeta({ go: 'metas', ic: 'coins', tono: 'amber', titulo: 'Mis ventas', valor: ventas && ventas.estado === 'ok' ? money(ventas.monto) : '—', listo: !!ventas && ventas.estado !== 'cargando', sub: 'Este mes' })}
+     </div>
+-    ${restricted ? '' : `<button type="button" class="sxg-card sxg-metas" data-sxg-go="metas"><span class="sxg-card-head"><span class="sxg-card-ic sxg-red">${sxgIc('target')}</span><b>Metas del mes</b><span class="sxg-chip-per">${sxEsc(sxgPeriodoTxt(per))}</span></span>${sxgMetaHtml(per)}</button>`}
++    ${''/* R190 · «Metas del mes» ya no se muestra en Inicio (los datos de metas no se tocan). */}
+     ${restricted || !vistaGeisellPermitida('buzon') ? '' : `<section class="sxg-card sxg-avisos" aria-labelledby="sxgAvT"><div class="sxg-card-head"><span class="sxg-card-ic sxg-red">${sxgIc('mega')}</span><b id="sxgAvT">Avisos del equipo</b><span class="sxg-chip-per">${delMes.length || !avListos ? sxEsc(sxgPeriodoTxt(per)) : 'Últimos'}</span></div>
+       ${!avListos ? `<div class="sxg-av-esq">${sxgEsq(3)}</div>` : avLista.length ? `<ul class="sxg-av-lista">${avLista.map((a) => `<li><button type="button" data-sxg-go="aviso:${sxAttr(a.id || '')}"><i aria-hidden="true"></i><span><b>${sxEsc(sxgAvTitulo(a))}</b><small>${sxEsc(a.autor || 'Sublicuentas')} · ${sxEsc(sxgFechaCorta(a.ts))}</small></span>${sxgIc('chev', 'sxg-chev')}</button></li>`).join('')}</ul>` : '<p class="sxg-vacio">No hay avisos del equipo por ahora.</p>'}
+       <button type="button" class="sxg-link" data-sxg-go="buzon:avisos">Ver todos los avisos</button></section>`}
+@@ -367,7 +418,7 @@
+   const cargando = !sxgCargado('compras') && !todos.length;
+   const icono = (cls) => cls === 'ok' ? 'check' : cls === 'off' ? 'back' : 'cart';
+   content.innerHTML = `<div class="sx-page sxg-compras">
+-    <header class="sxg-titulo sxg-titulo-acc"><div><h1>Compras</h1><p>Historial de pedidos del socio</p></div>${vistaGeisellPermitida('compras') ? `<button type="button" class="sxg-btn pri sm" data-act="nueva">${sxgIc('plus')} Nueva compra</button>` : ''}</header>
++    <header class="sxg-titulo sxg-titulo-acc"><div><h1>Mis pedidos</h1><p>Historial de pedidos del socio</p></div>${sxgDestinoCompras() === 'compras' ? `<button type="button" class="sxg-btn sm" data-act="nueva">← Compras</button>` : ''}</header>
+     <div class="sxg-tabs" role="tablist" aria-label="Historial"><button type="button" role="tab" class="sxg-tab ${sxPedFiltro === 'todos' ? 'on' : ''}" aria-selected="${sxPedFiltro === 'todos'}" data-act="filtro" data-v="todos">Todos${cargando ? '' : ` <span>${todos.length}</span>`}</button><button type="button" role="tab" class="sxg-tab ${sxPedFiltro === 'ok' ? 'on' : ''}" aria-selected="${sxPedFiltro === 'ok'}" data-act="filtro" data-v="ok">Entregados${cargando ? '' : ` <span>${nOk}</span>`}</button></div>
+     <label class="sxg-buscar">${sxgIc('search')}<span class="sr">Buscar pedido</span><input id="sxPedBuscar" type="search" value="${sxAttr(sxPedBuscar)}" placeholder="Buscar número de pedido, cliente o servicio" autocomplete="off"></label>
+     ${cargando ? `<ul class="sxg-lista">${Array.from({ length: 3 }, () => `<li class="sxg-cli sxg-cli-esq">${sxgEsq(3)}</li>`).join('')}</ul>`
+@@ -426,8 +477,11 @@
+   const items = SXG_MAS.filter((x) => vistaGeisellPermitida(x.v));
+   content.innerHTML = `<div class="sx-page sxg-mas sxo-mas"><header class="sxg-titulo"><h1>Más opciones</h1></header>
+     <ul class="sxg-mas-lista">${items.map((x) => `<li><button type="button" class="sxg-mas-item" data-go="${x.v}"><span class="sxg-mas-ic sxg-${x.tone}">${sxgIc(x.ic)}</span><span class="sxg-cli-tx"><b>${x.t}</b><small>${x.d}</small></span>${sxgIc('chev', 'sxg-chev')}</button></li>`).join('')}</ul>
++    <div class="sxg-mas-acc"><button type="button" class="sxg-link sm" data-m="sync">↻ Actualizar datos</button>${document.getElementById('installAppBtn') && !document.getElementById('installAppBtn').classList.contains('hide') ? '<button type="button" class="sxg-link sm" data-m="instalar">📲 Instalar aplicación</button>' : ''}</div>
+     <button type="button" class="sxg-salir" data-m="salir">Salir de mi cuenta</button>
+   </div>`;
++  content.querySelector('[data-m="sync"]')?.addEventListener('click', () => refreshCurrentData(true)); // R190 · lo que tenía el menú ☰
++  content.querySelector('[data-m="instalar"]')?.addEventListener('click', () => { if (typeof installPwa === 'function') installPwa(); });
+   content.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+   content.querySelector('[data-m="salir"]')?.addEventListener('click', () => logout());
+ }
+@@ -457,6 +511,22 @@
+   if (box.dataset.sxgPer === 'meta') { sxgMetaPer = per; sxgVMetas(); }
+ });
+ 
++/* ---------------- R190 · COMPRAS = tienda/carrito; «Mis pedidos» secundario ---------------- */
++try {
++  const sxgRenderCompraBase = sxRender;
++  sxRender = function () {
++    const out = sxgRenderCompraBase.apply(this, arguments);
++    if (current !== 'compras' || sxConfirmacion) return out;
++    const head = content.querySelector('#sxCompra .sx-page-head');
++    if (head && !head.querySelector('.sxg-mis-pedidos')) {
++      const h1 = head.querySelector('h1'); if (h1 && SX.paso === 1) { h1.textContent = 'Compras'; if (!head.querySelector('.sx-help')) h1.insertAdjacentHTML('afterend', '<p class="sx-help">Seleccione aplicaciones y planes</p>'); }
++      head.classList.add('sxg-titulo-acc');
++      head.insertAdjacentHTML('beforeend', '<button type="button" class="sxg-link sm sxg-mis-pedidos" data-sxg-go="pedidos:todos">Mis pedidos ›</button>');
++    }
++    return out;
++  };
++} catch (_) {}
++
+ /* ---------------- enlazar vistas y router ---------------- */
+ vInicio = sxgVInicio;
+ sxoVInicio = sxgVInicio; // socios-orden.js se llama a sí misma por nombre al llegar los pedidos
+@@ -478,8 +548,9 @@
+ 
+ const sxgSidebarBase = renderUnifiedSidebar;
+ renderUnifiedSidebar = function () {
++  try { const it = WEB_NAV_ITEMS.find((x) => x.label === 'Compras'); if (it) it.v = sxgDestinoCompras(); } catch (_) {} // R190 · tienda, no historial
+   const r = sxgSidebarBase.apply(this, arguments);
+-  if (webDesktopMode()) { const ped = document.querySelector('#nav [data-v="pedidos"] .nav-ico'); if (ped) ped.innerHTML = sxgIc('cart'); document.querySelectorAll('#nav .nav-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === sxgNavActiva() || b.dataset.v === current)); }
++  if (webDesktopMode()) { const ped = document.querySelector(`#nav [data-v="${sxgDestinoCompras()}"] .nav-ico`); if (ped) ped.innerHTML = sxgIc('cart'); document.querySelectorAll('#nav .nav-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === sxgNavActiva() || b.dataset.v === current)); }
+   return r;
+ };
+ sxgCabecera();
+--- R185/assets/socios-guia.css
++++ R190/assets/socios-guia.css
+@@ -252,3 +252,18 @@
+ .sxg-resumen summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font:600 15px var(--g-font);color:var(--g-red)}
+ .sxg-resumen dl{margin:8px 0 0;display:grid;gap:8px}.sxg-resumen dl div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #EEF0F4;padding-top:8px}
+ .sxg-resumen dt{font:500 14px var(--g-font);color:var(--g-muted)}.sxg-resumen dd{margin:0;text-align:right;font:700 15px var(--g-font)}.sxg-resumen dd small{display:block;font:500 12px var(--g-font);color:var(--g-muted)}
++/* R190 · cabecera sin ☰: avatar real (foto o iniciales, nunca un punto) y Compras = tienda */
++.sxg .sxo-menu-btn,.sxg #sxoMenu{display:none!important}
++.sxg-avatar{background:#FDECEC;color:#E2231A;border:1px solid #F3C7C5;overflow:hidden;padding:0;box-shadow:0 3px 0 #EDE3E3,0 6px 12px #14243612}
++.sxg-avatar.con-foto{background:#fff;border-color:#E1E5EC}
++.sxg-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
++.sxg-avatar .sxg-ic{width:22px;height:22px;color:#E2231A}
++.sxg-avatar:focus-visible,.sxg-mis-pedidos:focus-visible{outline:3px solid #E2231A;outline-offset:2px}
++.sxg-esq-nombre{display:inline-block;width:5.5em;height:.8em;vertical-align:middle;border-radius:8px}
++#sxCompra .sx-page-head.sxg-titulo-acc{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
++.sxg-mis-pedidos{flex:none;min-height:44px;padding:0 4px;color:#E2231A;font-weight:700;white-space:nowrap}
++.sxg-mas-acc{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:6px 0 2px}
++.sxg-mas-acc .sxg-link{min-height:44px}
++.sxg-avatar,.sxg-kpi,.sxg-btn,.sxg-mis-pedidos{transition:transform .16s ease,box-shadow .16s ease}
++.sxg-avatar:active,.sxg-kpi:active,.sxg-btn:active{transform:scale(.98)}
++@media (prefers-reduced-motion: reduce){.sxg-avatar,.sxg-kpi,.sxg-btn,.sxg-mis-pedidos{transition:none}}
+--- R185/index.html
++++ R190/index.html
+@@ -45,7 +45,7 @@
+ <link rel="stylesheet" href="assets/panel-web-20260925.css">
+ <link rel="stylesheet" href="assets/socios-2026.css?v=20261030-5">
+ <link rel="stylesheet" href="assets/socios-orden.css?v=20261030-5">
+-<link rel="stylesheet" href="assets/socios-guia.css?v=20261107-r185">
++<link rel="stylesheet" href="assets/socios-guia.css?v=20261107-r190">
+ <link rel="manifest" href="manifest.webmanifest">
+ <meta name="theme-color" content="#FFFFFF">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+@@ -198,6 +198,6 @@
+ <script src="assets/socios-2026.js?v=20261030-5" defer></script>
+ <script src="assets/socios-entregas.js?v=20261030-5" defer></script>
+ <script src="assets/socios-orden.js?v=20261030-5" defer></script>
+-<script src="assets/socios-guia.js?v=20261107-r185" defer></script>
++<script src="assets/socios-guia.js?v=20261107-r190" defer></script>
+ </body>
+ </html>
+--- R185/service-worker.js
++++ R190/service-worker.js
+@@ -1,4 +1,4 @@
+-const CACHE='sublicuentas-socios-guia-20261107-r185';
++const CACHE='sublicuentas-socios-guia-20261107-r190';
+ const SHELL=['./','./index.html','./assets/app.css','./assets/panel-web-20260925.css','./assets/core.js','./assets/operations.js','./assets/catalog-aula.js','./assets/panel-web-20260925.js','./assets/messaging.js','./assets/socios-2026.js','./assets/socios-2026.css','./assets/socios-entregas.js','./assets/socios-orden.js','./assets/socios-orden.css','./assets/socios-guia.js','./assets/socios-guia.css','./assets/logo-sublicuentas.webp','./assets/robot-socios.webp','./assets/icon-192.png','./assets/icon-512.png','./manifest.webmanifest'];
+ self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
+ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+--- R185/tests/socios-guia-r185.e2e.mjs
++++ R190/tests/socios-guia-r185.e2e.mjs
+@@ -102,7 +102,7 @@
+   if (p === '/rev/metricas') { if (E.demora) await new Promise((r) => setTimeout(r, E.demora)); return ok(E.metricas ? E.metricas(url) : { operadoMes: 1450, comprasMes: 6, renovacionesMes: 9, pedidosPendientes: 1 }); }
+   if (p === '/rev/avisos' && E.avisos) return ok(E.avisos(url));
+   if (p === '/rev/avisos') return ok([{ id: 'a1', texto: 'Nuevo: Oleada TV ya se entrega con instalación guiada.', autor: 'Sublicuentas', ts: Date.now() - 3600000 }]);
+-  if (p === '/rev/gamificacion') return ok({ perfil: { nombreMostrar: 'Jimena', ventas: 12, nivel: 'Leyenda' }, ranking: [], insignias: [], recompensas: [], solicitudes: [] });
++  if (p === '/rev/gamificacion') return ok({ perfil: { nombreMostrar: 'Jimena', ventas: 12, nivel: 'Leyenda' }, ranking: [], insignias: [], recompensas: [], solicitudes: [], ...(E.gam || {}) });
+   if (p === '/rev/metodos-pago') return ok({ ok: true, metodos: [{ id: 'bac', nombre: 'BAC Credomatic', titular: 'NOMBRE DE PRUEBA', cuenta: '000000000', nota: '' }, { id: 'tigo', nombre: 'Tigo Money', titular: 'NOMBRE DE PRUEBA', cuenta: '00000000', nota: '+6.5% comisión' }] });
+   if (p === '/rev/compras/mias') { if (E.demora) await new Promise((r) => setTimeout(r, E.demora)); E.limites = [...(E.limites || []), url.searchParams.get('limit')]; } if (p === '/rev/compras/mias') return ok({ ok: true, items: [...E.pedidos.entries()].reverse().map(([id, x]) => CS.pedidoPublico(id, x)) });
+   if (p === '/rev/sugerencias/mias') return ok(E.sugerencias);
+@@ -231,7 +231,7 @@
+   await ctx.close();
+ });
+ 
+-await caso('R185-02 · Inicio: nombre real, fecha/hora de Honduras, 4 tarjetas que cuadran con su destino, metas y avisos reales', async () => {
++await caso('R185-02 · Inicio: nombre real, fecha/hora de Honduras, 4 tarjetas que cuadran con su destino y avisos reales (R190: sin Metas)', async () => {
+   const E = estadoGuia();
+   const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+   await page.waitForFunction(() => document.querySelectorAll('.sxg-kpi[aria-busy]').length === 0 && document.querySelector('.sxg-av-lista'));
+@@ -241,7 +241,7 @@
+   assert.equal(fecha.toLowerCase(), esperadaF.toLowerCase()); assert.match(hora, /^\d{2}:\d{2}\s?[ap]\.\s?m\.$/);
+   const kpi = await page.$$eval('.sxg-kpi', (ks) => ks.map((k) => [k.dataset.sxgGo, k.querySelector('b')?.textContent.trim()]));
+   assert.deepEqual(kpi, [['clientes:todos', '6'], ['clientes:renovaciones', '2'], ['pedidos:ok', '2'], ['metas', 'L1,450']]);
+-  assert.match(await page.textContent('.sxg-metas'), /Ventas: L1,450 \/ L2,000[\s\S]*73%/);
++  assert.equal(await page.locator('.sxg-metas').count(), 0, 'R190: Metas del mes ya no va en Inicio');
+   const txt = await page.textContent('#content');
+   assert.doesNotMatch(txt, /Nueva compra|Accesos rápidos|Actualización de planes|Promo Black|Hola, socio/);
+   assert.match(await page.textContent('.sxg-avisos'), /Cuentas completas Disney y HBO/);
+@@ -324,10 +324,10 @@
+   await ctx.close();
+ });
+ 
+-await caso('R185-06 · Compras: un solo botón, pestañas Todos/Entregados, búsqueda, detalle con historial y Nueva compra', async () => {
++await caso('R185-06 · Mis pedidos (R190: vista secundaria de Compras): pestañas, búsqueda, detalle con historial y volver a la tienda', async () => {
+   const E = estadoGuia();
+   const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+-  await page.click('#nav [data-v="pedidos"]'); await page.waitForSelector('.sxg-ped');
++  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra'); await page.click('.sxg-mis-pedidos'); await page.waitForSelector('.sxg-ped');
+   assert.equal(await page.locator('.sxg-ped').count(), 5, 'todo el historial (también cancelados y pendientes)');
+   assert.ok((E.limites || []).includes('500'), 'pide el historial completo que permita el servidor');
+   assert.match(await page.textContent('.sxg-tab[data-v="todos"]'), /Todos 5/); assert.match(await page.textContent('.sxg-tab[data-v="ok"]'), /Entregados 2/);
+@@ -336,11 +336,11 @@
+   await page.click('.sxg-tab[data-v="ok"]'); assert.equal(await page.locator('.sxg-ped').count(), 2);
+   await page.fill('#sxPedBuscar', 'DSN002'); await page.waitForTimeout(80); assert.equal(await page.locator('.sxg-ped').count(), 1);
+   await page.click('.sxg-ped'); await page.waitForSelector('#sxPedTitulo');
+-  assert.match(await page.textContent('.sx-timeline'), /Entregado/); assert.match(await page.textContent('[data-act="volver"]'), /Compras/);
++  assert.match(await page.textContent('.sx-timeline'), /Entregado/); assert.match(await page.textContent('[data-act="volver"]'), /Pedidos|Compras/);
+   await page.click('[data-act="volver"]'); await page.waitForSelector('.sxg-compras');
+   assert.equal(await page.inputValue('#sxPedBuscar'), 'DSN002', 'la búsqueda se conserva al volver');
+   await page.click('[data-act="nueva"]'); await page.waitForSelector('#sxCompra');
+-  assert.equal(await page.locator('#nav [data-v="pedidos"].on').count(), 1, 'Compras queda marcado durante la compra');
++  assert.equal(await page.locator('#nav [data-v="compras"].on').count(), 1, 'Compras queda marcado durante la compra');
+   await page.evaluate(() => go('pedidos')); await page.click('[data-act="pedtab"][data-v="entregas"]'); await page.waitForSelector('.sx-ent-filtros');
+   assert.deepEqual(errores, []);
+   await ctx.close();
+@@ -363,10 +363,10 @@
+   await ctx.close(); R.srv.close();
+ });
+ 
+-await caso('R185-08 · Metas: meta real del socio, "Meta no configurada" sin meta, cambia con mes y año', async () => {
++await caso('R185-08 · Metas (detalle desde «Mis ventas»; los datos de metas siguen intactos): meta real, sin meta, mes y año', async () => {
+   let { page, ctx } = await abrir({ width: 390, height: 844 }, estadoGuia());
+-  await page.waitForFunction(() => /73%/.test(document.querySelector('.sxg-metas')?.textContent || ''));
+-  await page.click('.sxg-metas'); await page.waitForSelector('.sxg-metas-pg');
++  await page.waitForSelector('.sxg-kpi[data-sxg-go="metas"]:not([aria-busy])');
++  await page.click('.sxg-kpi[data-sxg-go="metas"]'); await page.waitForSelector('.sxg-metas-pg');
+   assert.match(await page.textContent('.sxg-metas-pg'), /L1,450 \/ L2,000/);
+   await shot(page, 'm-10-metas.png');
+   const prev = AM === 1 ? [AY - 1, 12] : [AY, AM - 1];
+@@ -376,9 +376,10 @@
+   assert.equal(await page.locator('#nav [data-v="inicio"].on').count(), 1, 'Metas no agrega botón a la barra');
+   await ctx.close();
+   ({ page, ctx } = await abrir({ width: 390, height: 844 }, estadoGuia({ metas: false, apiNueva: false })));
+-  await page.waitForFunction(() => /Meta no configurada/.test(document.querySelector('.sxg-metas')?.textContent || ''));
+-  assert.doesNotMatch(await page.textContent('.sxg-metas'), /%|L60,000/);
+-  await page.click('.sxg-metas'); await page.selectOption('#sxgMetaY', String(AY - 1));
++  await page.waitForSelector('.sxg-kpi[data-sxg-go="metas"]:not([aria-busy])');
++  await page.click('.sxg-kpi[data-sxg-go="metas"]'); await page.waitForSelector('.sxg-metas-pg');
++  assert.match(await page.textContent('.sxg-metas-pg'), /Meta no configurada/); assert.doesNotMatch(await page.textContent('.sxg-metas-pg'), /L60,000/);
++  await page.selectOption('#sxgMetaY', String(AY - 1));
+   await page.waitForFunction(() => /Todavía no hay datos de ese mes/.test(document.querySelector('.sxg-metas-pg')?.textContent || ''));
+   await ctx.close();
+ });
+@@ -386,7 +387,7 @@
+ await caso('R185-09 · Responsive (360, 390, 768, 1024, 1440) sin desplazamiento horizontal ni contenido tapado', async () => {
+   for (const w of [360, 390, 768, 1024, 1440]) {
+     const { page, ctx } = await abrir({ width: w, height: w < 900 ? 800 : 900 }, estadoGuia());
+-    for (const v of ['inicio', 'clientes', 'pedidos', 'precios', 'buzon', 'metas', 'mas', 'perfil']) {
++    for (const v of ['inicio', 'clientes', 'compras', 'pedidos', 'precios', 'buzon', 'metas', 'mas', 'perfil']) {
+       await page.evaluate((v) => go(v), v); await page.waitForTimeout(90);
+       assert.ok(await sinDesborde(page), `${w}px ${v}: desplazamiento horizontal`);
+     }
+@@ -406,7 +407,7 @@
+   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+   await page.evaluate(() => { rev.capabilities = { comprar: false }; applySocioMode(); go('clientes'); });
+   const barra = await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
+-  assert.ok(!barra.includes('pedidos'), 'sin Compras'); assert.deepEqual(barra, ['clientes', 'precios', 'mas']);
++  assert.ok(!barra.includes('pedidos') && !barra.includes('compras'), 'sin Compras'); assert.deepEqual(barra, ['clientes', 'precios', 'mas']);
+   await page.evaluate(() => go('pedidos')); assert.notEqual(await page.evaluate(() => current), 'pedidos');
+   await page.evaluate(() => go('metas')); assert.notEqual(await page.evaluate(() => current), 'metas');
+   await page.evaluate(() => go('clientes')); await page.waitForSelector('.sxg-cli');
+@@ -430,6 +431,94 @@
+   await ctx.close();
+ });
+ 
++/* =========================== R190 · Correcciones finales (PDF 07/11): saludo, avatar, sin ☰, sin Metas, Compras = tienda =========================== */
++await caso('R190-01/02 · «Hola, <primer nombre>» del socio autenticado (Yami / otro socio); nunca fijo ni «Hola» suelto si hay nombre', async () => {
++  for (const [nombre, esperado] of [['Yami Valladares', 'Yami'], ['Carlos Mejía', 'Carlos']]) {
++    const E = estadoGuia(); E.me = { ...(E.me || {}), nombre, nombreMostrar: '', nombre_norm: nombre.toLowerCase().split(' ')[0], usuario: nombre.toLowerCase().split(' ')[0] };
++    E.gam = { perfil: { nombreMostrar: '', ventas: 1 } };
++    const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
++    await page.waitForFunction((n) => (document.getElementById('sxgHola')?.textContent || '') === `Hola, ${n}`, esperado, { timeout: 8000 });
++    assert.doesNotMatch(await page.textContent('#content'), /Hola, Jimena/);
++    await shot(page, `r190-inicio-${esperado.toLowerCase()}.png`);
++    assert.deepEqual(errores, []); await ctx.close();
++  }
++  // Sesión guardada SIN nombre (versión anterior): primero esqueleto, luego el nombre que devuelve el servidor (antes quedaba «Hola»).
++  const E = estadoGuia(); E.me = { nombre: 'Yami Valladares', nombre_norm: 'yami', usuario: 'yami', capabilities: null }; E.gam = { perfil: { nombreMostrar: '', ventas: 1 } };
++  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
++  await ctx.addInitScript(() => { if (!sessionStorage.getItem('_i')) { sessionStorage.setItem('_i', '1'); localStorage.setItem('rev_token', 'tok'); localStorage.setItem('rev_data', JSON.stringify({ nombre_norm: '', usuario: '' })); localStorage.setItem('rev_last', String(Date.now())); } });
++  await ctx.route(`${API_HOST}/**`, async (route) => { if (new URL(route.request().url()).pathname === '/rev/me') await new Promise((r) => setTimeout(r, 900)); return api(route, E); });
++  const page = await ctx.newPage(); await page.goto(BASE); await page.waitForSelector('#sxgHola');
++  assert.equal(await page.locator('#sxgHola .sxg-esq-nombre').count(), 1, 'mientras carga: esqueleto, no «Hola» suelto');
++  await page.waitForFunction(() => document.getElementById('sxgHola')?.textContent === 'Hola, Yami', null, { timeout: 8000 });
++  assert.equal(await page.textContent('#sxgAvatar'), 'YV', 'iniciales reales, no un punto');
++  await ctx.close();
++});
++
++await caso('R190-03/04 · Avatar: foto real del Perfil (toca → Mi perfil); sin foto → iniciales; nunca «·»', async () => {
++  const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
++  const E = estadoGuia(); E.gam = { perfil: { nombreMostrar: 'Jimena', avatar: foto, ventas: 12 } };
++  const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
++  await page.waitForSelector('#sxgAvatar img');
++  assert.equal(await page.getAttribute('#sxgAvatar img', 'src'), foto);
++  const box = await page.$eval('#sxgAvatar', (a) => { const r = a.getBoundingClientRect(); return { right: window.innerWidth - r.right, top: r.top, w: r.width, otros: [...document.querySelectorAll('#app .topbar *')].filter((e) => e.offsetParent && e.getBoundingClientRect().left > r.right - 2 && e.children.length === 0).map((e) => e.outerHTML.slice(0, 80)) }; });
++  await shot(page, 'r190-avatar-foto.png');
++  assert.ok(box.right < 60 && box.otros.length === 0 && box.top < 70 && box.w >= 44, 'arriba a la derecha (último de la cabecera) y táctil: ' + JSON.stringify(box));
++
++  await page.click('#sxgAvatar'); assert.equal(await page.evaluate(() => current), 'perfil');
++  await ctx.close();
++  const E2 = estadoGuia(); E2.gam = { perfil: { nombreMostrar: 'Jimena López', ventas: 1 } };
++  const b = await abrir({ width: 390, height: 844 }, E2);
++  await b.page.waitForFunction(() => document.getElementById('sxgAvatar')?.textContent === 'JL');
++  assert.doesNotMatch(await b.page.textContent('#sxgAvatar'), /·/);
++  await b.ctx.close();
++});
++
++await caso('R190-05/06 · Sin ☰ ni panel vacío, sin Metas en Inicio; barra exacta; Actualizar/Instalar/Salir siguen en Más', async () => {
++  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, estadoGuia());
++  await page.waitForSelector('.sxg-kpi:not([aria-busy])');
++  assert.equal(await page.locator('#sxoMenuBtn, #sxoMenu, .sxo-menu').count(), 0, 'sin menú de tres rayas ni su panel');
++  assert.equal(await page.locator('.sxg-metas').count(), 0); assert.doesNotMatch(await page.textContent('#content'), /Metas del mes/);
++  assert.deepEqual(await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.textContent.trim())), ['Inicio', 'Clientes', 'Compras', 'Catálogo', 'Más']);
++  assert.ok(await page.locator('.partner-inbox-btn').isVisible(), 'la campana del Buzón se conserva');
++  await page.click('#nav [data-v="mas"]'); await page.waitForSelector('.sxg-mas');
++  assert.match(await page.textContent('.sxg-mas'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
++  assert.deepEqual(await page.$$eval('.sxg-mas-item b', (bs) => bs.map((b) => b.textContent.trim())), ['Renovaciones', 'Catálogo', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil'], 'Más sin categorías nuevas');
++  assert.deepEqual(errores, []); await ctx.close();
++});
++
++await caso('R190-07/08/09/10/11 · Compras abre la tienda; cliente + 2 apps = 1 pedido; Mis pedidos secundario; volver conserva el carrito', async () => {
++  const E = estadoGuia(); const antes = JSON.stringify([...E.pedidos.entries()]);
++  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
++  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra');
++  assert.equal(await page.evaluate(() => current), 'compras', 'tienda, no historial');
++  assert.match(await page.textContent('#sxCompra .sx-page-head h1'), /^Compras$/);
++  assert.equal(await page.locator('.sxg-ped').count(), 0, 'el historial no está en la portada de Compras');
++  await shot(page, 'r190-compras-tienda-390.png');
++  // agregar 2 aplicaciones al carrito
++  const add = () => page.locator('#sxCompra button[data-act="agregar"]:not([disabled])').first();
++  assert.ok(await page.locator('#sxCompra button[data-act="agregar"]:not([disabled])').count() >= 2, 'hay productos para elegir');
++  await add().click(); await page.waitForTimeout(120); await add().click(); await page.waitForTimeout(150);
++  const enCarrito = await page.evaluate(() => SX.renglones.length); assert.ok(enCarrito >= 2, 'dos apps en el carrito');
++  // Mis pedidos y volver: el carrito sigue
++  await page.click('.sxg-mis-pedidos'); await page.waitForSelector('.sxg-ped');
++  assert.equal(await page.evaluate(() => current), 'pedidos'); assert.equal(await page.locator('#nav [data-v="compras"].on').count(), 1, 'la pestaña inferior no cambia');
++  assert.match(await page.textContent('.sxg-compras h1'), /Mis pedidos/);
++  assert.equal(JSON.stringify([...E.pedidos.entries()]), antes, 'el historial no se tocó');
++  await shot(page, 'r190-mis-pedidos-390.png');
++  await page.click('[data-act="nueva"]'); await page.waitForSelector('#sxCompra');
++  assert.equal(await page.evaluate(() => SX.renglones.length), enCarrito, 'al volver, el carrito sigue');
++  assert.deepEqual(errores, []); await ctx.close();
++});
++
++await caso('R190-13 · Escritorio: Compras abre la tienda desde el menú lateral; sin desborde', async () => {
++  const { page, ctx } = await abrir({ width: 1440, height: 900 }, estadoGuia());
++  await page.waitForSelector('.sxg-kpi:not([aria-busy])'); await shot(page, 'r190-inicio-1440.png');
++  await page.click('#nav [data-v="compras"]'); await page.waitForSelector('#sxCompra .sxg-mis-pedidos');
++  assert.ok(await sinDesborde(page)); await shot(page, 'r190-compras-tienda-1440.png');
++  for (const w of [320, 360, 430]) { await page.setViewportSize({ width: w, height: 800 }); await page.evaluate(() => go('inicio')); await page.waitForTimeout(120); assert.ok(await sinDesborde(page), `${w}px`); await page.evaluate(() => go('compras')); await page.waitForTimeout(120); assert.ok(await sinDesborde(page), `${w}px compras`); }
++  await ctx.close();
++});
++
+ await browser.close(); server.close();
+ const fallas = resultados.filter((r) => r[0] !== 'OK');
+ console.log(`\n${resultados.length - fallas.length}/${resultados.length} casos OK · capturas en ${OUT}`);
+--- R185/tests/socios-rediseno.e2e.mjs
++++ R190/tests/socios-rediseno.e2e.mjs
+@@ -451,7 +451,7 @@
+   // Celular
+   const m = await abrir({ width: 390, height: 844 }, E);
+   const barra = await m.page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.dataset.v));
+-  assert.deepEqual(barra, ['inicio', 'clientes', 'pedidos', 'precios', 'mas']); // R185: Inicio | Clientes | Compras | Catálogo | Más
++  assert.deepEqual(barra, ['inicio', 'clientes', 'compras', 'precios', 'mas']); // R185: Inicio | Clientes | Compras | Catálogo | Más · R190: Compras abre la tienda
+   const pedidosAntes = E.pedidos.size;
+   await m.page.click('#nav [data-v="mas"]'); await m.page.waitForSelector('.sxo-mas');
+   assert.equal(E.pedidos.size, pedidosAntes, '"Más" no crea pedidos');
+@@ -461,9 +461,8 @@
+     assert.equal(await m.page.evaluate(() => current), v);
+     assert.equal(await m.page.locator(`#nav [data-v="${v === 'precios' ? 'precios' : 'mas'}"].on`).count(), 1, `botón marcado en ${v}`);
+   }
+-  await m.page.click('#sxoMenuBtn'); await m.page.waitForSelector('#sxoMenu:not([hidden])');
+-  assert.match(await m.page.textContent('#sxoMenu'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
+-  await m.page.keyboard.press('Escape');
++  assert.equal(await m.page.locator('#sxoMenuBtn, #sxoMenu').count(), 0, 'R190: sin menú ☰/⋯ (sus acciones están en Más)');
++  await m.page.click('#nav [data-v="mas"]'); assert.match(await m.page.textContent('.sxg-mas'), /Actualizar datos[\s\S]*Salir de mi cuenta/);
+   await m.page.click('#nav [data-v="clientes"]'); await m.page.click('[data-cli="abrir"][data-id="c1"]');
+   await m.page.click('.sxo-svc [data-cli="renovar"]'); await m.page.waitForSelector('#compOverlay.show');
+   await m.page.evaluate(() => { document.getElementById('compOverlay')?.classList.remove('show'); go('compras'); });
+@@ -517,7 +516,7 @@
+   E.pedidos.set('web_seedHBOCANVA', { ...E.pedidos.get('web_seedHBOCANVA'), entregas: c.entregas, estado: c.estado, detalleEstado: c.detalleEstado });
+   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+   await page.waitForFunction(() => document.getElementById('sxBellBadge')?.textContent === '1');
+-  await page.waitForFunction(() => document.getElementById('sxoMenuDot')?.textContent === '1');
++  assert.equal(await page.locator('#sxoMenuDot').count(), 0, 'R190: el aviso queda en la campanita (sin menú ☰)');
+   await shot(page, '90-movil-novedades.png');
+   await page.evaluate(() => go('pedidos')); await page.waitForSelector('.sx-orders');
+   assert.match(await page.textContent('.sx-orders'), /Entrega parcial · 1 de 2 servicios/);
