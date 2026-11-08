@@ -127,10 +127,14 @@ async function api(route, E) {
     const canva = productos.filter((x) => x.catalogId === 'canva').length;
     if (canva > E.stock.canva) return ok({ error: 'sin_stock', detail: 'Canva Pro · 1 mes: no hay disponibilidad suficiente.' }, 409);
     if (!b.bancoId) return ok({ error: 'falta_banco' }, 400);
+    if (!['sublicuentas', 'relojes'].includes(b.destino)) return ok({ error: 'destino_requerido' }, 400); // R195 · igual que el servidor
     E.stock.canva -= canva;
     E.pedidos.set(id, { version: 2, socio_norm: 'jimena', clientePrincipal: b.clientePrincipal, productos, subtotalCatalogo: t.subtotal, descuentoCombo: t.descuento, totalCombo: t.total, monto: t.hayComision ? b.monto : t.total, banco: 'BAC Credomatic', comentario: b.comentario, imagenUrl: b.imagen ? 'ok' : '', estado: 'pendiente', createdAt: new Date().toISOString(), estadoHistorial: [{ estado: 'pendiente', detalle: 'Pedido recibido', at: new Date().toISOString() }] });
     if (E.cortarRespuesta > 0) { E.cortarRespuesta--; return route.abort('connectionreset'); } // el pedido llegó pero la respuesta se perdió
-    return ok({ ok: true, id, ref: id.slice(-6).toUpperCase(), destinoLabel: '🟣 Sublicuentas', totalCombo: t.total, descuentoCombo: t.descuento, subtotalCatalogo: t.subtotal, estado: 'pendiente', comprobante: true });
+    E.ultimoDestino = b.destino;
+    const notificacion = E.tgFalla ? { estado: 'error', texto: 'Error de envío' } : { estado: 'recibido', texto: 'Recibido en Telegram' };
+    E.pedidos.get(id).notificacion = notificacion;
+    return ok({ ok: true, id, ref: id.slice(-6).toUpperCase(), destino: b.destino, destinoLabel: b.destino === 'relojes' ? '⌚ Relojes' : '🟣 Sublicuentas', totalCombo: t.total, descuentoCombo: t.descuento, subtotalCatalogo: t.subtotal, estado: 'pendiente', comprobante: true, notificacion });
   }
   return ok({ error: 'no_simulado', path: p }, 404);
 }
@@ -193,7 +197,7 @@ await caso('A · Un cliente, varios servicios: HBO (dispositivo) + Canva (correo
   assert.match(await page.textContent(`#sxr_${hbo}`), /Asignado a Ana López/);
   await shot(page, '03-movil-paso2-datos.png');
   await siguiente(page, 3);
-  await page.click('[data-act="banco"][data-id="bac"]');
+  await page.click('[data-act="banco"][data-id="bac"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]');
   await page.setInputFiles('#sxFile', PNG);
   await page.waitForSelector('.sx-receipt');
   await page.fill('textarea[data-sx="comentario"]', 'Entregar hoy');
@@ -245,7 +249,7 @@ await caso('B · Un solo cliente: sin "otro cliente"; cambiar de cliente limpia 
   await page.click('[data-act="borrador-abrir"]');
   assert.equal(await page.evaluate(() => SX.principal.nombre), 'Luis');
   await siguiente(page, 3);
-  await page.click('[data-act="banco"][data-id="bac"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await page.click('[data-act="banco"][data-id="bac"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
   await shot(page, '11-escritorio-paso3.png');
   await page.click('#sxSummary [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
   await shot(page, '12-escritorio-confirmacion.png');
@@ -277,7 +281,7 @@ await caso('C · Mismo plan repetido: dos perfiles HBO = dos renglones con ID y 
   await page.click(`[data-act="quitar"][data-rid="${c}"]`);
   assert.equal(await page.evaluate(() => SX.renglones.length), 2);
   assert.equal(await page.evaluate((b) => SX.renglones.find((r) => r.rid === b).perfilNombre, b), 'Niños');
-  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
   await page.click('#sxBottomBar [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
   const ped = [...E.pedidos.values()].pop();
   assert.deepEqual(ped.productos.map((p) => [p.perfil, p.dispositivo]), [['Ana López', '📺 TV'], ['Niños', '📱 Celular']]);
@@ -309,7 +313,7 @@ await caso('Modalidades: invitación, cuenta completa, licencia, recarga con ID 
   assert.equal(await page.inputValue('#sx_p_nombre'), 'Ana');
   await siguiente(page, 3);
   assert.equal(await page.evaluate(() => SX.paso), 3);
-  await page.click('[data-act="banco"][data-id="tigo"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await page.click('[data-act="banco"][data-id="tigo"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
   assert.match(await page.textContent('.sx-pay-info'), /Cuenta: 00000000/);
   await page.click('#sxBottomBar [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
   const ped = [...E.pedidos.values()].pop();
@@ -330,7 +334,7 @@ await caso('Totales y stock: descuento vigente, cambio de precio avisado antes d
   await page.fill('#sx_p_nombre', 'Ana'); await page.fill('#sx_p_apellido', 'López');
   const [h, c] = await page.evaluate(() => SX.renglones.map((r) => r.rid));
   await page.click(`[data-act="opcion"][data-rid="${h}"][data-v="tv"]`); await page.fill(`#sx_${c}_correo`, 'ana@ejemplo.com');
-  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
   E.precioExtra = 10; // el catálogo sube HBO a L110 mientras el socio paga
   await page.click('#sxBottomBar [data-act="enviar"]');
   await page.waitForSelector('.sx-banner.warn');
@@ -380,13 +384,63 @@ await caso('Borrador y errores: atrás, cambio de sección, rotación y recarga 
   await ctx.close();
 });
 
+await caso('R195 · Pago: «¿A quién enviar el comprobante?» visible ANTES del comprobante, sin opción marcada y obligatorio', async () => {
+  const E = nuevoEstado();
+  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+  await irCompras(page); await agregar(page, 'cat_office2021');
+  await siguiente(page, 2); await page.fill('#sx_p_nombre', 'Ana'); await page.fill('#sx_p_apellido', 'López');
+  await siguiente(page, 3);
+  const orden = await page.evaluate(() => { const d = document.querySelector('#sx_pago_destino'), c = document.querySelector('#sx_pago_comprobante'); return d && c ? !!(d.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) : null; });
+  assert.equal(orden, true, 'el selector va antes de adjuntar el comprobante');
+  assert.match(await page.textContent('#sx_pago_destino legend'), /¿A quién enviar el comprobante\?/);
+  assert.deepEqual(await page.$$eval('#sx_pago_destino [data-act="destino"]', (bs) => bs.map((b) => [b.textContent.trim(), b.getAttribute('aria-checked')])), [['Sublicuentas', 'false'], ['Relojes', 'false']]);
+  await page.click('[data-act="banco"][data-id="bac"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await page.evaluate(() => sxIrPaso(3)); await page.click('#sxBottomBar [data-act="enviar"]');
+  await page.waitForSelector('#sx_pago_destino.err');
+  assert.match(await page.textContent('#sx_pago_destino'), /Elija a quién enviar el comprobante: Sublicuentas o Relojes/);
+  assert.equal(E.calls.filter((x) => x === 'POST /rev/compra').length, 0, 'sin destino no se envía nada');
+  await shot(page, 'r195-01-movil-destino-obligatorio.png');
+  await page.click('[data-act="destino"][data-v="relojes"]');
+  assert.equal(await page.getAttribute('[data-act="destino"][data-v="relojes"]', 'aria-checked'), 'true');
+  await page.waitForTimeout(900); // el borrador se guarda con una breve espera
+  await page.reload(); await page.waitForSelector('#app:not(.hide)'); await irCompras(page);
+  assert.deepEqual(await page.evaluate(() => [SX.destino, SX.destinoConfirmado]), ['relojes', true], 'la elección confirmada se conserva al recargar');
+  await page.evaluate(() => sxIrPaso(3));
+  assert.equal(await page.getAttribute('[data-act="destino"][data-v="relojes"]', 'aria-checked'), 'true');
+  if (!(await page.$('.sx-receipt'))) { await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt'); }
+  if (!(await page.$('[data-act="banco"].on, [data-act="banco"][aria-pressed="true"]'))) await page.click('[data-act="banco"][data-id="bac"]');
+  await page.click('#sxBottomBar [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
+  assert.equal(E.ultimoDestino, 'relojes', 'viaja exactamente lo que eligió el socio');
+  assert.match(await page.textContent('.sx-confirm'), /Comprobante recibido en Telegram de Relojes/);
+  await shot(page, 'r195-02-movil-recibido-relojes.png');
+  assert.deepEqual(errores, []); await ctx.close();
+});
+
+await caso('R195 · Telegram falla: confirmación honesta (guardado ≠ entregado), sin éxito falso; un borrador viejo no trae destino marcado', async () => {
+  const E = nuevoEstado(); E.tgFalla = true;
+  const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
+  await irCompras(page); await agregar(page, 'cat_office2021');
+  await siguiente(page, 2); await page.fill('#sx_p_nombre', 'Ana'); await page.fill('#sx_p_apellido', 'López');
+  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]');
+  await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await page.click('#sxBottomBar [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
+  const t = await page.textContent('.sx-confirm');
+  assert.match(t, /Error de envío a Telegram/); assert.match(t, /quedaron guardados/); assert.doesNotMatch(t, /avisó a/);
+  await shot(page, 'r195-03-movil-error-telegram.png');
+  // borrador anterior a R195 (destino puesto por defecto): se vuelve a pedir
+  await page.evaluate(() => { localStorage.setItem(sxBorradorKey(), JSON.stringify({ v: 2, paso: 3, renglones: [], principal: { nombre: 'Ana', apellido: 'López' }, destino: 'sublicuentas', savedAt: Date.now() })); });
+  await page.reload(); await page.waitForSelector('#app:not(.hide)'); await irCompras(page);
+  assert.equal(await page.evaluate(() => SX.destino), '');
+  await ctx.close();
+});
+
 await caso('Envío repetido: doble toque y respuesta perdida generan UN pedido con número persistente', async () => {
   const E = nuevoEstado(); E.cortarRespuesta = 1;
   const { page, ctx } = await abrir({ width: 390, height: 844 }, E);
   await irCompras(page);
   await agregar(page, 'cat_office2021');
   await siguiente(page, 2); await page.fill('#sx_p_nombre', 'Ana'); await page.fill('#sx_p_apellido', 'López');
-  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
+  await siguiente(page, 3); await page.click('[data-act="banco"][data-id="bac"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]'); await page.setInputFiles('#sxFile', PNG); await page.waitForSelector('.sx-receipt');
   await page.evaluate(() => { const b = document.querySelector('#sxBottomBar [data-act="enviar"]'); b.click(); b.click(); b.click(); });
   await page.waitForSelector('.sx-confirm', { timeout: 10000 });
   assert.equal(E.pedidos.size, 2, 'un solo pedido nuevo (más el de ejemplo)');
