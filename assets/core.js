@@ -551,8 +551,8 @@ function renderAdmin(){
         ? `<input id="admCompraSearch" placeholder="Buscar compra por socio, servicio, cliente o destino" value="${escAttr(admCompraF)}" oninput="admCompraF=this.value;renderAdmCompras()">`
         : `<input id="admSearch" placeholder="Buscar socio" value="${escAttr(admF)}" oninput="admF=this.value;renderAdmList()">`}
   </div>
-  ${admMode==='comprobantes'?'<div id="admCompList"></div>':admMode==='compras'?'<div id="admCompraList"></div>':'<div id="admList"></div>'}`;
-  if(admMode==='comprobantes')renderAdmComps(); else if(admMode==='compras')renderAdmCompras(); else renderAdmList();
+  ${admMode==='comprobantes'?'<div id="admCompList"></div>':admMode==='compras'?'<div id="admTgBox"></div><div id="admCompraList"></div>':'<div id="admList"></div>'}`;
+  if(admMode==='comprobantes')renderAdmComps(); else if(admMode==='compras'){renderAdmCompras();admCargarTg();} else renderAdmList();
 }
 function setAdmMode(m){admMode=m;renderAdmin()}
 function renderAdmList(){
@@ -593,6 +593,42 @@ function renderAdmCompras(){
   if(!list.length){el.innerHTML=`<div class="card"><div class="empty"><div class="ico">🛒</div><b>Sin compras</b>No hay resultados con ese filtro.</div></div>`;return}
   el.innerHTML=list.map(compraCard).join('');
 }
+/* R195 · Comprobantes → Telegram: estado real, reporte de no entregados, diagnóstico y reenvío VERIFICADO. */
+function admTgTag(n){
+  if(!n)return '<span class="adm-tag">Telegram: sin registro (anterior)</span>';
+  if(n.estado==='enviado')return '<span class="adm-tag tg-ok">✅ Telegram entregado</span>';
+  if(n.estado==='error'||n.estado==='incierto')return `<span class="adm-tag tg-err" title="${escAttr(n.lastError||'')}">⚠️ Error de envío${n.lastError?': '+escHtml(String(n.lastError).slice(0,60)):''}</span>`;
+  return '<span class="adm-tag tg-pend">⏳ Pendiente de envío</span>';
+}
+let admTg=null;
+async function admCargarTg(){
+  const box=document.getElementById('admTgBox'); if(!box)return;
+  box.innerHTML='<div class="card adm-tg"><b>Comprobantes en Telegram</b><p class="adm-tg-help">Revisando…</p></div>';
+  try{ admTg=await API.call('/rev/admin/comprobantes-telegram',{headers:{Authorization:'Bearer '+adminToken}}); }
+  catch(e){ box.innerHTML='<div class="card adm-tg"><b>Comprobantes en Telegram</b><p class="adm-tg-help">No se pudo leer el reporte.</p></div>'; return; }
+  const est=admTg.porEstado||{}, lbl={sin_registro:'sin registro (anteriores)',pendiente:'pendientes',enviando:'enviando',error:'con error',incierto:'inciertos'};
+  box.innerHTML=`<div class="card adm-tg"><b>Comprobantes sin confirmar en Telegram (${admTg.total||0})</b>
+    <p class="adm-tg-help">Desde ${escHtml(fmtTs(Date.parse(admTg.desde)))}. ${Object.entries(est).map(([k,v])=>`${v} ${escHtml(lbl[k]||k)}`).join(' · ')||'Todo entregado.'} Antes de reenviar, revise el chat: solo se reenvía lo que no llegó.</p>
+    <div class="adm-tg-acc"><button type="button" onclick="admTgDiag()">Diagnóstico de rutas</button><button type="button" onclick="admTgVer()">${admTg.total?'Ver lista':'Actualizar'}</button></div><div id="admTgDet"></div></div>`;
+}
+function admTgVer(){
+  const el=document.getElementById('admTgDet'); if(!el||!admTg)return;
+  if(!admTg.items.length){el.innerHTML='<p class="adm-tg-help">No hay comprobantes pendientes.</p>';return}
+  el.innerHTML=`<div class="adm-tg-list">${admTg.items.map(x=>`<div class="adm-tg-row"><div><b>#${escHtml(x.ref)}</b> · ${escHtml(fmtTs(Date.parse(x.fecha)))} · ${escHtml(x.socio)} → <b>${escHtml(x.destino)}</b>${x.coleccion==='renovaciones'?' · renovación':''}<br><small>${escHtml(x.estado)}${x.intentos?` · ${x.intentos} intento(s)`:''}${x.lastError?` · ${escHtml(x.lastError)}`:''}${x.comprobante?'':' · sin archivo'}</small></div><button type="button" onclick="admReenviarVoucher('${escAttr(x.id)}','${escAttr(x.coleccion)}')">Reenviar</button></div>`).join('')}</div>`;
+}
+async function admTgDiag(){
+  const el=document.getElementById('admTgDet'); if(!el)return; el.innerHTML='<p class="adm-tg-help">Probando rutas…</p>';
+  try{ const d=await API.call('/rev/admin/comprobantes-telegram/diagnostico',{headers:{Authorization:'Bearer '+adminToken}});
+    el.innerHTML=`<div class="adm-tg-list"><div class="adm-tg-row"><div><b>Bot</b><br><small>${d.bot&&d.bot.ok?'✅ @'+escHtml(d.bot.usuario):'⚠️ '+escHtml(d.bot&&d.bot.error||'sin datos')}</small></div></div>${(d.destinos||[]).map(x=>`<div class="adm-tg-row"><div><b>${escHtml(x.destino)}</b> → chat ${escHtml(x.chatRef||'—')}<br><small>Fuente: ${escHtml(x.fuente||'—')} · ${x.alcanzable?'✅ el bot puede escribir ('+escHtml(x.tipo)+')':'⚠️ '+escHtml(x.error||'no alcanzable')}</small></div></div>`).join('')}</div>`; }
+  catch(e){ el.innerHTML=`<p class="adm-tg-help">${e.status===403?'Solo el admin general ve el diagnóstico.':'No se pudo diagnosticar.'}</p>`; }
+}
+async function admReenviarVoucher(id,coleccion){
+  if(!confirm('¿Ya revisó el chat de Telegram del destino y este comprobante NO llegó?\n\nSolo así se reenvía (para no duplicarlo).'))return;
+  try{ const r=await API.call(`/rev/admin/comprobantes-telegram/${encodeURIComponent(id)}/reenviar`,{method:'POST',headers:{Authorization:'Bearer '+adminToken},body:JSON.stringify({confirmoNoLlego:true,coleccion})});
+    alert(r.ok?'✅ Telegram confirmó la entrega.':`⚠️ No se entregó: ${r.error||r.estado}. Quedó registrado; revise el diagnóstico.`); }
+  catch(e){ alert(e&&e.error==='ya_entregado'?'Ese comprobante ya consta como entregado en Telegram: no se reenvió.':'No se pudo reenviar.'); }
+  if(typeof enterAdmin==='function')enterAdmin();
+}
 function compraCard(c){
   const safeImg=safeHttpUrl(c.imagenUrl);
   const img=safeImg?`<a class="adm-img" href="${escAttr(safeImg)}" target="_blank" rel="noopener noreferrer"><img src="${escAttr(safeImg)}" alt="comprobante compra"></a>`:`<div class="adm-img">🛒</div>`;
@@ -605,7 +641,8 @@ function compraCard(c){
       <div class="adm-purchase-meta">👤 ${escHtml(c.socio||'Socio')} · 📣 ${escHtml(c.destinoLabel||'Sublicuentas')}<br>🕒 ${fmtTs(c.ts)}${c.cliente?`<br>🙍 Cliente: ${escHtml(c.cliente)}`:''}</div>
       ${extra?`<div class="adm-purchase-meta">${extra}</div>`:''}
       ${c.comentario?`<div class="adm-purchase-meta">📝 ${escHtml(c.comentario)}</div>`:''}
-      <div class="adm-comp-tags">${monto}<span class="adm-tag dest">${escHtml(c.destinoLabel||'Sublicuentas')}</span>${safeImg?'<span class="adm-tag">Foto</span>':'<span class="adm-tag">Sin foto</span>'}<span class="adm-tag pending">${escHtml(c.estado||'pendiente')}</span></div>
+      <div class="adm-comp-tags">${monto}<span class="adm-tag dest">${escHtml(c.destinoLabel||'Sublicuentas')}</span>${safeImg?'<span class="adm-tag">Foto</span>':'<span class="adm-tag">Sin foto</span>'}<span class="adm-tag pending">${escHtml(c.estado||'pendiente')}</span>${admTgTag(c.notificacion)}</div>
+      ${c.notificacion&&c.notificacion.estado==='enviado'?'':`<button class="adm-tg-btn" type="button" onclick="admReenviarVoucher('${escAttr(c.id)}','compras')">Reenviar comprobante a Telegram</button>`}
     </div>
   </div>`;
 }

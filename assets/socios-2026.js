@@ -89,7 +89,7 @@ function sxCatalogoVivo() { return Number(syncAt?.precios || 0) > 0; }
 const SX_CANTIDADES = [...Array.from({ length: 20 }, (_, i) => i + 1), 25, 30, 40, 50];
 
 /* ---------- estado único de la compra ---------- */
-function sxNuevo() { return { v: 2, paso: 1, renglones: [], principal: { id: '', nombre: '', apellido: '', telefono: '' }, destino: 'sublicuentas', bancoId: '', comentario: '', monto: '', requestId: '', requestFirma: '', incierto: false, avisoPrecio: '', recuperado: false, savedAt: 0 }; }
+function sxNuevo() { return { v: 2, paso: 1, renglones: [], principal: { id: '', nombre: '', apellido: '', telefono: '' }, destino: '', destinoConfirmado: false, bancoId: '', comentario: '', monto: '', requestId: '', requestFirma: '', incierto: false, avisoPrecio: '', recuperado: false, savedAt: 0 }; }
 let SX = sxNuevo(), sxErr = {}, sxImg = '', sxImgInfo = null, sxEnviando = false, sxProgreso = 0, sxConfirmacion = null, sxBuscar = '', sxCat = 'todas', sxEnfocar = '', sxVerComp = false, sxMsg = { t: '', c: '' };
 function sxBorradorKey() { return `socios_borrador_compra_${socioCacheId()}`; }
 let sxSaveTimer = null;
@@ -114,11 +114,12 @@ function sxCargarBorrador() {
     if (otros.length) {
       const porCliente = new Map();
       otros.forEach((r) => { const k = sxNorm(sxNombreCompleto(r.otro)) || 'sin_nombre'; if (!porCliente.has(k)) porCliente.set(k, { principal: { id: r.otro?.id || '', nombre: r.otro?.nombre || '', apellido: r.otro?.apellido || '', telefono: '' }, renglones: [] }); const x = { ...r }; delete x.hereda; delete x.otro; porCliente.get(k).renglones.push(x); });
-      porCliente.forEach((g) => sxGuardarAparte({ ...sxNuevo(), principal: g.principal, renglones: g.renglones, destino: raw.destino || 'sublicuentas' }));
+      porCliente.forEach((g) => sxGuardarAparte({ ...sxNuevo(), principal: g.principal, renglones: g.renglones, destino: '' }));
       raw.renglones = raw.renglones.filter((r) => r.hereda !== false);
     }
     raw.renglones.forEach((r) => { delete r.hereda; delete r.otro; });
     SX = { ...sxNuevo(), ...raw, recuperado: true, paso: Math.min(3, Math.max(1, Number(raw.paso) || 1)) };
+    if (SX.destinoConfirmado !== true) { SX.destino = ''; SX.destinoConfirmado = false; } // R195 · nunca se asume el destino del comprobante
     if (otros.length) SX.avisoPrecio = 'Su compra guardada tenía servicios para otra persona. Ahora cada cliente lleva su propio pedido: los separamos en “Compras guardadas”.';
     return true;
   } catch (_) { return false; }
@@ -134,7 +135,7 @@ function sxAbrirGuardado(id) {
   const g = sxGuardados().find((x) => x.id === id); if (!g) return;
   if (SX.renglones.length || sxNombreCompleto(SX.principal)) { if (!confirm('Tiene una compra en preparación. ¿Guardarla aparte y abrir la otra?')) return; sxGuardarAparte(SX); }
   sxQuitarGuardado(id);
-  SX = { ...sxNuevo(), principal: g.principal, renglones: g.renglones, destino: g.destino || 'sublicuentas', paso: g.renglones.length ? 2 : 1 };
+  SX = { ...sxNuevo(), principal: g.principal, renglones: g.renglones, paso: g.renglones.length ? 2 : 1 }; // R195 · el destino se vuelve a elegir
   sxErr = {}; sxImg = ''; sxImgInfo = null; sxGuardar(); sxRender({ scroll: true });
 }
 function sxNuevaCompraOtroCliente() {
@@ -226,6 +227,7 @@ function sxValidarPago() {
   const e = {}, m = sxTotales();
   if (m.hayComision && !(num(SX.monto) > 0)) e['pago:monto'] = 'Escriba el monto realmente pagado.';
   if (!SX.bancoId) e['pago:banco'] = 'Elija dónde se hizo el pago.';
+  if (!SX.destinoConfirmado || !['sublicuentas', 'relojes'].includes(SX.destino)) e['pago:destino'] = 'Elija a quién enviar el comprobante: Sublicuentas o Relojes.';
   if (!sxImg) e['pago:comprobante'] = 'Adjunte el comprobante del pago.';
   return e;
 }
@@ -480,13 +482,15 @@ function sxPaso3Html() {
     <section class="sx-card sx-step-card"><h2>Pago</h2>
       <fieldset class="sx-field ${e['pago:banco'] ? 'err' : ''}" id="sx_pago_banco" tabindex="-1"><legend>¿Dónde hizo el pago? <i aria-hidden="true">*</i><em class="sr">obligatorio</em></legend><div id="sxBancos"><p class="sx-help">Cargando métodos…</p></div>${e['pago:banco'] ? `<small class="sx-err">${sxEsc(e['pago:banco'])}</small>` : ''}</fieldset>
       ${m.hayComision ? `<label class="sx-field ${e['pago:monto'] ? 'err' : ''}"><span>Monto realmente pagado <i aria-hidden="true">*</i></span><small class="sx-hint">Hay productos por comisión: escriba lo que pagó. El equipo confirma el importe.</small><input id="sx_pago_monto" type="number" inputmode="decimal" min="0" data-sx="monto" value="${sxAttr(SX.monto)}">${e['pago:monto'] ? `<small class="sx-err">${sxEsc(e['pago:monto'])}</small>` : ''}</label>` : `<p class="sx-help">El total lo calcula y confirma el sistema con su catálogo de socio.</p>`}
+      <fieldset class="sx-field sx-destino ${e['pago:destino'] ? 'err' : ''}" id="sx_pago_destino" tabindex="-1"><legend>¿A quién enviar el comprobante? <i aria-hidden="true">*</i><em class="sr">obligatorio</em></legend>
+        <div class="sx-chips" role="radiogroup" aria-label="¿A quién enviar el comprobante?">${[['sublicuentas', 'Sublicuentas'], ['relojes', 'Relojes']].map(([v, l]) => { const on = SX.destinoConfirmado && SX.destino === v; return `<button type="button" role="radio" class="sx-chip ${on ? 'on' : ''}" aria-checked="${on}" data-act="destino" data-v="${v}">${l}</button>`; }).join('')}</div>
+        <small class="sx-hint">El comprobante llega al Telegram del equipo que elija.</small>${e['pago:destino'] ? `<small class="sx-err">${sxEsc(e['pago:destino'])}</small>` : ''}</fieldset>
       <div class="sx-field ${e['pago:comprobante'] ? 'err' : ''}" id="sx_pago_comprobante" tabindex="-1"><span class="sx-label">Comprobante del pago <i aria-hidden="true">*</i><em class="sr">obligatorio</em></span>
         <input type="file" id="sxFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" hidden>
         ${sxImg ? `<div class="sx-receipt"><img src="${sxImg}" alt="Comprobante adjunto" class="${sxVerComp ? 'big' : ''}"><div><b>${sxEsc(sxImgInfo?.name || 'Comprobante')}</b><small>${sxImgInfo ? `${Math.round(sxImgInfo.kb)} KB listo para enviar` : ''}</small><div class="sx-row-actions"><button type="button" class="sx-link" data-act="comp-ver">${sxVerComp ? 'Ver pequeño' : 'Ver'}</button><button type="button" class="sx-link" data-act="comp-elegir">Sustituir</button><button type="button" class="sx-link danger" data-act="comp-quitar">Quitar</button></div></div></div>`
           : `<button type="button" class="sx-drop" data-act="comp-elegir"><b>Adjuntar comprobante</b><small>JPG, PNG o WEBP desde archivos o galería. Se comprime manteniendo legibles monto, fecha y referencia (máx. 7 MB).</small></button>`}
         ${e['pago:comprobante'] ? `<small class="sx-err">${sxEsc(e['pago:comprobante'])}</small>` : ''}</div>
       <label class="sx-field"><span>Comentario general del pedido (opcional)</span><textarea data-sx="comentario" rows="3" maxlength="600" placeholder="Indicación para todo el pedido">${sxEsc(SX.comentario)}</textarea></label>
-      <fieldset class="sx-field"><legend>Enviar a</legend><div class="sx-chips">${[['sublicuentas', 'Sublicuentas'], ['relojes', 'Relojes']].map(([v, l]) => `<button type="button" class="sx-chip ${SX.destino === v ? 'on' : ''}" aria-pressed="${SX.destino === v}" data-act="destino" data-v="${v}">${l}</button>`).join('')}</div></fieldset>
       ${sxMsg.t ? `<div class="sx-msg ${sxMsg.c}" role="alert">${sxEsc(sxMsg.t)}</div>` : ''}
     </section>`;
 }
@@ -530,7 +534,7 @@ function sxEnfocarError() {
   const k = orden[0];
   let id = '';
   if (k === 'p:nombre') id = 'sx_p_nombre'; else if (k === 'p:apellido') id = 'sx_p_apellido';
-  else if (k.startsWith('pago:')) id = { 'pago:banco': 'sx_pago_banco', 'pago:monto': 'sx_pago_monto', 'pago:comprobante': 'sx_pago_comprobante' }[k];
+  else if (k.startsWith('pago:')) id = { 'pago:banco': 'sx_pago_banco', 'pago:monto': 'sx_pago_monto', 'pago:destino': 'sx_pago_destino', 'pago:comprobante': 'sx_pago_comprobante' }[k];
   else { const [rid, campo] = k.split(':'); id = campo === 'otroNombre' ? `sx_${rid}_nombre` : campo === 'otroApellido' ? `sx_${rid}_apellido` : `sx_${rid}_${campo}`; }
   const el = document.getElementById(id.replace(/[^a-z0-9_]/gi, '_')) || document.getElementById(id);
   if (el) { el.scrollIntoView({ block: 'center' }); try { el.focus({ preventScroll: true }); } catch (_) {} }
@@ -625,7 +629,7 @@ async function sxOnClick(ev) {
   if (act === 'correo-compartir' && r) { const otros = sxLineas().filter((l) => l.r.rid !== r.rid && l.p.modalidad === 'correo'); otros.forEach((l) => { l.r.correo = r.correo; delete sxErr[`${l.r.rid}:correo`]; }); sxGuardar(); sxRender(); sxToast(`Correo usado en ${otros.length} servicio(s) más.`); return; }
   if (act === 'banco') { SX.bancoId = b.dataset.id; delete sxErr['pago:banco']; document.querySelector('#sx_pago_banco')?.classList.remove('err'); document.querySelector('#sx_pago_banco .sx-err')?.remove(); sxGuardar(); sxPintarBancos(); return; }
   if (act === 'copiar') { navigator.clipboard?.writeText(b.dataset.txt || ''); sxToast('Copiado.'); return; }
-  if (act === 'destino') { SX.destino = b.dataset.v; sxGuardar(); document.querySelectorAll('[data-act="destino"]').forEach((x) => { x.classList.toggle('on', x.dataset.v === SX.destino); x.setAttribute('aria-pressed', String(x.dataset.v === SX.destino)); }); return; }
+  if (act === 'destino') { if (!['sublicuentas', 'relojes'].includes(b.dataset.v)) return; SX.destino = b.dataset.v; SX.destinoConfirmado = true; delete sxErr['pago:destino']; sxGuardar(); document.querySelector('#sx_pago_destino')?.classList.remove('err'); document.querySelector('#sx_pago_destino .sx-err')?.remove(); document.querySelectorAll('[data-act="destino"]').forEach((x) => { x.classList.toggle('on', x.dataset.v === SX.destino); x.setAttribute('aria-checked', String(x.dataset.v === SX.destino)); }); return; }
   if (act === 'comp-elegir') { document.getElementById('sxFile')?.click(); return; }
   if (act === 'comp-quitar') { sxImg = ''; sxImgInfo = null; sxVerComp = false; sxRender(); return; }
   if (act === 'comp-ver') { sxVerComp = !sxVerComp; sxRender(); return; }
@@ -686,25 +690,35 @@ async function sxEnviar() {
       sxErr = {}; e.errores.forEach((x) => { const k = x.renglonId === 'principal' || x.campo === 'destinatario' ? 'p:nombre' : `${x.renglonId}:${x.campo}`; sxErr[k] = x.mensaje; });
       SX.paso = 2; sxMsg = { t: 'El servidor encontró datos incompletos: revise los campos marcados.', c: 'err' }; sxRender(); sxEnfocarError(); return;
     }
-    const map = { cliente_unico: 'Un pedido es para un solo cliente. Haga otro pedido para la otra persona.', sin_stock: e.detail || 'Uno de los productos ya no tiene disponibilidad. Quítelo o cambie la cantidad.', falta_banco: 'Elija dónde hizo el pago.', imagen_muy_grande: 'La imagen supera 7 MB. Use otra captura.', cliente_ajeno: 'Uno de los clientes elegidos no pertenece a su cartera. Elíjalo de nuevo.', producto_fuera_catalogo: 'Un producto ya no está en su catálogo. Quítelo y vuelva a agregarlo.', catalogo_no_configurado: 'Su tarifa todavía no está configurada. Avise a Sublicuentas.', sin_permiso_comprar: 'Su usuario no tiene permiso para registrar compras.', destino_invalido: 'Elija Sublicuentas o Relojes.' };
+    const map = { destino_requerido: 'Elija a quién enviar el comprobante: Sublicuentas o Relojes.', destino_invalido: 'Elija a quién enviar el comprobante: Sublicuentas o Relojes.', cliente_unico: 'Un pedido es para un solo cliente. Haga otro pedido para la otra persona.', sin_stock: e.detail || 'Uno de los productos ya no tiene disponibilidad. Quítelo o cambie la cantidad.', falta_banco: 'Elija dónde hizo el pago.', imagen_muy_grande: 'La imagen supera 7 MB. Use otra captura.', cliente_ajeno: 'Uno de los clientes elegidos no pertenece a su cartera. Elíjalo de nuevo.', producto_fuera_catalogo: 'Un producto ya no está en su catálogo. Quítelo y vuelva a agregarlo.', catalogo_no_configurado: 'Su tarifa todavía no está configurada. Avise a Sublicuentas.', sin_permiso_comprar: 'Su usuario no tiene permiso para registrar compras.', destino_invalido: 'Elija Sublicuentas o Relojes.' };
     if (['producto_fuera_catalogo', 'sin_stock', 'cliente_ajeno'].includes(e.error)) SX.requestId = '';
     sxMsg = { t: map[e.error] || `No se pudo enviar el pedido. ${e.detail || e.error || 'Reintente.'}`, c: 'err' }; sxRender();
   }
 }
 function sxExito(r, duplicado) {
   const m = sxTotales();
-  sxConfirmacion = { id: r.id, ref: r.ref || String(r.id || '').slice(-6).toUpperCase(), duplicado, destinoLabel: r.destinoLabel || '', total: Number(r.totalCombo ?? m.total), descuento: Number(r.descuentoCombo ?? m.descuento), estado: r.estado || 'pendiente', principal: sxNombreCompleto(SX.principal), lineas: m.ls.map(({ r: rr, p, cantidad }) => ({ nombre: p.nombre + (sxNumeroUnidad(rr) ? ` · ${sxEtiquetaUnidad(p, sxNumeroUnidad(rr))}` : ''), cantidad, precio: p.precio })), comprobante: r.comprobante !== false };
+  sxConfirmacion = { id: r.id, ref: r.ref || String(r.id || '').slice(-6).toUpperCase(), duplicado, destinoLabel: r.destinoLabel || '', notificacion: r.notificacion || null, total: Number(r.totalCombo ?? m.total), descuento: Number(r.descuentoCombo ?? m.descuento), estado: r.estado || 'pendiente', principal: sxNombreCompleto(SX.principal), lineas: m.ls.map(({ r: rr, p, cantidad }) => ({ nombre: p.nombre + (sxNumeroUnidad(rr) ? ` · ${sxEtiquetaUnidad(p, sxNumeroUnidad(rr))}` : ''), cantidad, precio: p.precio })), comprobante: r.comprobante !== false };
   SX = sxNuevo(); sxErr = {}; sxImg = ''; sxImgInfo = null; sxEnviando = false; sxProgreso = 0; sxMsg = { t: '', c: '' }; sxBorrarBorrador();
   markSyncStale(['compras', 'inventario', 'metricas']);
   Promise.allSettled([loadMisCompras(), loadInventario(), loadMetricas()]);
   sxRender({ scroll: true });
+}
+// R195 · Resultado REAL del envío del comprobante a Telegram (guardar ≠ entregar).
+function sxAvisoTelegramHtml(n, destinoLabel) {
+  const quien = sxEsc(String(destinoLabel || '').replace(/^[^\p{L}]+/u, '') || 'el equipo');
+  const e = n && n.estado;
+  if (e === 'recibido') return `<div class="sx-banner ok sx-tg" role="status"><span>✅ <b>Comprobante recibido en Telegram de ${quien}.</b></span></div>`;
+  if (e === 'error') return `<div class="sx-banner warn sx-tg" role="status"><span>⚠️ <b>Error de envío a Telegram.</b> El pedido y el comprobante quedaron guardados; el equipo lo reenvía a ${quien}. No haga otro pedido.</span></div>`;
+  if (e === 'pendiente') return `<div class="sx-banner info sx-tg" role="status"><span>⏳ <b>Pendiente de envío a Telegram</b> de ${quien}. El pedido y el comprobante quedaron guardados.</span></div>`;
+  return '';
 }
 function sxConfirmacionHtml() {
   const c = sxConfirmacion, [cls, label] = sxEstadoPedido(c.estado);
   return `<div class="sx-page sx-compra"><section class="sx-card sx-confirm" aria-labelledby="sxConfTitulo">
     <span class="sx-confirm-ic" aria-hidden="true">✓</span>
     <h1 id="sxConfTitulo" tabindex="-1">Pedido #${sxEsc(c.ref)} ${c.duplicado ? 'ya estaba registrado' : 'recibido'}</h1>
-    <p>${c.duplicado ? 'Este pedido ya había llegado antes: no se creó otro.' : `El servidor confirmó el registro${c.destinoLabel ? ` y avisó a ${sxEsc(c.destinoLabel.replace(/^[^\p{L}]+/u, ''))}` : ''}.`} Estado: <span class="sx-pill ${cls}">${label}</span></p>
+    <p>${c.duplicado ? 'Este pedido ya había llegado antes: no se creó otro.' : 'El servidor guardó el pedido y su comprobante.'} Estado: <span class="sx-pill ${cls}">${label}</span></p>
+    ${sxAvisoTelegramHtml(c.notificacion, c.destinoLabel)}
     <p class="sx-help"><b>Todavía no significa entregado.</b> “Recibido” no significa pago verificado: el equipo revisa el comprobante y después entrega. Lo verá cambiar en Pedidos.</p>
     <p class="sx-help">Cliente: <b>${sxEsc(c.principal)}</b></p>
     <ul class="sx-review">${c.lineas.map((l) => `<li><div><b>${sxEsc(l.nombre)}${l.cantidad > 1 ? ` × ${l.cantidad}` : ''}</b></div><span>${l.precio === null ? 'Por confirmar' : money(l.precio * l.cantidad)}</span></li>`).join('')}</ul>
@@ -783,7 +797,7 @@ function sxPedidoDetalleHtml(o) {
         <ul class="sx-review">${(o.productos || []).map((p) => { const er = ren[p.renglonId] || { estado: 'pendiente' }; const [ec, el] = cls0 === 'off' ? ['off', 'Cancelado'] : (SX_RENGLON_EST[er.estado] || SX_RENGLON_EST.pendiente); return `<li><div><b>${sxEsc(p.servicio)}${(p.cantidad || 1) > 1 ? ` × ${p.cantidad}` : ''}</b><small>${mixto ? `Para ${sxEsc(p.clienteNombre || p.perfil || '—')}` : ''}${[p.otroPerfil && p.perfil ? `Perfil: ${p.perfil}` : '', p.dispositivo, p.marcaTv, p.correo, p.detalleServicio ? `${p.datoRequerido || 'Detalle'}: ${p.detalleServicio}` : '', p.notas ? `Nota: ${p.notas}` : ''].filter(Boolean).map((x, i) => (i || mixto ? ' · ' : '') + sxEsc(x)).join('')}</small><span class="sx-line-state"><span class="sx-pill ${ec}">${el}</span>${er.entregaId ? `<button type="button" class="sx-link" data-act="ver-entrega" data-id="${sxAttr(er.entregaId)}">Ver entrega</button>` : ''}</span></div><span>${p.precioCatalogo === null ? 'Por confirmar' : money(Number(p.precioCatalogo) * (p.cantidad || 1))}</span></li>`; }).join('') || `<li><div><b>${sxEsc(o.servicio)}</b></div></li>`}</ul>
         <dl class="sx-totals"><div><dt>Subtotal</dt><dd>${money(o.subtotalCatalogo)}</dd></div><div><dt>Descuento</dt><dd>−${money(o.descuentoCombo)}</dd></div><div class="total"><dt>Total</dt><dd>${money(o.totalCombo || o.monto)}</dd></div></dl>
         <p class="sx-help">Cada servicio muestra su propia entrega. Un servicio pendiente no aparece como entregado porque otro ya se entregó.</p></section>
-      <section class="sx-card"><h2>Pago</h2><p>${sxEsc(pago)}</p>${o.comentario ? `<p class="sx-help">Comentario: ${sxEsc(o.comentario)}</p>` : ''}
+      <section class="sx-card"><h2>Pago</h2><p>${sxEsc(pago)}</p>${o.notificacion && o.notificacion.estado !== 'sin_registro' ? sxAvisoTelegramHtml(o.notificacion, o.destinoLabel) : ''}${o.comentario ? `<p class="sx-help">Comentario: ${sxEsc(o.comentario)}</p>` : ''}
         <h2>Historial</h2><ol class="sx-timeline">${(o.estadoHistorial || []).map((h) => `<li><b>${sxEstadoPedido(h.estado)[1]}</b><small>${sxFechaHora(h.at)}${h.detalle ? ' · ' + sxEsc(h.detalle) : ''}</small></li>`).join('') || '<li><b>Recibido</b></li>'}</ol></section>
       <section class="sx-card"><h2>${cls === 'warn' ? 'Enviar la información que falta' : 'Consultar sobre este pedido'}</h2>
         <label class="sx-field"><span>Mensaje para ${sxEsc((o.destinoLabel || 'Sublicuentas').replace(/^[^\p{L}]+/u, ''))}</span><textarea id="sxConsulta" rows="3" maxlength="1000" placeholder="${cls === 'warn' ? 'Escriba aquí el dato o la corrección que le pidieron' : 'Su consulta sobre este pedido'}"></textarea></label>

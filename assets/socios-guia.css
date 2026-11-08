@@ -286,3 +286,13 @@ body.sxg .sx-cat-btn.on,body.sxg .sx-cat-tabs .on{background:var(--g-red)!import
   html body.sxg.sxg-teclado .sx-bottom-bar,html body.sxg.sxg-teclado #nav,html body.sxg.sxg-teclado #nav.sxg-nav{display:none!important}
   body.sxg-teclado.sx-con-barra #app.wrap{padding-bottom:16px!important}
 }
+/* R195 · Comprobante: a quién se envía (obligatorio) y resultado real del envío a Telegram */
+body.sxg .sx-destino .sx-chips{flex-wrap:nowrap}
+body.sxg .sx-destino .sx-chip{flex:1 1 0;min-height:48px;box-shadow:0 3px 0 #e3e8ef}
+body.sxg .sx-destino.err .sx-chips{outline:2px solid #E2231A;outline-offset:4px;border-radius:12px}
+.sx-banner.ok{background:#ECFBF2;border-color:#A7E3C1;color:#14532D}
+.sx-banner.sx-tg{margin:8px 0}
+.adm-tg{display:grid;gap:8px;margin-bottom:12px}.adm-tg-help{margin:0;color:#64748b;font-size:14px}
+.adm-tg-acc{display:flex;gap:8px;flex-wrap:wrap}.adm-tg-acc button,.adm-tg-row button,.adm-tg-btn{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid #d9e1ea;background:#fff;font-weight:700;box-shadow:0 2px 0 #e3e8ef;cursor:pointer}
+.adm-tg-btn{margin-top:8px}.adm-tg-list{display:grid;gap:6px}.adm-tg-row{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #eef2f6}
+.adm-tg-row small{color:#64748b}.adm-tag.tg-ok{background:#ECFBF2;color:#14532D}.adm-tag.tg-err{background:#FEF2F2;color:#991B1B}.adm-tag.tg-pend{background:#FFF8E6;color:#7A3E06}
