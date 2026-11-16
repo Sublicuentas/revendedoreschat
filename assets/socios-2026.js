@@ -70,7 +70,7 @@ function sxPlanHbo(p) {
 function sxModalidadTxt(p) {
   if (!p) return '';
   const ph = sxPlanHbo(p);
-  if (ph) return p.modalidad === 'cuenta_completa' ? `HBO ${ph === 'platinum' ? 'Platinum' : 'Standard'} · cuenta completa` : `HBO ${ph === 'platinum' ? 'Platinum · 5' : 'Standard · 3'} perfiles por cuenta`;
+  if (ph) return p.modalidad === 'cuenta_completa' ? `HBO ${ph === 'platinum' ? 'Platinum' : 'Standard'} · cuenta completa` : `HBO ${ph === 'platinum' ? 'Platinum' : 'Standard'}`;
   if (p.modalidad === 'perfil') return p.pideDispositivo ? 'Perfil · pide dispositivo' : 'Perfil';
   if (p.modalidad === 'detalle' && p.datoRequerido) return `Recarga / detalle · ${p.datoRequerido}`;
   return SX_MODALIDAD_TXT[p.modalidad] || 'Servicio';
