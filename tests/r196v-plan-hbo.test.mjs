@@ -9,8 +9,8 @@ const code = [pick(/function sxNorm\(v\) \{[^\n]*\}/), pick(/const SX_MODALIDAD_
 const { sxModalidadTxt } = new Function(code + '\nreturn { sxModalidadTxt };')();
 
 test('tarjeta: HBO Platinum / Standard por perfil y cuenta completa', () => {
-  assert.equal(sxModalidadTxt({ base: 'HBO Max Platino', modalidad: 'perfil', pideDispositivo: true }), 'HBO Platinum · 5 perfiles por cuenta');
-  assert.equal(sxModalidadTxt({ base: 'HBO Standard', modalidad: 'perfil' }), 'HBO Standard · 3 perfiles por cuenta');
+  assert.equal(sxModalidadTxt({ base: 'HBO Max Platino', modalidad: 'perfil', pideDispositivo: true }), 'HBO Platinum');
+  assert.equal(sxModalidadTxt({ base: 'HBO Standard', modalidad: 'perfil' }), 'HBO Standard');
   assert.equal(sxModalidadTxt({ base: 'HBO Max Platino', modalidad: 'cuenta_completa' }), 'HBO Platinum · cuenta completa');
 });
 test('producto «HBO Max» sin plan en el nombre: no se adivina; otras plataformas igual que antes', () => {
