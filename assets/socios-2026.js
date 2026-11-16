@@ -58,8 +58,19 @@ function sxPideDispositivo(it = {}, m) {
   return m === 'perfil';
 }
 const SX_MODALIDAD_TXT = { perfil: 'Perfil', correo: 'Invitación por correo', cuenta_completa: 'Cuenta completa', tv_digital: 'TV digital', licencia: 'Licencia / KEY', detalle: 'Recarga / detalle', acceso: 'Acceso entregado por el equipo' };
+// R196v · HBO Standard (3 perfiles por cuenta) / Platinum (5): el plan sale del nombre del producto del catálogo.
+// Producto «HBO Max» sin plan en el nombre = producto anterior: no se adivina.
+function sxPlanHbo(p) {
+  const t = sxNorm([p && p.base, p && p.nombre, p && p.sub].filter(Boolean).join(' '));
+  if (!/\bhbo\b|\bmax\b|hbomax/.test(t)) return '';
+  if (/platin/.test(t)) return 'platinum';
+  if (/standard|estandar/.test(t)) return 'standard';
+  return '';
+}
 function sxModalidadTxt(p) {
   if (!p) return '';
+  const ph = sxPlanHbo(p);
+  if (ph) return p.modalidad === 'cuenta_completa' ? `HBO ${ph === 'platinum' ? 'Platinum' : 'Standard'} · cuenta completa` : `HBO ${ph === 'platinum' ? 'Platinum · 5' : 'Standard · 3'} perfiles por cuenta`;
   if (p.modalidad === 'perfil') return p.pideDispositivo ? 'Perfil · pide dispositivo' : 'Perfil';
   if (p.modalidad === 'detalle' && p.datoRequerido) return `Recarga / detalle · ${p.datoRequerido}`;
   return SX_MODALIDAD_TXT[p.modalidad] || 'Servicio';
