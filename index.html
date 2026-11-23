@@ -93,6 +93,7 @@ const ROBOT_IMG = "assets/robot-socios.webp";
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
         <input id="inPin" type="text" inputmode="numeric" placeholder="Código de configuración (PIN)" autocomplete="one-time-code" maxlength="6">
       </div>
+      <div id="tsBox" class="hide" style="display:flex;justify-content:center;margin:6px 0 2px;min-height:65px"></div><!-- R201 · Cloudflare Turnstile -->
       <button class="login-btn" id="loginBtn" onclick="doLogin()">Acceder</button>
       <div class="login-err" id="loginErr"></div>
       <div class="login-foot" id="loginFoot">La primera vez, necesitás también el PIN de configuración que te dio el admin.</div>
