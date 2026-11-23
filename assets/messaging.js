@@ -471,7 +471,7 @@ function startIntro(){
 startIntro();
 
 /* ── Sesión: persiste hasta cerrar usuario o 30 días de inactividad ── */
-const IDLE_MS=30*24*60*60*1000; // 30 días: solo vuelve a pedir clave al vencer sesión o cerrar usuario
+const IDLE_MS=12*60*60*1000; // R201 · 12 h sin uso: vuelve a pedir clave (protocolo de seguridad)
 // Los navegadores limitan setTimeout a ~24.8 días. Si se manda directamente
 // 30 días, algunos lo convierten en 1 ms y cierran la sesión apenas entra.
 const MAX_TIMEOUT_MS=2147483000;

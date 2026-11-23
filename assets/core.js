@@ -77,6 +77,7 @@ const API={
           'Content-Type':'application/json',
           ...(this.token?{Authorization:'Bearer '+this.token}:{}),...headers
         }});
+        const renovado=r.headers.get('X-Rev-Token'); if(renovado&&this.token&&renovado.split('.').length===3)this.setToken(renovado); // R201 · sesión de 12 h que se renueva con el uso
         if(r.status===401){this.clear();throw{code:'auth',error:'auth'}}
         if(!r.ok){let e={};try{e=await r.json()}catch(_){};e.status=r.status;if(r.status>=500&&attempt<retries){lastErr=e;continue}throw e}
         const type=r.headers.get('content-type')||'';
@@ -406,17 +407,35 @@ function mostrarCampoPin(mostrar){
     : 'La primera vez, necesitás también el PIN de configuración que te dio el admin.';
   if(mostrar){ try{inPin.focus()}catch(_){} }
 }
+// R201 · Cloudflare Turnstile: la clave pública viene del servidor (/rev/turnstile-config); la secreta nunca llega aquí.
+const TS={activo:false,siteKey:'',widget:null,token:'',listo:null};
+function tsCargar(){
+  if(TS.listo)return TS.listo;
+  TS.listo=(async()=>{
+    try{const c=await API.call('/rev/turnstile-config',{timeoutMs:8000});TS.activo=!!(c&&c.activo&&c.siteKey);TS.siteKey=TS.activo?String(c.siteKey):'';}catch(_){TS.activo=false;}
+    if(!TS.activo)return;
+    await new Promise((ok,mal)=>{if(window.turnstile)return ok();const sc=document.createElement('script');sc.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';sc.async=true;sc.onload=ok;sc.onerror=()=>mal(new Error('turnstile'));document.head.appendChild(sc);});
+    const box=document.getElementById('tsBox'); if(!box)return; box.classList.remove('hide');
+    TS.widget=window.turnstile.render(box,{sitekey:TS.siteKey,action:'login',theme:'light',language:'es',callback:t=>{TS.token=t},'expired-callback':()=>{TS.token=''},'error-callback':()=>{TS.token=''}});
+  })().catch(()=>{TS.listo=null;});
+  return TS.listo;
+}
+function tsReiniciar(){TS.token='';try{if(TS.widget!=null&&window.turnstile)window.turnstile.reset(TS.widget)}catch(_){}}
+setTimeout(()=>{try{if(!API.token)tsCargar()}catch(_){}},0);
 async function doLogin(){
   const usuario=inUser.value.trim(), password=inPass.value.trim(), pin=(inPin?.value||'').trim();
   loginErr.textContent='';
   if(!usuario||!password){loginErr.textContent='Escribí tu usuario y tu clave.';return}
   if(pinModo && !pin){loginErr.textContent='Poné también el PIN de configuración.';return}
   if(CONFIG.apiBase.includes('TU-BOT')){loginErr.textContent='Falta poner la URL de la API (CONFIG.apiBase).';return}
+  await tsCargar();
+  if(TS.activo&&!TS.token){loginErr.textContent='Confirmá la verificación de seguridad (el cuadro de arriba).';return}
   loginBtn.disabled=true; loginBtn.textContent=LOGIN_CTA.load;
   const slowLoginTimer=setTimeout(()=>{if(loginBtn.disabled)loginBtn.textContent='Despertando servidor…'},3500);
   try{
     const body={usuario,password};
     if(pin) body.pin=pin;
+    if(TS.token) body.turnstileToken=TS.token;
     const res=await API.call('/rev/login',{method:'POST',body:JSON.stringify(body)});
     API.setToken(res.token);
     touchActivity();
@@ -441,10 +460,13 @@ async function doLogin(){
       faltan_datos:'Faltan datos.',
       pin_invalido:'El PIN de configuración no es correcto.',
       cuenta_no_configurada:'Tu cuenta todavía no tiene PIN de configuración. Pedile uno al admin (/resetpin).',
-      demasiados_intentos:'Demasiados intentos. Probá de nuevo en unos minutos.',
+      demasiados_intentos:'Demasiados intentos fallidos. Por seguridad, esperá '+Math.max(1,Math.ceil((Number(e.retryAfterSeconds)||1800)/60))+' minutos.',
+      verificacion_requerida:'Confirmá la verificación de seguridad.',
+      verificacion_fallida:'La verificación de seguridad no pasó. Intentá de nuevo.',
+      verificacion_no_disponible:'La verificación de seguridad no responde. Intentá en un minuto.',
     };
     loginErr.textContent=map[e.error]||(e.error==='timeout'?'El servidor tardó demasiado. Intentá de nuevo.':e.error==='network'?'Sin conexión con el servidor. Revisá internet e intentá de nuevo.':'No pude conectar. Revisá la URL de la API.');
-  }finally{clearTimeout(slowLoginTimer);loginBtn.disabled=false;loginBtn.textContent=LOGIN_CTA.go}
+  }finally{clearTimeout(slowLoginTimer);loginBtn.disabled=false;loginBtn.textContent=LOGIN_CTA.go;tsReiniciar()} // el token de Turnstile es de un solo uso
 }
 function enterApp(){
   login.classList.add('hide');
