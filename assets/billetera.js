@@ -27,10 +27,22 @@
   }
   function nuevoReqId() { reqId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`); }
 
+  /* R215 · íconos propios (SVG) para el rediseño en bloques 3D. Solo presentación. */
+  const BI = {
+    billetera: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><rect x="3.5" y="7.5" width="17" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M20.5 11.5h-4a2 2 0 0 0 0 4h4" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16.6" cy="13.5" r="1" fill="currentColor"/>',
+    recargar: '<rect x="2.5" y="6.5" width="15" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M17.5 10.5h-3a2 2 0 0 0 0 4h3" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M20 3v6M17 6h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+    carrito: '<path d="M3 4h2.3l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.3a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.4" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="19.5" r="1.6" fill="currentColor"/><circle cx="17" cy="19.5" r="1.6" fill="currentColor"/>',
+    lista: '<rect x="4" y="3.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8 8.5h8M8 12h8M8 15.5h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    info: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 11v5.5M12 7.5h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>',
+    calok: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="m9 15 2 2 4-4" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>',
+    buscar: '<path d="M5 4.5h10M5 9h7M5 13.5h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="15.5" cy="15.5" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m18.5 18.5 2.5 2.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+    reloj: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  };
+  const bi = (k, cls = '') => `<svg class="b3i ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${BI[k] || ''}</svg>`;
   function tarjetaSaldo(s) {
-    return `<div class="bl-saldo"><small>${esc(s.nombre)}</small><b>${L(s.disponible)}</b><span>Disponible para comprar</span>
+    return `<div class="bl-saldo b3-bl-saldo"><span class="b3-bl-saldo-ic" aria-hidden="true">${bi('billetera')}</span><div class="b3-bl-saldo-tx"><small>${esc(s.nombre)}</small><b>${L(s.disponible)}</b><span>Disponible para comprar</span>
       ${s.reservado ? `<em>Reservado en pedidos: ${L(s.reservado)}</em>` : ''}
-      ${s.promocional ? `<em class="bl-promo">Gift Card (promocional): ${L(s.promocional)} · no es efectivo</em>` : ''}</div>`;
+      ${s.promocional ? `<em class="bl-promo">Gift Card (promocional): ${L(s.promocional)} · no es efectivo</em>` : ''}</div></div>`;
   }
   function formulario(v) {
     const neg = Object.entries(v.negocios || { sublicuentas: 'Sublicuentas', relojes: 'Relojes' });
@@ -51,14 +63,14 @@
     const s = v.saldos || {};
     const rec = (v.recargas || []).map((r) => { const [k, t] = EST[r.estado] || ['', r.estado]; return `<li><div><b>${L(r.monto)} · ${esc(r.negocioNombre)}</b><small>${esc(fecha(r.fecha))} · ${esc(r.banco)} · ref ${esc(r.referencia)} · #${esc(r.ref)}</small>${r.estado === 'rechazada' && r.motivo ? `<small class="bl-mot">Motivo: ${esc(r.motivo)}</small>` : ''}${r.estado === 'aprobada' && r.montoAcreditado != null && r.montoAcreditado !== r.monto ? `<small>Acreditado: ${L(r.montoAcreditado)}</small>` : ''}</div><span class="sx-pill ${k}">${t}</span></li>`; }).join('');
     const mov = (v.movimientos || []).map((m) => `<li><div><b>${esc(TIPOS[m.tipo] || m.tipo)}${m.subcuenta === 'promocional' ? ' · promocional' : ''} · ${esc((v.negocios || {})[m.negocio] || m.negocio)}</b><small>${esc(fecha(m.fecha))}${m.ref ? ` · #${esc(m.ref)}` : ''}${m.detalle ? ` · ${esc(m.detalle)}` : ''}</small></div><span class="bl-mov ${m.signo < 0 ? 'neg' : 'pos'}">${m.signo < 0 ? '−' : '+'}${L(m.monto)}<small>Saldo: ${L(m.saldoPosterior)}</small></span></li>`).join('');
-    return `<div class="sx-page bl-page" data-bl-page="ok">
-      <div class="sx-page-head"><h1>Mi billetera</h1><small>Saldo para comprar sin enviar comprobante en cada pedido</small></div>
-      <section class="sx-card bl-card"><div class="bl-saldos">${tarjetaSaldo(s.sublicuentas || { nombre: 'Sublicuentas' })}${tarjetaSaldo(s.relojes || { nombre: 'Relojes' })}</div>
-        <div class="bl-acc"><button type="button" class="sx-btn pri" data-bl="recargar">Recargar</button><button type="button" class="sx-btn sec" data-bl="comprar">Comprar con saldo</button><a class="sx-btn sec" href="#blMovs">Ver movimientos</a>${v.pendientes ? `<a class="sx-btn sec" href="#blRecs">Pendientes (${v.pendientes})</a>` : ''}</div>
-        <p class="sp-help">Puede seguir comprando como siempre, con transferencia y comprobante en cada pedido. La billetera es opcional.</p></section>
+    return `<div class="sx-page bl-page b3-bl" data-bl-page="ok">
+      <div class="sx-page-head b3-bl-head"><span class="b3-bl-head-ic" aria-hidden="true">${bi('billetera')}</span><div><h1>Mi billetera</h1><small>Saldo para comprar sin enviar comprobante en cada pedido</small></div><svg class="b3-deco b3-bl-deco" viewBox="0 0 150 84" aria-hidden="true" focusable="false"><rect x="10" y="52" width="50" height="26" rx="4" fill="#C68F00"/><rect x="10" y="50" width="50" height="22" rx="4" fill="#F8BA15"/><rect x="19.7" y="44" width="14" height="9" rx="2.5" fill="#C68F00"/><rect x="19.7" y="43" width="14" height="7" rx="2.5" fill="#F8BA15"/><rect x="36.3" y="44" width="14" height="9" rx="2.5" fill="#C68F00"/><rect x="36.3" y="43" width="14" height="7" rx="2.5" fill="#F8BA15"/><rect x="44" y="22" width="58" height="26" rx="4" fill="#C9D4E4"/><rect x="44" y="20" width="58" height="22" rx="4" fill="#FFFFFF"/><rect x="56.3" y="14" width="14" height="9" rx="2.5" fill="#C9D4E4"/><rect x="56.3" y="13" width="14" height="7" rx="2.5" fill="#FFFFFF"/><rect x="75.7" y="14" width="14" height="9" rx="2.5" fill="#C9D4E4"/><rect x="75.7" y="13" width="14" height="7" rx="2.5" fill="#FFFFFF"/><rect x="90" y="52" width="54" height="26" rx="4" fill="#A9141A"/><rect x="90" y="50" width="54" height="22" rx="4" fill="#DE1F25"/><rect x="101.0" y="44" width="14" height="9" rx="2.5" fill="#A9141A"/><rect x="101.0" y="43" width="14" height="7" rx="2.5" fill="#DE1F25"/><rect x="119.0" y="44" width="14" height="9" rx="2.5" fill="#A9141A"/><rect x="119.0" y="43" width="14" height="7" rx="2.5" fill="#DE1F25"/></svg></div>
+      <section class="sx-card bl-card b3-bl-card"><div class="bl-saldos">${tarjetaSaldo(s.sublicuentas || { nombre: 'Sublicuentas' })}${tarjetaSaldo(s.relojes || { nombre: 'Relojes' })}</div>
+        <div class="bl-acc b3-bl-acc"><button type="button" class="sx-btn pri b3-bl-recargar" data-bl="recargar">${bi('recargar')}<span>Recargar</span></button><button type="button" class="sx-btn sec b3-bl-comprar" data-bl="comprar">${bi('carrito')}<span>Comprar con saldo</span></button><button type="button" class="sx-btn sec b3-bl-movs" data-bl="ir-movs">${bi('lista')}<span>Ver movimientos</span></button>${v.pendientes ? `<button type="button" class="sx-btn sec b3-bl-pend" data-bl="ir-recs">${bi('reloj')}<span>Pendientes (${v.pendientes})</span></button>` : ''}</div>
+        <p class="sp-help b3-bl-info">${bi('info')}<span>Puede seguir comprando como siempre, con transferencia y comprobante en cada pedido. La billetera es opcional.</span></p></section>
       ${formAbierto ? formulario(v) : ''}
-      <section class="sx-card bl-list" id="blRecs"><b class="bl-tit">Mis recargas</b>${rec ? `<ul>${rec}</ul>` : '<p class="sp-help">Todavía no ha enviado recargas.</p>'}</section>
-      <section class="sx-card bl-list" id="blMovs"><b class="bl-tit">Movimientos</b>${mov ? `<ul>${mov}</ul>` : '<p class="sp-help">Sin movimientos todavía. Su saldo empieza en L0.</p>'}</section>
+      <section class="sx-card bl-list b3-bl-list" id="blRecs"><div class="b3-bl-list-h"><span class="b3-bl-list-ic rojo" aria-hidden="true">${bi('calok')}</span><div><b class="bl-tit">Mis recargas</b>${rec ? '' : '<p class="sp-help">Todavía no ha enviado recargas.</p>'}</div></div>${rec ? `<ul>${rec}</ul>` : ''}</section>
+      <section class="sx-card bl-list b3-bl-list" id="blMovs"><div class="b3-bl-list-h"><span class="b3-bl-list-ic azul" aria-hidden="true">${bi('buscar')}</span><div><b class="bl-tit">Movimientos</b>${mov ? '' : '<p class="sp-help">Sin movimientos todavía. Su saldo empieza en L0.</p>'}</div></div>${mov ? `<ul>${mov}</ul>` : ''}</section>
     </div>`;
   }
   async function render() {
@@ -85,6 +97,7 @@
   document.addEventListener('click', async (e) => {
     const b = e.target.closest && e.target.closest('[data-bl]'); if (!b) return;
     const a = b.dataset.bl;
+    if (a === 'ir-movs' || a === 'ir-recs') { const el = document.getElementById(a === 'ir-movs' ? 'blMovs' : 'blRecs'); if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } return; }
     if (a === 'comprar') { try { if (typeof SX !== 'undefined') { SX.metodo = 'billetera'; } } catch (_) {} go('compras'); if (typeof sxToast === 'function') sxToast('Elija los productos. En el paso «Pago» use «Saldo de billetera».'); return; }
     if (a === 'recargar') { formAbierto = true; comprobante = ''; nuevoReqId(); await render(); document.getElementById('blForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     if (a === 'cerrar') { formAbierto = false; render(); return; }
