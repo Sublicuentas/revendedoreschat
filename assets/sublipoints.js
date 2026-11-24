@@ -15,7 +15,7 @@
   let datos = null, cargando = null, cargadoAt = 0;
 
   async function cargar(forzar) {
-    if (typeof API === 'undefined' || !API.token || (typeof isAdmin !== 'undefined' && isAdmin)) return null;
+    if (typeof API === 'undefined' || !API.token || (typeof isAdmin !== 'undefined' && isAdmin && !(typeof impersonating !== 'undefined' && impersonating))) return null;
     if (!forzar && datos && Date.now() - cargadoAt < 60000) return datos;
     if (cargando) return cargando;
     cargando = API.call('/rev/sublipoints').then((d) => { datos = d && d.ok ? d : null; cargadoAt = Date.now(); return datos; }).catch(() => null).finally(() => { cargando = null; });
@@ -36,12 +36,12 @@
       <p class="sp-help">${esc(b.txt)} · ${Number(d.ventasNuevas) || 0} venta${d.ventasNuevas === 1 ? '' : 's'} nueva${d.ventasNuevas === 1 ? '' : 's'} (+2) · ${Number(d.renovaciones) || 0} renovaci${d.renovaciones === 1 ? 'ón' : 'ones'} (+1)</p>
     </section>`;
   }
-  let vistaRec = null, cargandoRec = null, cargadoRecAt = 0;
+  let vistaRec = null, cargandoRec = null, cargadoRecAt = 0, errRec = null;
   async function cargarRec(forzar) {
-    if (typeof API === 'undefined' || !API.token || (typeof isAdmin !== 'undefined' && isAdmin)) return null;
+    if (typeof API === 'undefined' || !API.token || (typeof isAdmin !== 'undefined' && isAdmin && !(typeof impersonating !== 'undefined' && impersonating))) return null;
     if (!forzar && vistaRec && Date.now() - cargadoRecAt < 30000) return vistaRec;
     if (cargandoRec) return cargandoRec;
-    cargandoRec = API.call('/rev/recompensas-sp').then((d) => { if (d && d.ok) { vistaRec = d; cargadoRecAt = Date.now(); datos = d.resumen; cargadoAt = Date.now(); } return vistaRec; }).catch(() => vistaRec).finally(() => { cargandoRec = null; });
+    cargandoRec = API.call('/rev/recompensas-sp').then((d) => { errRec = null; if (d && d.ok) { vistaRec = d; cargadoRecAt = Date.now(); datos = d.resumen; cargadoAt = Date.now(); } return vistaRec; }).catch((e) => { errRec = e || { error: 'network' }; return vistaRec; }).finally(() => { cargandoRec = null; });
     return cargandoRec;
   }
   const CHIP = { disponible: ['ok', 'Disponible'], bloqueado: ['off', 'Bloqueado'], agotado: ['bad', 'Agotado'], solicitado: ['info', 'Solicitado'] };
@@ -100,7 +100,7 @@
       content.innerHTML = vistaRec ? paginaRecompensas(vistaRec) : '<div class="sx-page" data-sp-page="cargando"><div class="spin"></div></div>';
       const v = await cargarRec(); if (current !== 'recompensas') return;
       const pag = content.querySelector('[data-sp-page]');
-      if (!v) { if (pag && pag.dataset.spPage === 'cargando') content.innerHTML = '<div class="sx-page" data-sp-page="error"><section class="sx-card sp-card"><b>No se pudo cargar Recompensas.</b><p class="sp-help">Revise su conexión e intente de nuevo.</p><button type="button" class="sx-btn pri" onclick="SubliPoints.recargar()">Reintentar</button></section></div>'; return; }
+      if (!v) { if (pag && pag.dataset.spPage === 'cargando') content.innerHTML = `<div class="sx-page" data-sp-page="error"><section class="sx-card sp-card"><b>${errRec && errRec.error === 'sin_permiso_recompensas' ? 'Recompensas no está activado para esta cuenta.' : 'No se pudo cargar Recompensas.'}</b><p class="sp-help">${errRec && errRec.error === 'sin_permiso_recompensas' ? 'Pídale al equipo de Sublicuentas que active Recompensas en su perfil de socio.' : 'Revise su conexión e intente de nuevo.'}</p><button type="button" class="sx-btn pri" onclick="SubliPoints.recargar()">Reintentar</button></section></div>`; return; }
       if (!pag || pag.dataset.spPage !== 'ok' || pag.dataset.v !== String(cargadoRecAt)) content.innerHTML = paginaRecompensas(v);
     }
   }

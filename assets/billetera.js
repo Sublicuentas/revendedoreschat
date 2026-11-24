@@ -15,7 +15,7 @@
   const TIPOS = { recarga: 'Recarga', compra: 'Compra', reserva: 'Reserva', liberacion: 'Reserva liberada', devolucion: 'Devolución', premio: 'Premio', ajuste: 'Ajuste' };
   const EST = { pendiente: ['warn', 'Pendiente de verificar'], aprobada: ['ok', 'Acreditada'], rechazada: ['bad', 'Rechazada'] };
   let vista = null, cargando = null, at = 0, formAbierto = false, enviando = false, comprobante = '', reqId = '';
-  const puede = () => typeof API !== 'undefined' && API.token && !(typeof isAdmin !== 'undefined' && isAdmin) && !(typeof socioSinCompras === 'function' && socioSinCompras());
+  const puede = () => typeof API !== 'undefined' && API.token && !(typeof isAdmin !== 'undefined' && isAdmin && !(typeof impersonating !== 'undefined' && impersonating)) && !(typeof socioSinCompras === 'function' && socioSinCompras());
 
   async function cargar(forzar) {
     if (!puede()) return null;
