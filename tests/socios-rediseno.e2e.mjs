@@ -14,6 +14,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BOT_DIR = path.resolve(root, process.env.BOT_DIR || '../bot');
 const CS = require(path.join(BOT_DIR, 'lib_compra_socios.js'));
+const BC = require(path.join(BOT_DIR, 'lib_billetera_checkout.js')); // R206 · la cotización del simulador es la REAL del bot
 // Entregas, Buzón y Telegram: se sirven con las rutas REALES del bot (rev_entregas_api.js) sobre un Firestore en memoria.
 const express = require(path.join(BOT_DIR, 'node_modules/express'));
 const { FakeDb } = require(path.join(BOT_DIR, 'tests/helpers/fake-firestore.js'));
@@ -56,7 +57,8 @@ function nuevoEstado() {
   const pedidos = new Map();
   const viejo = { version: 2, socio_norm: 'jimena', estado: 'falta información', detalleEstado: 'Envíe el correo correcto de Canva', clientePrincipal: { clienteId: 'c2', nombre: 'Carlos', apellido: 'Mejía' }, productos: [{ renglonId: 'r1', catalogId: 'canva', servicio: 'Canva Pro · 1 mes', servicioBase: 'Canva Pro', precioCatalogo: 70, cantidad: 1, clienteNombre: 'Carlos Mejía', correo: 'carlos@correo', destinatario: { tipo: 'principal' } }], subtotalCatalogo: 70, descuentoCombo: 0, totalCombo: 70, monto: 70, banco: 'BAC', imagenUrl: 'x', createdAt: new Date(Date.now() - 86400000).toISOString(), estadoHistorial: [{ estado: 'pendiente', at: new Date(Date.now() - 86400000).toISOString() }, { estado: 'falta información', detalle: 'Envíe el correo correcto de Canva', at: new Date().toISOString() }] };
   pedidos.set('web_seed00ABC123', viejo);
-  return { pedidos, stock: { canva: 3 }, sugerencias: [], precioExtra: 0, calls: [], cortarRespuesta: 0, real: null };
+  return { pedidos, stock: { canva: 3 }, sugerencias: [], precioExtra: 0, calls: [], cortarRespuesta: 0, real: null,
+    bil: { sublicuentas: { real: 0, disponible: 0, promocional: 0 }, relojes: { real: 0, disponible: 0, promocional: 0 } }, costosPorId: {} };
 }
 const norm = (v) => String(v || '').toLowerCase().trim();
 async function apiReal(E) {
@@ -119,11 +121,28 @@ async function api(route, E) {
       if (!item) return ok({ error: 'producto_fuera_catalogo' }, 400);
       const { renglon, errores: e } = CS.normalizarRenglon(raw, item, b.clientePrincipal || {}, i);
       errores.push(...e);
-      productos.push({ ...renglon, catalogId: item.id, servicio: item.s ? `${item.n} · ${item.s}` : item.n, servicioBase: item.n, precioCatalogo: item.p });
+      productos.push({ ...renglon, catalogId: item.id, servicio: item.s ? `${item.n} · ${item.s}` : item.n, servicioBase: item.n, catalogCategory: item.categoria, catalogSub: item.s || '', precioCatalogo: item.p });
     }
     if (errores.length) return ok({ error: 'datos_incompletos', errores }, 400);
     const t = CS.totales(productos.map((x) => ({ precio: x.precioCatalogo, cantidad: x.cantidad })));
     if (b.totalEsperado != null && !t.hayComision && Number(b.totalEsperado) !== t.total) return ok({ error: 'precio_cambio', totalCombo: t.total, descuentoCombo: t.descuento, subtotalCatalogo: t.subtotal }, 409);
+    if (b.soloCotizarBilletera === true || b.metodoPago === 'billetera') {
+      // R206 · igual que server_api.js: sin comprobante ni banco; el servidor cotiza y cobra en la misma operación.
+      if (t.hayComision) return ok({ error: 'billetera_no_aplica_comision', detail: 'Los productos «por comisión» se pagan con transferencia y comprobante.' }, 400);
+      if (!['sublicuentas', 'relojes'].includes(b.destino)) return ok({ error: 'destino_requerido' }, 400);
+      const costos = {}; for (const x of productos) if (E.costosPorId[x.catalogId] != null) costos[BC.claveCosto(x)] = { costoHnl: E.costosPorId[x.catalogId], pct: null, activo: true };
+      const sal = E.bil[b.destino];
+      const cot = BC.cotizar({ productos, descuentoCombo: t.descuento, totalCombo: t.total, negocio: b.destino, saldos: sal, usarGiftCard: b.usarGiftCard === true, cfg: BC.CFG_BASE, costos });
+      if (b.soloCotizarBilletera === true) return ok({ ok: true, cotizacion: cot });
+      E.ultimoPagoBilletera = b;
+      if (b.totalEsperadoBilletera != null && Number(b.totalEsperadoBilletera) !== cot.aPagarSaldo) return ok({ error: 'precio_cambio_billetera', cotizacion: cot }, 409);
+      if (!cot.suficiente) return ok({ error: 'saldo_insuficiente', cotizacion: cot }, 409);
+      sal.real -= cot.aPagarSaldo; sal.disponible -= cot.aPagarSaldo; sal.promocional -= cot.giftCard;
+      const pago = { metodo: 'billetera', negocio: b.destino, lista: cot.lista, descuentoBilletera: cot.descuento, giftCard: cot.giftCard, saldoReal: cot.aPagarSaldo, totalFinal: cot.totalFinal };
+      E.pedidos.set(id, { version: 2, socio_norm: 'jimena', clientePrincipal: b.clientePrincipal, productos, subtotalCatalogo: t.subtotal, descuentoCombo: t.descuento, totalCombo: t.total, monto: cot.totalFinal, pago, imagenUrl: '', estado: 'pago confirmado', createdAt: new Date().toISOString(), estadoHistorial: [{ estado: 'pago confirmado', detalle: 'Pagado con saldo de billetera', at: new Date().toISOString() }] });
+      E.ultimoDestino = b.destino;
+      return ok({ ok: true, id, ref: id.slice(-6).toUpperCase(), destino: b.destino, destinoLabel: b.destino === 'relojes' ? '⌚ Relojes' : '🟣 Sublicuentas', totalCombo: t.total, descuentoCombo: t.descuento, subtotalCatalogo: t.subtotal, estado: 'pago confirmado', pago, notificacion: { estado: 'recibido', texto: 'Recibido en Telegram' } });
+    }
     const canva = productos.filter((x) => x.catalogId === 'canva').length;
     if (canva > E.stock.canva) return ok({ error: 'sin_stock', detail: 'Canva Pro · 1 mes: no hay disponibilidad suficiente.' }, 409);
     if (!b.bancoId) return ok({ error: 'falta_banco' }, 400);
@@ -161,7 +180,7 @@ async function abrir(viewport = { width: 390, height: 844 }, E = nuevoEstado(), 
   await ctx.route('https://fonts.googleapis.com/**', (r) => r.abort());
   await ctx.route('https://fonts.gstatic.com/**', (r) => r.abort());
   const page = await ctx.newPage();
-  const errores = []; page.on('pageerror', (e) => errores.push(e.message));
+  const errores = []; page.on('pageerror', (e) => (errores.push(e.message), process.env.E2E_STACK && console.log(e.stack)));
   page.on('dialog', (d) => d.accept());
   await page.goto(BASE);
   await page.waitForSelector('#app:not(.hide)'); await page.waitForFunction(() => typeof current !== 'undefined' && !!document.querySelector('#content > :not(.spin)'));
@@ -414,6 +433,56 @@ await caso('R195 · Pago: «¿A quién enviar el comprobante?» visible ANTES de
   assert.match(await page.textContent('.sx-confirm'), /Comprobante recibido en Telegram de Relojes/);
   await shot(page, 'r195-02-movil-recibido-relojes.png');
   assert.deepEqual(errores, []); await ctx.close();
+});
+
+await caso('R206 · Pagar con billetera: saldo insuficiente no cobra; con saldo cobra L con descuento 5% (margen protegido) y nace «Pago confirmado» sin comprobante; Gift Card parcial; comisión no permite billetera', async () => {
+  const E = nuevoEstado();
+  E.bil.sublicuentas = { real: 50, disponible: 50, promocional: 30 }; E.costosPorId = { hbo_platino: 60 };
+  const { page, ctx, errores } = await abrir({ width: 390, height: 844 }, E);
+  await irCompras(page); await agregar(page, 'cat_hbo_platino');
+  await siguiente(page, 2); await page.fill('#sx_p_nombre', 'Ana'); await page.fill('#sx_p_apellido', 'López');
+  const hbo = await page.evaluate(() => SX.renglones[0].rid); await page.click(`[data-act="opcion"][data-rid="${hbo}"][data-v="tv"]`);
+  await siguiente(page, 3);
+  assert.equal(await page.getAttribute('[data-act="metodo"][data-v="transferencia"]', 'aria-checked'), 'true', 'por defecto sigue la transferencia (QA-13)');
+  assert.ok(await page.$('#sx_pago_comprobante'), 'transferencia pide comprobante');
+  await page.click('[data-act="metodo"][data-v="billetera"]');
+  assert.equal(await page.$('#sx_pago_comprobante'), null, 'con billetera no hay comprobante ni banco');
+  assert.equal(await page.$('#sxBancos'), null);
+  assert.match(await page.textContent('#sx_pago_destino legend'), /¿Qué saldo usa\?/);
+  await page.click('[data-act="destino"][data-v="sublicuentas"]');
+  await page.waitForSelector('#sx_pago_bil .bl-cot');
+  const txt = await page.textContent('#sx_pago_bil');
+  assert.match(txt, /Precio de lista\s*L100/); assert.match(txt, /Descuento por billetera\s*−L5/); assert.match(txt, /Se cobra de su saldo\s*L95/);
+  assert.match(txt, /Le faltan L45/);
+  await shot(page, 'r206-01-movil-billetera-saldo-insuficiente.png');
+  const antes = E.calls.filter((x) => x === 'POST /rev/compra').length;
+  await page.click('#sxBottomBar [data-act="enviar"]');
+  await page.waitForSelector('#sx_pago_bil .sx-err');
+  assert.equal(E.calls.filter((x) => x === 'POST /rev/compra').length, antes, 'sin saldo no se intenta cobrar');
+  // Gift Card L30 (no se combina con descuento): L100 − L30 = L70 > L50 → sigue faltando
+  await page.click('[data-act="bil-gift"]'); await page.waitForFunction(() => /Gift Card/.test(document.querySelector('#sx_pago_bil dl')?.textContent || ''));
+  assert.match(await page.textContent('#sx_pago_bil'), /Gift Card\s*−L30[\s\S]*Se cobra de su saldo\s*L70/);
+  assert.doesNotMatch(await page.textContent('#sx_pago_bil dl'), /−L5/, 'Gift Card sin descuento de billetera');
+  await page.click('[data-act="bil-gift"]');
+  E.bil.sublicuentas = { real: 200, disponible: 200, promocional: 30 };
+  await page.click('[data-act="destino"][data-v="relojes"]'); await page.click('[data-act="destino"][data-v="sublicuentas"]');
+  await page.waitForFunction(() => /Al confirmar se descuenta L95/.test(document.querySelector('#sx_pago_bil')?.textContent || ''));
+  assert.match(await page.textContent('#sxBottomBar'), /Pagar L95 con saldo/);
+  await shot(page, 'r206-02-movil-billetera-lista.png');
+  await page.click('#sxBottomBar [data-act="enviar"]'); await page.waitForSelector('.sx-confirm');
+  const [, ped] = [...E.pedidos.entries()].pop();
+  assert.equal(ped.estado, 'pago confirmado'); assert.equal(ped.pago.saldoReal, 95); assert.equal(ped.imagenUrl, '');
+  assert.equal(E.ultimoPagoBilletera.imagen, undefined, 'no viaja comprobante'); assert.equal(E.ultimoPagoBilletera.totalEsperadoBilletera, 95);
+  assert.equal(E.bil.sublicuentas.disponible, 105);
+  const conf = await page.textContent('.sx-confirm');
+  assert.match(conf, /Pagado con su saldo de billetera/); assert.match(conf, /Pago confirmado/); assert.match(conf, /Cobrado de su saldo\s*L95/); assert.match(conf, /entrega el servicio manualmente/);
+  await shot(page, 'r206-03-movil-billetera-confirmado.png');
+  // comisión: la billetera no aplica
+  await page.click('[data-act="nueva-compra"]'); await page.waitForSelector('#sxCompra');
+  await agregar(page, 'cat_especial'); await siguiente(page, 2); await page.fill('#sx_p_nombre', 'Ana'); await page.fill('#sx_p_apellido', 'López');
+  await page.evaluate(() => { const r = SX.renglones[0]; r.detalle = 'algo'; }); await siguiente(page, 3);
+  assert.equal(await page.$eval('[data-act="metodo"][data-v="billetera"]', (b) => b.disabled), true);
+  assert.deepEqual(errores, [], JSON.stringify(errores).slice(0, 600)); await ctx.close();
 });
 
 await caso('R195 · Telegram falla: confirmación honesta (guardado ≠ entregado), sin éxito falso; un borrador viejo no trae destino marcado', async () => {
