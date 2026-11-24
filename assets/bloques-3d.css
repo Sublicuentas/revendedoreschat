@@ -324,3 +324,30 @@ html.b3d body #app .search input:not([type=checkbox]):not([type=radio]):not([typ
 @media (max-width:760px){.sp-premios{grid-template-columns:1fr}}
 .sp-premio .sx-pill:not(.ok):not(.bad):not(.info):not(.warn){background:#EEF2F8!important;color:#4A5B75!important;border-color:#D5DEEA!important}
 @media (max-width:520px){.sp-nivel header small{flex:0 0 100%;order:3}}
+/* R205 · Mi billetera */
+.bl-page .sx-page-head small{display:block;color:var(--b-ink2,#4A5B75);font-weight:700}
+.bl-card,.bl-form,.bl-list,.bl-inicio{margin:14px 0!important;padding:16px 18px!important}
+.bl-inicio{border-bottom:4px solid var(--b-green,#17A052)!important}
+.bl-ic{background:var(--b-green,#17A052)!important;box-shadow:inset 0 2px 0 rgba(255,255,255,.32),0 3px 0 var(--b-green-d,#0E7639)!important}
+.bl-saldos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bl-saldo{border:1px solid var(--b-line,#DBE3EF);border-radius:16px;padding:14px;background:#fff;box-shadow:0 3px 0 var(--b-line2,#C9D4E4);border-top:10px solid var(--b-green,#17A052)}
+.bl-saldo small{display:block;font-weight:800;color:var(--b-ink2,#4A5B75);font-size:14px}
+.bl-saldo b{display:block;font-size:30px;font-weight:900;color:var(--b-ink,#102444);margin:4px 0 2px}
+.bl-saldo span{display:block;font-size:13px;color:var(--b-ink2,#4A5B75)}
+.bl-saldo em{display:block;font-style:normal;font-size:13px;margin-top:8px;color:var(--b-ink2,#4A5B75)}
+.bl-saldo em.bl-promo{color:#8A5A00;font-weight:700}
+.bl-acc{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+.bl-acc .sx-btn{min-height:46px;padding:0 16px;display:inline-flex;align-items:center;text-decoration:none}
+.bl-tit{display:block;font-size:17px;font-weight:900;color:var(--b-ink,#102444);margin-bottom:6px}
+.bl-form label{display:block;font-size:14px;font-weight:700;color:var(--b-ink,#102444);margin:12px 0 0}
+.bl-form label input,.bl-form label select{display:block;width:100%;min-height:46px;margin-top:6px;padding:0 12px;font-size:16px;box-sizing:border-box}
+.bl-form input[type=file]{padding:10px 12px}
+.bl-prev{margin-top:8px}.bl-err{color:var(--b-red-d,#A9141A);font-weight:700;min-height:18px;margin:10px 0 0}
+.bl-list ul{list-style:none;margin:6px 0 0;padding:0}
+.bl-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--b-line,#DBE3EF)}
+.bl-list li b{display:block;font-size:15px;color:var(--b-ink,#102444)}
+.bl-list li small{display:block;font-size:13px;color:var(--b-ink2,#4A5B75);margin-top:2px}
+.bl-list li small.bl-mot{color:var(--b-red-d,#A9141A)}
+.bl-mov{text-align:right;font-weight:900;font-size:16px;white-space:nowrap}.bl-mov.pos{color:var(--b-green-d,#0E7639)}.bl-mov.neg{color:var(--b-red-d,#A9141A)}
+.bl-mov small{display:block;font-weight:600;color:var(--b-ink2,#4A5B75)}
+@media (max-width:560px){.bl-saldos{grid-template-columns:1fr}.bl-acc .sx-btn{flex:1 1 calc(50% - 10px);justify-content:center}}
