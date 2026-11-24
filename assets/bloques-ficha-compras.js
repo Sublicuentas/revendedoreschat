@@ -242,8 +242,23 @@
     const bar = document.getElementById('sxBottomBar'); const sp = bar && bar.querySelector(':scope > span');
     if (sp && !sp.querySelector('.b3-bar-ic')) sp.insertAdjacentHTML('afterbegin', `<i class="b3-bar-ic" aria-hidden="true">${SVG(I.cart)}</i>`);
   }
+  /* R221 · Barra inferior (celular): íconos 3D del dueño (assets/nav/*.webp). Solo cambia la imagen del ícono;
+     cada botón conserva su data-v, su onclick y su etiqueta. «Renovar» (socios sin compras) mantiene su ícono. */
+  const NAV_IMG = { inicio: 'casa', clientes: 'clientes', compras: 'carrito', pedidos: 'carrito', precios: 'catalogo', mas: 'mas' };
+  function navIconos() {
+    const nav = document.getElementById('nav'); if (!nav || !nav.classList.contains('sxg-nav')) return;
+    nav.classList.add('b3-nav3d');
+    nav.querySelectorAll('.nav-btn[data-v]').forEach((b) => {
+      const k = NAV_IMG[b.dataset.v], ic = b.querySelector('.nav-ico'); if (!k || !ic) return;
+      const img = ic.querySelector('img.b3-nav-img');
+      if (img && img.dataset.k === k) return;
+      if (img) img.remove();
+      ic.classList.add('b3-nav-ic'); ic.insertAdjacentHTML('afterbegin', `<img class="b3-nav-img" data-k="${k}" src="assets/nav/${k}.webp?v=r221" alt="" width="60" height="60" decoding="async" draggable="false">`);
+    });
+  }
   function decorar() {
     const root = document.getElementById('content') || document.body;
+    try { navIconos(); } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'clientes') { ficha(root); clientes(root); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'compras') { compras(root); barra(); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'mas') mas(root); } catch (_) {}

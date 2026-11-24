@@ -863,3 +863,30 @@ html.b3d body .sxg-av-full>li.b3-av-nuevo>button>i{background:#E8202A!important;
 html.b3d body .sxg-av-full>li>button.b3-av-marcar,html.b3d body .b3-bz-av .sxg-av-full>li>button.b3-av-marcar{display:inline-flex!important;width:auto!important;min-height:44px!important;margin:-2px 0 10px auto!important;padding:0 14px!important;float:none;border:1px solid var(--b-line)!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;font:800 14px var(--b-font)!important;color:var(--b-ink)!important;justify-content:center}
 html.b3d body .sxg-av-full>li.b3-av-nuevo{display:flex;flex-direction:column}
 html.b3d body .sxg-av-full>li.b3-av-nuevo>button[data-sxg="av-abrir"]{background:#FFF8F8!important;border-color:#F6C9CA!important}
+
+/* ======================= R221 · BARRA INFERIOR 3D (celular) ======================= */
+@media (max-width:899.98px){
+  html.b3d body.sxg{--g-nav:86px}
+  html.b3d body #nav.sxg-nav.b3-nav3d{left:8px!important;right:8px!important;bottom:calc(8px + env(safe-area-inset-bottom))!important;width:auto!important;height:78px!important;padding:7px 8px!important;gap:6px!important;
+    border:1px solid var(--b-line)!important;border-radius:26px!important;background:#fff!important;box-shadow:0 5px 0 var(--b-line2),0 14px 28px rgba(16,36,68,.14)!important;overflow:visible!important}
+  html.b3d body #nav.b3-nav3d .nav-btn{position:relative;flex:1 1 0!important;min-height:64px!important;padding:4px 2px 5px!important;gap:2px!important;border-radius:18px!important;background:transparent!important;color:var(--b-ink)!important;font:800 13px/1.1 var(--b-font)!important;box-shadow:none!important;overflow:visible!important}
+  html.b3d body #nav.b3-nav3d .nav-btn .nav-ico.b3-nav-ic{width:42px!important;height:40px!important;display:grid!important;place-items:center;background:transparent!important}
+  html.b3d body #nav.b3-nav3d .nav-ico.b3-nav-ic>svg{display:none!important}
+  html.b3d body #nav.b3-nav3d .b3-nav-img{width:42px;height:42px;object-fit:contain;display:block;pointer-events:none;user-select:none;transition:transform .12s ease}
+  html.b3d body #nav.b3-nav3d .nav-btn:active .b3-nav-img{transform:translateY(2px) scale(.96)}
+  html.b3d body #nav.b3-nav3d .nav-btn.on{background:var(--b-red)!important;color:#fff!important;box-shadow:var(--b-hi),0 5px 0 var(--b-red-d),0 8px 16px rgba(222,31,37,.25)!important;margin-top:-6px;min-height:70px!important}
+  html.b3d body #nav.b3-nav3d .nav-btn.on::before,html.b3d body #nav.b3-nav3d .nav-btn.on::after{content:"";display:block!important;position:absolute;top:-8px;width:18px;height:10px;background:var(--b-red);border-radius:0;
+    -webkit-mask:radial-gradient(ellipse 9px 10px at 50% 100%,#000 97%,transparent 100%);mask:radial-gradient(ellipse 9px 10px at 50% 100%,#000 97%,transparent 100%)}
+  html.b3d body #nav.b3-nav3d .nav-btn.on::before{left:7px}
+  html.b3d body #nav.b3-nav3d .nav-btn.on::after{right:7px;left:auto}
+  html.b3d body #nav.b3-nav3d .nav-btn.on .b3-nav-img{filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)}
+  html.b3d body #nav.b3-nav3d .nav-btn.on .nav-ico{color:#fff!important}
+  html.b3d body #nav.b3-nav3d .nav-ico.b3-nav-ic{outline:0!important;box-shadow:none!important;border:0!important}
+  html.b3d body #nav.b3-nav3d .nav-btn:focus-visible{outline:3px solid var(--b-blue)!important;outline-offset:2px}
+  html.b3d body #nav.b3-nav3d .nav-lbl{white-space:nowrap;overflow:visible;text-overflow:clip}
+}
+@media (max-width:374px){
+  html.b3d body #nav.sxg-nav.b3-nav3d{left:4px!important;right:4px!important;padding:7px 4px!important;gap:2px!important}
+  html.b3d body #nav.b3-nav3d .nav-btn{font-size:11.5px!important}
+  html.b3d body #nav.b3-nav3d .b3-nav-img{width:36px;height:36px}
+}
