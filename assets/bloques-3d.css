@@ -301,3 +301,26 @@ html.b3d body #app .search input:not([type=checkbox]):not([type=radio]):not([typ
 .sp-rank small{flex-basis:100%;color:var(--b-ink2,#4A5B75)}
 .sp-confirmar{background:var(--b-green,#17A052)!important;color:#fff!important;border-color:var(--b-green-d,#0E7639)!important}
 @media (max-width:520px){.sp-niveles{grid-template-columns:1fr}.sp-niv{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.sp-niv span{margin-top:0}}
+/* R204 · Recompensas SubliPoints: niveles y premios */
+.sp-page .sx-page-head small{display:block;color:var(--b-ink2,#4A5B75);font-weight:700}
+.sp-nivel{margin:14px 0!important;padding:0!important;overflow:hidden}
+.sp-nivel header{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;padding:16px 18px 12px;border-top:10px solid var(--b-line2,#C9D4E4)}
+.sp-nivel.sp-blue header{border-top-color:var(--b-blue,#148DE1)}.sp-nivel.sp-purple header{border-top-color:var(--b-vio,#783ED2)}.sp-nivel.sp-amber header{border-top-color:var(--b-yel,#F8BA15)}
+.sp-nivel header b{font-size:20px;font-weight:900;color:var(--b-ink,#102444)}
+.sp-nivel header small{color:var(--b-ink2,#4A5B75);font-weight:700;font-size:14px;flex:1}
+.sp-nivel.on{outline:3px solid var(--b-green,#17A052);outline-offset:-2px}
+.sp-premios{list-style:none;margin:0;padding:0 12px 12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sp-premio{display:flex;flex-direction:column;justify-content:space-between;gap:10px;border:1px solid var(--b-line,#DBE3EF);border-radius:14px;padding:12px;background:#fff;box-shadow:0 3px 0 var(--b-line2,#C9D4E4)}
+.sp-premio-tx b{display:block;font-size:16px;color:var(--b-ink,#102444)}
+.sp-premio-tx small{display:block;font-size:13px;color:var(--b-ink2,#4A5B75);margin:2px 0 8px}
+.sp-premio-tx em{display:block;font-style:normal;font-size:12.5px;color:var(--b-ink2,#4A5B75);margin-top:6px}
+.sp-premio.sp-bloqueado{background:#F8FAFD}.sp-premio.sp-bloqueado b{color:#5B6B84}
+.sp-premio.sp-agotado{opacity:.75}
+.sp-premio.sp-solicitado{border-color:var(--b-blue,#148DE1);box-shadow:0 3px 0 var(--b-blue-d,#0C68AA)}
+.sp-elegir{min-height:44px;width:100%}
+.sp-histrec{list-style:none;margin:8px 0 0;padding:0}
+.sp-histrec li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--b-line,#DBE3EF);font-size:14.5px}
+.sp-histrec small{display:block;color:var(--b-ink2,#4A5B75);font-size:12.5px}
+@media (max-width:760px){.sp-premios{grid-template-columns:1fr}}
+.sp-premio .sx-pill:not(.ok):not(.bad):not(.info):not(.warn){background:#EEF2F8!important;color:#4A5B75!important;border-color:#D5DEEA!important}
+@media (max-width:520px){.sp-nivel header small{flex:0 0 100%;order:3}}
