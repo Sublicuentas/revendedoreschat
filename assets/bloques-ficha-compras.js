@@ -164,6 +164,58 @@
     const av = pg.querySelector('.sxg-av-pg'); if (av && !hecho(av, 'a')) { av.classList.add('b3-bz-av'); av.querySelector('.sxg-card-head b')?.insertAdjacentHTML('afterbegin', `<span class="b3-bz-av-ic" aria-hidden="true">${SVG(I3.megafono)}</span>`); }
   }
 
+  /* ---------- R218 · Mi perfil (PDF «Rediseño Mi perfil 3D») · solo presentación ---------- */
+  const I4 = {
+    user: '<circle cx="12" cy="8" r="3.8" fill="none" stroke="currentColor" stroke-width="2.3"/><path d="M4.5 20c.8-3.9 3.7-6.2 7.5-6.2s6.7 2.3 7.5 6.2" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>',
+    campana: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M19.5 5.5 21 4M20.5 9H22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    corona: '<path d="M3.5 8.5 8 12l4-6 4 6 4.5-3.5-2 10h-13Z" fill="currentColor"/><path d="M5.5 20.5h13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    bocina: '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    camara: '<path d="M4 8h3.5L9 5.5h6L16.5 8H20a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="2.1"/>',
+    ok: '<path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',
+    mini: '<rect x="2" y="9" width="20" height="11" rx="2.5" fill="currentColor"/><rect x="5" y="5" width="5" height="5" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="5" height="5" rx="1.5" fill="currentColor"/>',
+  };
+  /* studs dibujados (cilindro + tapa + brillo); color por --t / --td del contenedor */
+  const studs = (n, cls = '') => { const w = 22, g = 14, W = n * w + (n - 1) * g; let r = ''; for (let i = 0; i < n; i++) { const x = i * (w + g); r += `<rect x="${x}" y="4" width="${w}" height="9" rx="3" class="sd"/><ellipse cx="${x + w / 2}" cy="4.5" rx="${w / 2}" ry="4" class="st"/><ellipse cx="${x + w / 2 - 3}" cy="3.6" rx="4.5" ry="1.4" class="sh"/>`; } return `<svg class="b3-st ${cls}" viewBox="0 0 ${W} 13" aria-hidden="true" focusable="false">${r}</svg>`; };
+  /* escalón de bloques en la esquina (dos piezas) */
+  const ESCALON = '<svg class="b3-pf-esc" viewBox="0 0 60 44" aria-hidden="true" focusable="false"><rect x="0" y="26" width="60" height="18" rx="3" class="sd"/><rect x="0" y="24" width="60" height="16" rx="3" class="st"/><rect x="28" y="8" width="32" height="20" rx="3" class="sd"/><rect x="28" y="6" width="32" height="17" rx="3" class="st"/><rect x="8" y="18" width="12" height="7" rx="2" class="sd"/><ellipse cx="14" cy="18.5" rx="6" ry="2.4" class="st"/><rect x="38" y="0" width="12" height="7" rx="2" class="sd"/><ellipse cx="44" cy="0.8" rx="6" ry="2.4" class="st"/></svg>';
+  const PF_GRUPOS = { sxoGTelegram: ['blue', I3.avion], sxoGNotif: ['yel', I4.campana], sxoGNivel: ['vio', I4.corona], sxoGDatos: ['cyan', I4.user] };
+  const ladrillo = (tono, ic, cls = '') => `<span class="b3-pf-ic t-${tono} ${cls}" aria-hidden="true">${studs(2)}${SVG(ic)}</span>`;
+  function perfil(root) {
+    const pg = root.querySelector('.sxo-perfil'); if (!pg) return;
+    pg.classList.add('b3-perfil');
+    const head = pg.querySelector(':scope > .sx-page-head');
+    if (head && !hecho(head, 'h')) { head.classList.add('b3-pf-head'); head.insertAdjacentHTML('afterbegin', ladrillo('red', I4.user, 'grande')); head.insertAdjacentHTML('beforeend', `<span class="b3-pf-head-deco t-yel" aria-hidden="true">${studs(4)}</span>`); }
+    const top = pg.querySelector('.sxo-perfil-top');
+    if (top && !hecho(top, 't')) {
+      top.classList.add('b3-pf-top'); top.insertAdjacentHTML('afterbegin', studs(8, 'fila'));
+      top.insertAdjacentHTML('beforeend', `<span class="b3-pf-top-esc t-red">${ESCALON}</span>`);
+      const cam = top.querySelector('.profile-photo-edit'); if (cam) cam.innerHTML = SVG(I4.camara);
+    }
+    pg.querySelectorAll('.sxo-grupo').forEach((d) => {
+      const def = PF_GRUPOS[d.id]; if (!def) return;
+      const s = d.querySelector(':scope > summary');
+      if (s && !hecho(s, 'g')) {
+        d.classList.add('b3-pf-card', 't-' + def[0]);
+        s.insertAdjacentHTML('afterbegin', ladrillo(def[0], def[1]));
+        const go = s.querySelector('.sxo-item-go'); if (go) { go.classList.add('b3-pf-go'); go.insertAdjacentHTML('beforeend', SVG(I.chev)); }
+        d.insertAdjacentHTML('beforeend', `<span class="b3-pf-esq t-${def[0]}">${ESCALON}</span>`);
+      }
+    });
+    const tg = pg.querySelector('#sxTgCard');
+    if (tg) {
+      tg.classList.add('b3-pf-tg');
+      const pill = tg.querySelector('.sx-pill.ok'); if (pill && !pill.querySelector('.b3i')) pill.insertAdjacentHTML('afterbegin', SVG(I4.ok));
+      tg.querySelectorAll('[data-tg="cambiar"],[data-tg="desvincular"],[data-tg="conectar"]').forEach((b) => { if (!b.querySelector('.b3i')) { b.classList.add('b3-pf-tgbtn', 'b3-pf-' + b.dataset.tg); b.insertAdjacentHTML('afterbegin', SVG(I4.mini, 'mini')); } });
+    }
+    const snd = pg.querySelector('.b3d-snd-card');
+    if (snd && !hecho(snd, 's')) {
+      snd.classList.add('b3-pf-card', 'b3-pf-snd', 't-green');
+      snd.insertAdjacentHTML('afterbegin', ladrillo('green', I4.bocina));
+      snd.insertAdjacentHTML('beforeend', `<span class="b3-pf-esq t-green">${ESCALON}</span>`);
+    }
+    const sal = pg.querySelector('.sxo-salir'); if (sal && !hecho(sal, 'i')) { sal.classList.add('b3-pf-salir'); sal.insertAdjacentHTML('afterbegin', SVG(I2.salir)); }
+  }
+
   function compras(root) {
     const c = root.querySelector('#sxCompra'); if (!c) return;
     c.classList.add('b3-compra');
@@ -196,6 +248,7 @@
     try { if (typeof current !== 'undefined' && current === 'compras') { compras(root); barra(); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'mas') mas(root); } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'buzon') buzon(root); } catch (_) {}
+    try { if (typeof current !== 'undefined' && current === 'perfil') perfil(root); } catch (_) {}
   }
   let pend = false;
   const mo = new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorar(); }); });
