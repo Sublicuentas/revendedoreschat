@@ -101,6 +101,9 @@ const SX_CANTIDADES = [...Array.from({ length: 20 }, (_, i) => i + 1), 25, 30, 4
 
 /* ---------- estado único de la compra ---------- */
 function sxNuevo() { return { v: 2, paso: 1, renglones: [], principal: { id: '', nombre: '', apellido: '', telefono: '' }, destino: '', destinoConfirmado: false, bancoId: '', comentario: '', monto: '', requestId: '', requestFirma: '', incierto: false, avisoPrecio: '', recuperado: false, savedAt: 0 }; }
+/* R206 · Fase 4: pagar con saldo de billetera. sxBil guarda la cotización del SERVIDOR (el navegador no calcula descuentos). */
+let sxBil = { firma: '', cot: null, cargando: false, error: '' };
+const sxEsBilletera = () => SX.metodo === 'billetera';
 let SX = sxNuevo(), sxErr = {}, sxImg = '', sxImgInfo = null, sxEnviando = false, sxProgreso = 0, sxConfirmacion = null, sxBuscar = '', sxCat = 'todas', sxEnfocar = '', sxVerComp = false, sxMsg = { t: '', c: '' };
 function sxBorradorKey() { return `socios_borrador_compra_${socioCacheId()}`; }
 let sxSaveTimer = null;
@@ -236,6 +239,13 @@ function sxValidarDatos() {
 }
 function sxValidarPago() {
   const e = {}, m = sxTotales();
+  if (sxEsBilletera()) {
+    if (m.hayComision) e['pago:metodo'] = 'Los productos por comisión se pagan con transferencia y comprobante.';
+    else if (!SX.destinoConfirmado || !['sublicuentas', 'relojes'].includes(SX.destino)) e['pago:destino'] = 'Elija qué saldo usar: Sublicuentas o Relojes.';
+    else if (!sxBil.cot || sxBil.firma !== sxBilFirma()) e['pago:metodo'] = 'Espere a que se calcule el total con su saldo.';
+    else if (!sxBil.cot.suficiente) e['pago:metodo'] = `Le faltan ${money(sxBil.cot.faltante)} de saldo. Recargue su billetera o pague con transferencia.`;
+    return e;
+  }
   if (m.hayComision && !(num(SX.monto) > 0)) e['pago:monto'] = 'Escriba el monto realmente pagado.';
   if (!SX.bancoId) e['pago:banco'] = 'Elija dónde se hizo el pago.';
   if (!SX.destinoConfirmado || !['sublicuentas', 'relojes'].includes(SX.destino)) e['pago:destino'] = 'Elija a quién enviar el comprobante: Sublicuentas o Relojes.';
@@ -249,6 +259,7 @@ function sxPayload() {
   const m = sxTotales();
   return {
     version: 2, destino: SX.destino,
+    ...(sxEsBilletera() ? { metodoPago: 'billetera', usarGiftCard: !!SX.usarGift } : {}),
     clientePrincipal: { clienteId: SX.principal.id || '', nombre: String(SX.principal.nombre || '').trim(), apellido: String(SX.principal.apellido || '').trim() },
     servicio: m.unidades > 1 ? `Combo ${m.unidades} unidades` : (m.ls[0]?.p.nombre || 'Compra'),
     productos: m.ls.map(({ r, p, cantidad }) => ({
@@ -341,7 +352,7 @@ function sxRender({ scroll = false } = {}) {
   <div class="sx-bottom-bar" id="sxBottomBar">${sxBarraHtml()}</div>`;
   document.body.classList.add('sx-con-barra');
   sxBind();
-  if (SX.paso === 3) sxPintarBancos();
+  if (SX.paso === 3) { if (sxEsBilletera()) sxBilCotizar(); else sxPintarBancos(); }
   if (scroll) sxScrollTitulo(); else window.scrollTo(0, y);
   if (sxEnfocar) { const el = document.getElementById(sxEnfocar); sxEnfocar = ''; if (el) { el.scrollIntoView({ block: 'center' }); try { el.focus({ preventScroll: true }); } catch (_) {} } }
 }
@@ -491,7 +502,8 @@ function sxPaso3Html() {
       <dl class="sx-totals"><div><dt>Subtotal</dt><dd>${money(m.subtotal)}</dd></div><div><dt>Descuento</dt><dd>−${money(m.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(m.total)}${m.hayComision ? ' + importe por confirmar' : ''}</dd></div></dl>
     </section>
     <section class="sx-card sx-step-card"><h2>Pago</h2>
-      <fieldset class="sx-field ${e['pago:banco'] ? 'err' : ''}" id="sx_pago_banco" tabindex="-1"><legend>¿Dónde hizo el pago? <i aria-hidden="true">*</i><em class="sr">obligatorio</em></legend><div id="sxBancos"><p class="sx-help">Cargando métodos…</p></div>${e['pago:banco'] ? `<small class="sx-err">${sxEsc(e['pago:banco'])}</small>` : ''}</fieldset>
+      ${sxMetodoHtml(m, e)}
+      ${sxEsBilletera() ? sxBilPagoHtml(m, e) : `<fieldset class="sx-field ${e['pago:banco'] ? 'err' : ''}" id="sx_pago_banco" tabindex="-1"><legend>¿Dónde hizo el pago? <i aria-hidden="true">*</i><em class="sr">obligatorio</em></legend><div id="sxBancos"><p class="sx-help">Cargando métodos…</p></div>${e['pago:banco'] ? `<small class="sx-err">${sxEsc(e['pago:banco'])}</small>` : ''}</fieldset>
       ${m.hayComision ? `<label class="sx-field ${e['pago:monto'] ? 'err' : ''}"><span>Monto realmente pagado <i aria-hidden="true">*</i></span><small class="sx-hint">Hay productos por comisión: escriba lo que pagó. El equipo confirma el importe.</small><input id="sx_pago_monto" type="number" inputmode="decimal" min="0" data-sx="monto" value="${sxAttr(SX.monto)}">${e['pago:monto'] ? `<small class="sx-err">${sxEsc(e['pago:monto'])}</small>` : ''}</label>` : `<p class="sx-help">El total lo calcula y confirma el sistema con su catálogo de socio.</p>`}
       <fieldset class="sx-field sx-destino ${e['pago:destino'] ? 'err' : ''}" id="sx_pago_destino" tabindex="-1"><legend>¿A quién enviar el comprobante? <i aria-hidden="true">*</i><em class="sr">obligatorio</em></legend>
         <div class="sx-chips" role="radiogroup" aria-label="¿A quién enviar el comprobante?">${[['sublicuentas', 'Sublicuentas'], ['relojes', 'Relojes']].map(([v, l]) => { const on = SX.destinoConfirmado && SX.destino === v; return `<button type="button" role="radio" class="sx-chip ${on ? 'on' : ''}" aria-checked="${on}" data-act="destino" data-v="${v}">${l}</button>`; }).join('')}</div>
@@ -500,10 +512,62 @@ function sxPaso3Html() {
         <input type="file" id="sxFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" hidden>
         ${sxImg ? `<div class="sx-receipt"><img src="${sxImg}" alt="Comprobante adjunto" class="${sxVerComp ? 'big' : ''}"><div><b>${sxEsc(sxImgInfo?.name || 'Comprobante')}</b><small>${sxImgInfo ? `${Math.round(sxImgInfo.kb)} KB listo para enviar` : ''}</small><div class="sx-row-actions"><button type="button" class="sx-link" data-act="comp-ver">${sxVerComp ? 'Ver pequeño' : 'Ver'}</button><button type="button" class="sx-link" data-act="comp-elegir">Sustituir</button><button type="button" class="sx-link danger" data-act="comp-quitar">Quitar</button></div></div></div>`
           : `<button type="button" class="sx-drop" data-act="comp-elegir"><b>Adjuntar comprobante</b><small>JPG, PNG o WEBP desde archivos o galería. Se comprime manteniendo legibles monto, fecha y referencia (máx. 7 MB).</small></button>`}
-        ${e['pago:comprobante'] ? `<small class="sx-err">${sxEsc(e['pago:comprobante'])}</small>` : ''}</div>
+        ${e['pago:comprobante'] ? `<small class="sx-err">${sxEsc(e['pago:comprobante'])}</small>` : ''}</div>`}
       <label class="sx-field"><span>Comentario general del pedido (opcional)</span><textarea data-sx="comentario" rows="3" maxlength="600" placeholder="Indicación para todo el pedido">${sxEsc(SX.comentario)}</textarea></label>
       ${sxMsg.t ? `<div class="sx-msg ${sxMsg.c}" role="alert">${sxEsc(sxMsg.t)}</div>` : ''}
     </section>`;
+}
+
+/* R206 · forma de pago. Ambas terminan en el mismo pedido y la misma entrega MANUAL. */
+function sxMetodoHtml(m, e) {
+  const op = [['transferencia', 'Transferencia con comprobante', 'Precio normal. El equipo revisa su comprobante.'], ['billetera', 'Saldo de billetera', m.hayComision ? 'No disponible: hay productos por comisión.' : 'Se cobra al instante. Hasta 5% de descuento en productos elegibles.']];
+  return `<fieldset class="sx-field sx-metodo ${e['pago:metodo'] ? 'err' : ''}" id="sx_pago_metodo" tabindex="-1"><legend>¿Cómo paga este pedido?</legend>
+    <div class="sx-metodos" role="radiogroup" aria-label="Forma de pago">${op.map(([v, t, h]) => { const on = (SX.metodo || 'transferencia') === v, off = v === 'billetera' && m.hayComision; return `<button type="button" role="radio" class="sx-metodo-op ${on ? 'on' : ''}" aria-checked="${on}" data-act="metodo" data-v="${v}" ${off ? 'disabled' : ''}><b>${t}</b><small>${h}</small></button>`; }).join('')}</div>
+    ${e['pago:metodo'] && !sxEsBilletera() ? `<small class="sx-err">${sxEsc(e['pago:metodo'])}</small>` : ''}</fieldset>`;
+}
+function sxBilFirma() { const p = sxPayload(); return sxFirma({ productos: p.productos, destino: SX.destino, gift: !!SX.usarGift }); }
+function sxBilPagoHtml(m, e) {
+  const q = '¿Qué saldo usa?';
+  const chips = `<fieldset class="sx-field sx-destino ${e['pago:destino'] ? 'err' : ''}" id="sx_pago_destino" tabindex="-1"><legend>${q} <i aria-hidden="true">*</i><em class="sr">obligatorio</em></legend>
+    <div class="sx-chips" role="radiogroup" aria-label="${q}">${[['sublicuentas', 'Sublicuentas'], ['relojes', 'Relojes']].map(([v, l]) => { const on = SX.destinoConfirmado && SX.destino === v; return `<button type="button" role="radio" class="sx-chip ${on ? 'on' : ''}" aria-checked="${on}" data-act="destino" data-v="${v}">${l}</button>`; }).join('')}</div>
+    <small class="sx-hint">Cada negocio tiene su propio saldo. El pedido llega al equipo de ese negocio.</small>${e['pago:destino'] ? `<small class="sx-err">${sxEsc(e['pago:destino'])}</small>` : ''}</fieldset>`;
+  if (!SX.destinoConfirmado) return chips;
+  const c = sxBil.firma === sxBilFirma() ? sxBil.cot : null;
+  let caja;
+  if (sxBil.cargando || (!c && !sxBil.error)) caja = `<p class="sx-help" role="status">Calculando su total con saldo…</p>`;
+  else if (!c) caja = `<div class="sx-msg err" role="alert">${sxEsc(sxBil.error)} <button type="button" class="sx-link" data-act="bil-recotizar">Reintentar</button></div>`;
+  else {
+    const fila = (t, v, cls = '') => `<div class="${cls}"><dt>${t}</dt><dd>${v}</dd></div>`;
+    const sinDesc = c.lineas.filter((l) => !l.descuento && l.motivo).map((l) => `${sxEsc(l.servicio)}: ${sxEsc(l.motivo)}`);
+    caja = `<dl class="sx-totals bl-cot">
+        ${fila('Precio de lista', money(c.lista))}
+        ${fila('Descuento por billetera', c.descuento ? `−${money(c.descuento)}` : money(0))}
+        ${c.giftCard ? fila('Gift Card', `−${money(c.giftCard)}`) : ''}
+        ${fila('Se cobra de su saldo', money(c.aPagarSaldo), 'total')}
+        ${fila(`Saldo disponible ${SX.destino === 'relojes' ? 'Relojes' : 'Sublicuentas'}`, money(c.saldoDisponible))}
+      </dl>
+      ${c.saldoPromocional > 0 && SX.destino === 'sublicuentas' ? `<label class="sx-check bl-gift"><input type="checkbox" data-act="bil-gift" ${SX.usarGift ? 'checked' : ''}> Usar mi Gift Card (${money(c.saldoPromocional)} disponibles). No se combina con el descuento por billetera; Netflix no aplica.</label>` : ''}
+      ${sinDesc.length ? `<small class="sx-hint">Sin descuento: ${sinDesc.join(' · ')}</small>` : ''}
+      ${c.suficiente ? `<p class="sx-help">Al confirmar se descuenta ${money(c.aPagarSaldo)} y el pedido queda <b>Pago confirmado</b>. La entrega la hace el equipo, como siempre.</p>`
+        : `<div class="sx-msg err" role="alert">Le faltan ${money(c.faltante)} de saldo. <button type="button" class="sx-link" data-act="bil-ir">Recargar billetera</button> o pague con transferencia.</div>`}`;
+  }
+  return `${chips}<div class="sx-field bl-checkout" id="sx_pago_bil">${caja}${e['pago:metodo'] ? `<small class="sx-err">${sxEsc(e['pago:metodo'])}</small>` : ''}</div>`;
+}
+async function sxBilCotizar(forzar = false) {
+  if (SX.paso !== 3 || !sxEsBilletera() || !SX.destinoConfirmado || sxTotales().hayComision) return;
+  const firma = sxBilFirma();
+  if (!forzar && (sxBil.firma === firma && (sxBil.cot || sxBil.cargando))) return;
+  sxBil = { firma, cot: null, cargando: true, error: '' };
+  try {
+    const r = await sxPost('/rev/compra', { ...sxPayload(), soloCotizarBilletera: true });
+    if (sxBil.firma !== firma) return;
+    sxBil = { firma, cot: r.cotizacion || null, cargando: false, error: r.cotizacion ? '' : 'No se pudo calcular el total.' };
+    if (sxBil.cot && sxBil.cot.suficiente) { delete sxErr['pago:metodo']; if (sxMsg.c === 'err') sxMsg = { t: '', c: '' }; }
+  } catch (err) {
+    if (sxBil.firma !== firma) return;
+    sxBil = { firma, cot: null, cargando: false, error: err.detail || (err.error === 'network' ? 'Sin conexión.' : 'No se pudo calcular el total con su saldo.') };
+  }
+  if (current === 'compras' && SX.paso === 3) { const y = window.scrollY; sxRender(); window.scrollTo(0, y); }
 }
 
 /* --- Resumen (computadora: lateral · celular: barra inferior con espacio propio) --- */
@@ -511,7 +575,7 @@ function sxAccionPrincipal() {
   const m = sxTotales();
   if (SX.paso === 1) return `<button type="button" class="sx-btn pri full" data-act="paso" data-n="2" ${m.ls.length ? '' : 'disabled'}>Continuar</button>`;
   if (SX.paso === 2) return `<button type="button" class="sx-btn pri full" data-act="paso" data-n="3">Continuar al pago</button>`;
-  return `<button type="button" class="sx-btn pri full" id="sxEnviarBtn" data-act="enviar" ${sxEnviando ? 'disabled aria-busy="true"' : ''}>${sxEnviando ? (sxProgreso && sxProgreso < 100 ? `Subiendo comprobante… ${sxProgreso}%` : 'Enviando pedido…') : 'Enviar pedido para revisión'}</button>`;
+  return `<button type="button" class="sx-btn pri full" id="sxEnviarBtn" data-act="enviar" ${sxEnviando ? 'disabled aria-busy="true"' : ''}>${sxEnviando ? (sxProgreso && sxProgreso < 100 ? `Subiendo comprobante… ${sxProgreso}%` : 'Enviando pedido…') : sxEsBilletera() ? (sxBil.cot && sxBil.firma === sxBilFirma() ? `Pagar ${money(sxBil.cot.aPagarSaldo)} con saldo` : 'Pagar con saldo') : 'Enviar pedido para revisión'}</button>`;
 }
 function sxResumenHtml() {
   const m = sxTotales();
@@ -522,7 +586,8 @@ function sxResumenHtml() {
 }
 function sxBarraHtml() {
   const m = sxTotales();
-  return `<span><b>${m.unidades} servicio${m.unidades === 1 ? '' : 's'}</b> · Total ${money(m.total)}${m.hayComision ? ' +' : ''}</span>${sxAccionPrincipal()}`;
+  const bc = SX.paso === 3 && sxEsBilletera() && sxBil.cot && sxBil.firma === sxBilFirma() ? sxBil.cot : null;
+  return `<span><b>${m.unidades} servicio${m.unidades === 1 ? '' : 's'}</b> · ${bc ? `Con saldo ${money(bc.totalFinal)}` : `Total ${money(m.total)}`}${m.hayComision ? ' +' : ''}</span>${sxAccionPrincipal()}`;
 }
 function sxPintarResumen() {
   const a = document.getElementById('sxSummary'); if (a) a.innerHTML = sxResumenHtml();
@@ -545,7 +610,7 @@ function sxEnfocarError() {
   const k = orden[0];
   let id = '';
   if (k === 'p:nombre') id = 'sx_p_nombre'; else if (k === 'p:apellido') id = 'sx_p_apellido';
-  else if (k.startsWith('pago:')) id = { 'pago:banco': 'sx_pago_banco', 'pago:monto': 'sx_pago_monto', 'pago:destino': 'sx_pago_destino', 'pago:comprobante': 'sx_pago_comprobante' }[k];
+  else if (k.startsWith('pago:')) id = { 'pago:banco': 'sx_pago_banco', 'pago:monto': 'sx_pago_monto', 'pago:destino': 'sx_pago_destino', 'pago:comprobante': 'sx_pago_comprobante', 'pago:metodo': sxEsBilletera() ? 'sx_pago_bil' : 'sx_pago_metodo' }[k] || 'sx_pago_metodo';
   else { const [rid, campo] = k.split(':'); id = campo === 'otroNombre' ? `sx_${rid}_nombre` : campo === 'otroApellido' ? `sx_${rid}_apellido` : `sx_${rid}_${campo}`; }
   const el = document.getElementById(id.replace(/[^a-z0-9_]/gi, '_')) || document.getElementById(id);
   if (el) { el.scrollIntoView({ block: 'center' }); try { el.focus({ preventScroll: true }); } catch (_) {} }
@@ -640,7 +705,11 @@ async function sxOnClick(ev) {
   if (act === 'correo-compartir' && r) { const otros = sxLineas().filter((l) => l.r.rid !== r.rid && l.p.modalidad === 'correo'); otros.forEach((l) => { l.r.correo = r.correo; delete sxErr[`${l.r.rid}:correo`]; }); sxGuardar(); sxRender(); sxToast(`Correo usado en ${otros.length} servicio(s) más.`); return; }
   if (act === 'banco') { SX.bancoId = b.dataset.id; delete sxErr['pago:banco']; document.querySelector('#sx_pago_banco')?.classList.remove('err'); document.querySelector('#sx_pago_banco .sx-err')?.remove(); sxGuardar(); sxPintarBancos(); return; }
   if (act === 'copiar') { navigator.clipboard?.writeText(b.dataset.txt || ''); sxToast('Copiado.'); return; }
-  if (act === 'destino') { if (!['sublicuentas', 'relojes'].includes(b.dataset.v)) return; SX.destino = b.dataset.v; SX.destinoConfirmado = true; delete sxErr['pago:destino']; sxGuardar(); document.querySelector('#sx_pago_destino')?.classList.remove('err'); document.querySelector('#sx_pago_destino .sx-err')?.remove(); document.querySelectorAll('[data-act="destino"]').forEach((x) => { x.classList.toggle('on', x.dataset.v === SX.destino); x.setAttribute('aria-checked', String(x.dataset.v === SX.destino)); }); return; }
+  if (act === 'destino') { if (!['sublicuentas', 'relojes'].includes(b.dataset.v)) return; SX.destino = b.dataset.v; SX.destinoConfirmado = true; delete sxErr['pago:destino']; sxGuardar(); document.querySelector('#sx_pago_destino')?.classList.remove('err'); document.querySelector('#sx_pago_destino .sx-err')?.remove(); document.querySelectorAll('[data-act="destino"]').forEach((x) => { x.classList.toggle('on', x.dataset.v === SX.destino); x.setAttribute('aria-checked', String(x.dataset.v === SX.destino)); }); if (sxEsBilletera()) { if (SX.destino !== 'sublicuentas') SX.usarGift = false; const y = window.scrollY; sxRender(); window.scrollTo(0, y); } return; }
+  if (act === 'metodo') { if (b.disabled) return; SX.metodo = b.dataset.v === 'billetera' ? 'billetera' : 'transferencia'; delete sxErr['pago:metodo']; delete sxErr['pago:destino']; sxGuardar(); const y = window.scrollY; sxRender(); window.scrollTo(0, y); return; }
+  if (act === 'bil-recotizar') { sxBilCotizar(true); return; }
+  if (act === 'bil-gift') { SX.usarGift = !!b.checked; sxGuardar(); const y = window.scrollY; sxRender(); window.scrollTo(0, y); return; }
+  if (act === 'bil-ir') { go('billetera'); return; }
   if (act === 'comp-elegir') { document.getElementById('sxFile')?.click(); return; }
   if (act === 'comp-quitar') { sxImg = ''; sxImgInfo = null; sxVerComp = false; sxRender(); return; }
   if (act === 'comp-ver') { sxVerComp = !sxVerComp; sxRender(); return; }
@@ -680,7 +749,7 @@ async function sxEnviar() {
   SX.requestId = SX.requestId || nuevoOpId(); SX.requestFirma = firma; SX.incierto = false; sxGuardar();
   sxEnviando = true; sxProgreso = 0; sxMsg = { t: '', c: '' }; sxPintarResumen();
   try {
-    const r = await sxPost('/rev/compra', { ...payload, requestId: SX.requestId, imagen: sxImg }, (pct) => { sxProgreso = pct; sxPintarResumen(); });
+    const r = await sxPost('/rev/compra', sxEsBilletera() ? { ...payload, requestId: SX.requestId, totalEsperadoBilletera: sxBil.cot ? sxBil.cot.aPagarSaldo : undefined } : { ...payload, requestId: SX.requestId, imagen: sxImg }, (pct) => { sxProgreso = pct; sxPintarResumen(); });
     sxExito(r, r.duplicate === true);
   } catch (e) {
     sxEnviando = false; sxProgreso = 0;
@@ -697,6 +766,13 @@ async function sxEnviar() {
       SX.avisoPrecio = `El catálogo cambió: el total pasó de ${money(antes)} a ${money(e.totalCombo)}. Revise el pedido y vuelva a enviarlo.`;
       SX.requestId = ''; sxRender({ scroll: true }); return;
     }
+    if (['saldo_insuficiente', 'precio_cambio_billetera'].includes(e.error)) {
+      // El servidor manda la cotización real del momento: se muestra y el socio decide de nuevo.
+      sxBil = { firma: sxBilFirma(), cot: e.cotizacion || null, cargando: false, error: e.cotizacion ? '' : 'Vuelva a calcular el total.' };
+      SX.requestId = ''; sxGuardar();
+      sxMsg = { t: e.error === 'saldo_insuficiente' ? `Saldo insuficiente${e.cotizacion ? `: le faltan ${money(e.cotizacion.faltante)}` : ''}. No se cobró nada.` : 'El total con saldo cambió. Revíselo y confirme de nuevo. No se cobró nada.', c: 'err' }; sxRender(); return;
+    }
+    if (e.error === 'billetera_no_aplica_comision') { SX.metodo = 'transferencia'; SX.requestId = ''; sxMsg = { t: e.detail || 'Pague este pedido con transferencia.', c: 'err' }; sxRender(); return; }
     if (e.error === 'datos_incompletos' && Array.isArray(e.errores)) {
       sxErr = {}; e.errores.forEach((x) => { const k = x.renglonId === 'principal' || x.campo === 'destinatario' ? 'p:nombre' : `${x.renglonId}:${x.campo}`; sxErr[k] = x.mensaje; });
       SX.paso = 2; sxMsg = { t: 'El servidor encontró datos incompletos: revise los campos marcados.', c: 'err' }; sxRender(); sxEnfocarError(); return;
@@ -708,14 +784,22 @@ async function sxEnviar() {
 }
 function sxExito(r, duplicado) {
   const m = sxTotales();
-  sxConfirmacion = { id: r.id, ref: r.ref || String(r.id || '').slice(-6).toUpperCase(), duplicado, destinoLabel: r.destinoLabel || '', notificacion: r.notificacion || null, total: Number(r.totalCombo ?? m.total), descuento: Number(r.descuentoCombo ?? m.descuento), estado: r.estado || 'pendiente', principal: sxNombreCompleto(SX.principal), lineas: m.ls.map(({ r: rr, p, cantidad }) => ({ nombre: p.nombre + (sxNumeroUnidad(rr) ? ` · ${sxEtiquetaUnidad(p, sxNumeroUnidad(rr))}` : ''), cantidad, precio: p.precio })), comprobante: r.comprobante !== false };
+  sxConfirmacion = { id: r.id, ref: r.ref || String(r.id || '').slice(-6).toUpperCase(), duplicado, destinoLabel: r.destinoLabel || '', notificacion: r.notificacion || null, total: Number(r.totalCombo ?? m.total), descuento: Number(r.descuentoCombo ?? m.descuento), estado: r.estado || 'pendiente', pago: r.pago || null, principal: sxNombreCompleto(SX.principal), lineas: m.ls.map(({ r: rr, p, cantidad }) => ({ nombre: p.nombre + (sxNumeroUnidad(rr) ? ` · ${sxEtiquetaUnidad(p, sxNumeroUnidad(rr))}` : ''), cantidad, precio: p.precio })), comprobante: r.comprobante !== false };
   SX = sxNuevo(); sxErr = {}; sxImg = ''; sxImgInfo = null; sxEnviando = false; sxProgreso = 0; sxMsg = { t: '', c: '' }; sxBorrarBorrador();
+  sxBil = { firma: '', cot: null, cargando: false, error: '' };
+  if (sxConfirmacion.pago && typeof window.blRecargar === 'function') window.blRecargar();
   markSyncStale(['compras', 'inventario', 'metricas']);
   Promise.allSettled([loadMisCompras(), loadInventario(), loadMetricas()]);
   sxRender({ scroll: true });
 }
 // R195 · Resultado REAL del envío del comprobante a Telegram (guardar ≠ entregar).
-function sxAvisoTelegramHtml(n, destinoLabel) {
+function sxAvisoTelegramHtml(n, destinoLabel, conSaldo = false) {
+  if (conSaldo) { // R206 · pagado con billetera: no hay comprobante; avisamos del pedido
+    const q = sxEsc(String(destinoLabel || '').replace(/^[^\p{L}]+/u, '') || 'el equipo'), st = n && n.estado;
+    if (st === 'recibido') return `<div class="sx-banner ok sx-tg" role="status"><span>✅ <b>Pedido avisado en Telegram de ${q}.</b></span></div>`;
+    if (st === 'error' || st === 'pendiente') return `<div class="sx-banner info sx-tg" role="status"><span>⏳ <b>Aviso a Telegram pendiente</b> de ${q}. El pedido y el pago quedaron guardados; no haga otro pedido.</span></div>`;
+    return '';
+  }
   const quien = sxEsc(String(destinoLabel || '').replace(/^[^\p{L}]+/u, '') || 'el equipo');
   const e = n && n.estado;
   if (e === 'recibido') return `<div class="sx-banner ok sx-tg" role="status"><span>✅ <b>Comprobante recibido en Telegram de ${quien}.</b></span></div>`;
@@ -728,12 +812,14 @@ function sxConfirmacionHtml() {
   return `<div class="sx-page sx-compra"><section class="sx-card sx-confirm" aria-labelledby="sxConfTitulo">
     <span class="sx-confirm-ic" aria-hidden="true">✓</span>
     <h1 id="sxConfTitulo" tabindex="-1">Pedido #${sxEsc(c.ref)} ${c.duplicado ? 'ya estaba registrado' : 'recibido'}</h1>
-    <p>${c.duplicado ? 'Este pedido ya había llegado antes: no se creó otro.' : 'El servidor guardó el pedido y su comprobante.'} Estado: <span class="sx-pill ${cls}">${label}</span></p>
-    ${sxAvisoTelegramHtml(c.notificacion, c.destinoLabel)}
-    <p class="sx-help"><b>Todavía no significa entregado.</b> “Recibido” no significa pago verificado: el equipo revisa el comprobante y después entrega. Lo verá cambiar en Pedidos.</p>
+    <p>${c.duplicado ? 'Este pedido ya había llegado antes: no se creó otro.' : c.pago ? 'Pagado con su saldo de billetera.' : 'El servidor guardó el pedido y su comprobante.'} Estado: <span class="sx-pill ${cls}">${label}</span></p>
+    ${sxAvisoTelegramHtml(c.notificacion, c.destinoLabel, !!c.pago)}
+    ${c.pago ? `<dl class="sx-totals bl-cot"><div><dt>Precio de lista</dt><dd>${money(c.pago.lista)}</dd></div>${c.pago.descuentoBilletera ? `<div><dt>Descuento por billetera</dt><dd>−${money(c.pago.descuentoBilletera)}</dd></div>` : ''}${c.pago.giftCard ? `<div><dt>Gift Card</dt><dd>−${money(c.pago.giftCard)}</dd></div>` : ''}<div class="total"><dt>Cobrado de su saldo</dt><dd>${money(c.pago.saldoReal)}</dd></div></dl>
+    <p class="sx-help"><b>Todavía no significa entregado.</b> El pago ya está confirmado; el equipo prepara y entrega el servicio manualmente. Si se cancela, el saldo vuelve a su billetera.</p>`
+      : `<p class="sx-help"><b>Todavía no significa entregado.</b> “Recibido” no significa pago verificado: el equipo revisa el comprobante y después entrega. Lo verá cambiar en Pedidos.</p>`}
     <p class="sx-help">Cliente: <b>${sxEsc(c.principal)}</b></p>
     <ul class="sx-review">${c.lineas.map((l) => `<li><div><b>${sxEsc(l.nombre)}${l.cantidad > 1 ? ` × ${l.cantidad}` : ''}</b></div><span>${l.precio === null ? 'Por confirmar' : money(l.precio * l.cantidad)}</span></li>`).join('')}</ul>
-    <dl class="sx-totals"><div><dt>Descuento</dt><dd>−${money(c.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(c.total)}</dd></div></dl>
+    ${c.pago ? '' : `<dl class="sx-totals"><div><dt>Descuento</dt><dd>−${money(c.descuento)}</dd></div><div class="total"><dt>Total</dt><dd>${money(c.total)}</dd></div></dl>`}
     <div class="sx-confirm-actions"><button type="button" class="sx-btn pri" data-act="ver-pedido">Ver mi pedido</button><button type="button" class="sx-btn sec" data-act="nueva-compra">Nueva compra</button></div>
     <p class="sx-help">¿Otro cliente? Use “Nueva compra”: cada cliente lleva su propio pedido y comprobante.</p>
   </section></div>`;
@@ -755,6 +841,7 @@ function sxEstadoPedido(v) {
   const s = sxNorm(v || 'pendiente');
   if (['entregado', 'completado'].includes(s)) return ['ok', 'Entregado'];
   if (['en proceso', 'proceso'].includes(s)) return ['work', 'En preparación'];
+  if (s === 'pago confirmado') return ['work', 'Pago confirmado'];
   if (['falta informacion'].includes(s)) return ['warn', 'Falta información'];
   if (['cancelado'].includes(s)) return ['off', 'Cancelado'];
   return ['info', 'Recibido'];
@@ -796,7 +883,7 @@ function sxPedidoDetalleHtml(o) {
   const [cls0] = sxEstadoPedido(o.estado);
   const [cls, label] = sxEstadoEntrega(o) || sxEstadoPedido(o.estado);
   const ren = o.entregaResumen?.renglones || {};
-  const pago = o.pagoEnRevision ? `Pago en revisión por el equipo · ${money(o.monto || o.totalCombo)}` : cls0 === 'off' ? 'Pedido cancelado' : cls0 === 'ok' ? `Pagado ${money(o.monto || o.totalCombo)}${o.banco ? ' · ' + o.banco : ''}` : `${o.comprobante ? 'Comprobante enviado' : 'Sin comprobante'}${o.banco ? ' · ' + o.banco : ''} · ${money(o.monto || o.totalCombo)} · pendiente de verificación por el equipo`;
+  const pago = o.pago && o.pago.metodo === 'billetera' ? (cls0 === 'off' ? `Pedido cancelado · ${money(o.pago.saldoReal + o.pago.giftCard)} devueltos a su billetera` : `Pagado con saldo de billetera ${money(o.pago.saldoReal)}${o.pago.giftCard ? ` + Gift Card ${money(o.pago.giftCard)}` : ''}${o.pago.descuentoBilletera ? ` · descuento ${money(o.pago.descuentoBilletera)}` : ''}`) : o.pagoEnRevision ? `Pago en revisión por el equipo · ${money(o.monto || o.totalCombo)}` : cls0 === 'off' ? 'Pedido cancelado' : cls0 === 'ok' ? `Pagado ${money(o.monto || o.totalCombo)}${o.banco ? ' · ' + o.banco : ''}` : `${o.comprobante ? 'Comprobante enviado' : 'Sin comprobante'}${o.banco ? ' · ' + o.banco : ''} · ${money(o.monto || o.totalCombo)} · pendiente de verificación por el equipo`;
   const consultas = (sxConsultas || []).filter((c) => c.pedidoId === o.id);
   const mixto = !!o.historicoAnterior;
   return `<div class="sx-page"><button type="button" class="sx-link" data-act="volver">← Pedidos</button>

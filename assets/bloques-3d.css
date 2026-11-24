@@ -351,3 +351,18 @@ html.b3d body #app .search input:not([type=checkbox]):not([type=radio]):not([typ
 .bl-mov{text-align:right;font-weight:900;font-size:16px;white-space:nowrap}.bl-mov.pos{color:var(--b-green-d,#0E7639)}.bl-mov.neg{color:var(--b-red-d,#A9141A)}
 .bl-mov small{display:block;font-weight:600;color:var(--b-ink2,#4A5B75)}
 @media (max-width:560px){.bl-saldos{grid-template-columns:1fr}.bl-acc .sx-btn{flex:1 1 calc(50% - 10px);justify-content:center}}
+
+/* R206 · Fase 4 · forma de pago en Nueva compra (billetera o transferencia). Blanco, sin degradados. */
+.sx-metodos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px}
+.sx-metodo-op{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:12px 14px;border:2px solid var(--b-line,#D5DEEB);border-radius:14px;background:#fff;color:var(--b-ink,#14233C);font:inherit;cursor:pointer;box-shadow:0 3px 0 var(--b-line,#D5DEEB)}
+.sx-metodo-op b{font-weight:900;font-size:15px}
+.sx-metodo-op small{color:var(--b-ink2,#4A5B75);font-weight:600;font-size:12.5px;line-height:1.35}
+.sx-metodo-op.on{border-color:var(--b-blue,#1C64F2);box-shadow:0 3px 0 var(--b-blue-d,#1449B8)}
+.sx-metodo-op.on b{color:var(--b-blue,#1C64F2)}
+.sx-metodo-op:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.sx-metodo-op:focus-visible{outline:3px solid var(--b-blue,#1C64F2);outline-offset:2px}
+.bl-checkout{border:2px solid var(--b-line,#D5DEEB);border-radius:14px;padding:12px 14px;background:#fff}
+.bl-cot{margin:0 0 8px}
+.bl-gift{display:flex;gap:8px;align-items:flex-start;font-weight:700;font-size:13.5px;margin:8px 0;color:var(--b-ink,#14233C)}
+.bl-gift input{width:18px;height:18px;margin-top:1px;flex:0 0 auto}
+@media (max-width:560px){.sx-metodos{grid-template-columns:1fr}}

@@ -4,7 +4,8 @@
    · Gift Card / saldo promocional aparte: nunca se presenta como efectivo.
    · Recargar = enviar comprobante. NO acredita nada hasta que el equipo confirme el depósito real.
    · Los saldos vienen del servidor (libro de movimientos). Aquí no se calcula ni suma nada.
-   · Pagar pedidos con saldo llega en la Fase 4 (la compra con comprobante sigue igual).
+   · R206 · Fase 4: «Comprar con saldo» abre Nueva compra; en el paso Pago se elige «Saldo de billetera».
+     El cargo, el descuento y la Gift Card los calcula el servidor. La compra con comprobante sigue igual.
    ===================================================================================================== */
 (function () {
   'use strict';
@@ -12,7 +13,7 @@
   const L = (n) => `L${(Math.round((Number(n) || 0) * 100) / 100).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   const fecha = (iso) => { try { return new Date(iso).toLocaleString('es-HN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } };
   const ICONO = '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M16 13.5h2"/>';
-  const TIPOS = { recarga: 'Recarga', compra: 'Compra', reserva: 'Reserva', liberacion: 'Reserva liberada', devolucion: 'Devolución', premio: 'Premio', ajuste: 'Ajuste' };
+  const TIPOS = { recarga: 'Recarga', compra: 'Pago de pedido', reserva: 'Reserva', liberacion: 'Reserva liberada', devolucion: 'Devolución', premio: 'Premio', ajuste: 'Ajuste' };
   const EST = { pendiente: ['warn', 'Pendiente de verificar'], aprobada: ['ok', 'Acreditada'], rechazada: ['bad', 'Rechazada'] };
   let vista = null, cargando = null, at = 0, formAbierto = false, enviando = false, comprobante = '', reqId = '';
   const puede = () => typeof API !== 'undefined' && API.token && !(typeof isAdmin !== 'undefined' && isAdmin && !(typeof impersonating !== 'undefined' && impersonating)) && !(typeof socioSinCompras === 'function' && socioSinCompras());
@@ -53,7 +54,7 @@
     return `<div class="sx-page bl-page" data-bl-page="ok">
       <div class="sx-page-head"><h1>Mi billetera</h1><small>Saldo para comprar sin enviar comprobante en cada pedido</small></div>
       <section class="sx-card bl-card"><div class="bl-saldos">${tarjetaSaldo(s.sublicuentas || { nombre: 'Sublicuentas' })}${tarjetaSaldo(s.relojes || { nombre: 'Relojes' })}</div>
-        <div class="bl-acc"><button type="button" class="sx-btn pri" data-bl="recargar">Recargar</button><button type="button" class="sx-btn sec" disabled title="Próximamente">Comprar con saldo · pronto</button><a class="sx-btn sec" href="#blMovs">Ver movimientos</a>${v.pendientes ? `<a class="sx-btn sec" href="#blRecs">Pendientes (${v.pendientes})</a>` : ''}</div>
+        <div class="bl-acc"><button type="button" class="sx-btn pri" data-bl="recargar">Recargar</button><button type="button" class="sx-btn sec" data-bl="comprar">Comprar con saldo</button><a class="sx-btn sec" href="#blMovs">Ver movimientos</a>${v.pendientes ? `<a class="sx-btn sec" href="#blRecs">Pendientes (${v.pendientes})</a>` : ''}</div>
         <p class="sp-help">Puede seguir comprando como siempre, con transferencia y comprobante en cada pedido. La billetera es opcional.</p></section>
       ${formAbierto ? formulario(v) : ''}
       <section class="sx-card bl-list" id="blRecs"><b class="bl-tit">Mis recargas</b>${rec ? `<ul>${rec}</ul>` : '<p class="sp-help">Todavía no ha enviado recargas.</p>'}</section>
@@ -84,6 +85,7 @@
   document.addEventListener('click', async (e) => {
     const b = e.target.closest && e.target.closest('[data-bl]'); if (!b) return;
     const a = b.dataset.bl;
+    if (a === 'comprar') { try { if (typeof SX !== 'undefined') { SX.metodo = 'billetera'; } } catch (_) {} go('compras'); if (typeof sxToast === 'function') sxToast('Elija los productos. En el paso «Pago» use «Saldo de billetera».'); return; }
     if (a === 'recargar') { formAbierto = true; comprobante = ''; nuevoReqId(); await render(); document.getElementById('blForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     if (a === 'cerrar') { formAbierto = false; render(); return; }
     if (a === 'reintentar') { cargar(true).then(render); return; }
@@ -148,4 +150,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
   window.addEventListener('load', iniciar);
   window.SubliBilletera = { cargar, ver: verBilletera };
+  window.blRecargar = () => { at = 0; return cargar(true); };
 })();
