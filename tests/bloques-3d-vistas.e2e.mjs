@@ -252,7 +252,7 @@ for (const w of [390, 1440]) {
   if (t.h1 !== 'rgb(255, 255, 255)') errores.push('saludo no es blanco: ' + t.h1);
   const b = page.locator('.b3d-snd');
   if ((await b.getAttribute('aria-pressed')) !== 'false') errores.push('el sonido no inicia APAGADO');
-  if (!/apagado/i.test(await b.getAttribute('aria-label'))) errores.push('falta aria-label del sonido');
+  if ((await b.getAttribute('aria-label')) !== 'Activar sonido') errores.push('falta aria-label del sonido'); // R210: «Activar sonido» / «Silenciar sonido»
   const durs = await page.evaluate(() => Object.fromEntries(Object.entries(SubliSonido._sfx).map(([k, v]) => [k, v.reduce((a, x) => a + x[1], 0)])));
   const rango = { click: [60, 90], nav: [90, 130], exito: [160, 260], error: [120, 220], logro: [350, 600] };
   for (const [k, [mi, ma]] of Object.entries(rango)) if (!(durs[k] >= mi && durs[k] <= ma)) errores.push(`sonido ${k} dura ${durs[k]} ms (pedido ${mi}-${ma})`);

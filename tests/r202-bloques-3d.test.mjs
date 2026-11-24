@@ -9,7 +9,7 @@ test('index.html: tema activo y bloques-3d.css/js cargados AL FINAL', () => {
   assert.ok(ic >= 0 && css.slice(ic + 1).every((x) => /^assets\/bloques-(ficha-compras|catalogo)\.css\?v=/.test(x)), 'bloques-3d.css al final; solo la capa R208 va luego');
   const js = [...h.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map((m) => m[1]);
   const ib = js.findIndex((x) => /^assets\/bloques-3d\.js\?v=/.test(x)), ig = js.findIndex((x) => /^assets\/socios-guia\.js\?v=/.test(x));
-  assert.ok(ib > ig && js.slice(ib + 1).every((x) => /^assets\/(sublipoints|billetera|bloques-ficha-compras|bloques-catalogo)\.js\?v=/.test(x)), 'bloques-3d.js después de todo lo anterior; solo SubliPoints, Billetera y la capa R208 van luego');
+  assert.ok(ib > ig && js.slice(ib + 1).every((x) => /^assets\/(sublipoints|billetera|bloques-ficha-compras|bloques-catalogo|admin-inicio)\.js\?v=/.test(x)), 'bloques-3d.js después de todo lo anterior; solo SubliPoints, Billetera y la capa R208 van luego');
 });
 test('colores del sistema y sin marcas ajenas', () => {
   const c = leer('assets/bloques-3d.css'), j = leer('assets/bloques-3d.js');
