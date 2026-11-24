@@ -1,0 +1,131 @@
+/* =====================================================================================================
+   R208 · Ficha del cliente + Compras · bloques 3D (capa de presentación; ver bloques-ficha-compras.js)
+   Colores planos, canto duro (sombra nítida) y studs solo en piezas protagonistas. Sin degradados.
+   ===================================================================================================== */
+html.b3d .b3i{width:20px;height:20px;flex:0 0 auto;display:inline-block;vertical-align:middle}
+html.b3d .b3-deco{position:absolute;right:4px;top:-6px;width:118px;height:66px;pointer-events:none}
+html.b3d .b3-deco.sm{width:84px;height:47px;right:10px;top:8px}
+
+/* ---------- piezas comunes ---------- */
+html.b3d body .b3-sec{display:inline-flex!important;align-items:center;gap:10px;margin:22px 0 12px!important;padding:8px 18px 8px 14px;border-radius:999px;
+  background:var(--b-blue)!important;color:#fff!important;font:800 16px/1.2 var(--b-font)!important;box-shadow:0 3px 0 var(--b-blue-d),var(--b-hi)}
+html.b3d body .b3-sec::before{content:"";width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.3);box-shadow:0 0 0 2px rgba(0,0,0,.12) inset;flex:none}
+
+/* ======================= FICHA DEL CLIENTE ======================= */
+html.b3d body .sxg-ficha .sxg-titulo{position:relative;min-height:62px;padding-right:120px}
+html.b3d body .sxg-ficha .sxg-volver{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px 0 10px;border:1px solid var(--b-line)!important;border-radius:999px!important;
+  background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;font:700 15px var(--b-font)!important;color:var(--b-ink)!important}
+html.b3d body .sxg-ficha .sxg-ficha-top{position:relative;padding:18px!important;gap:16px!important}
+html.b3d body .sxg-ficha .sxg-ficha-top::after{content:"";position:absolute;right:16px;top:12px;width:64px;height:14px;background:var(--b-stud-w) 0 50%/16px 14px repeat-x;opacity:.9}
+html.b3d body .sxg-ficha .sxg-ficha-top>div{padding-left:16px;border-left:2px solid var(--b-line)}
+html.b3d body .sxg-ficha .sxg-ficha-top h2{font:800 24px/1.15 var(--b-font)!important}
+html.b3d body .sxg-ficha .sxg-ini{position:relative;border-radius:14px!important;font-weight:900!important;box-shadow:0 4px 0 rgba(0,0,0,.28),var(--b-hi)!important;margin-top:8px}
+html.b3d body .sxg-ficha .sxg-ini::before{content:"";position:absolute;left:12%;right:12%;top:-8px;height:10px;border-radius:4px 4px 0 0;background:inherit;
+  -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/33.3% 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/33.3% 100% repeat-x}
+html.b3d body .sxg-ficha .sxg-ini.lg{width:64px!important;height:64px!important;font-size:30px!important}
+
+/* tarjeta de servicio */
+html.b3d body .sxg-ficha .b3-svc{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:16px!important;margin:0 0 12px!important;border-radius:var(--b-r)!important}
+html.b3d body .sxg-ficha .b3-svc .sxg-svc-top{margin:0!important;align-items:center!important}
+html.b3d body .sxg-ficha .b3-svc .sxg-ini{width:48px!important;height:48px!important;font-size:22px!important}
+html.b3d body .sxg-ficha .b3-svc .sxg-svc-tx b{font:800 18px/1.2 var(--b-font)!important}
+html.b3d body .sxg-ficha .b3-svc .sxg-precio{align-self:center;padding-left:14px;border-left:2px solid var(--b-line);font:900 20px var(--b-font)!important;color:var(--b-ink)!important;white-space:nowrap}
+html.b3d body .sxg-ficha .sxg-pill{display:inline-flex!important;align-items:center;gap:5px;padding:4px 10px 4px 6px!important;border-radius:999px!important;font-weight:800!important}
+html.b3d body .sxg-ficha .sxg-pill .b3i{width:16px;height:16px}
+html.b3d body .sxg-ficha .sxg-pill.ok{background:var(--b-green-s)!important;color:var(--b-green-d)!important;box-shadow:0 0 0 1px #BFE6CD inset}
+html.b3d body .sxg-ficha .sxg-pill.ok .b3i{color:var(--b-green)}
+html.b3d body .sxg-ficha .b3-renovar{position:relative;display:flex!important;align-items:center;justify-content:center;gap:8px;min-height:50px;margin-top:4px;font:800 16px var(--b-font)!important}
+html.b3d body .sxg-ficha .b3-renovar::before{content:"";position:absolute;left:22px;right:22px;top:-6px;height:7px;background:var(--b-red);
+  -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/24px 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/24px 100% repeat-x}
+html.b3d body .sxg-ficha .b3-renovar .chev{width:18px;height:18px}
+@media (min-width:560px){
+  html.b3d body .sxg-ficha .b3-svc{grid-template-columns:minmax(0,1fr) 240px;align-items:center}
+  html.b3d body .sxg-ficha .b3-renovar{margin:0;min-height:56px}
+}
+
+/* acciones */
+html.b3d body .sxg-ficha .sxg-dos{gap:12px!important;margin:6px 0 12px!important}
+html.b3d body .sxg-ficha .sxg-dos>*{display:flex!important;align-items:center;justify-content:center;gap:10px;min-height:52px;font:800 15.5px var(--b-font)!important;text-align:center}
+html.b3d body .sxg-ficha .sxg-dos>.wa{background:var(--b-green-s)!important;color:var(--b-green-d)!important;border-color:#BFE6CD!important;box-shadow:0 3px 0 #A9D9BA!important}
+html.b3d body .sxg-ficha .sxg-dos>.wa .b3i{color:var(--b-green)}
+html.b3d body .sxg-ficha .b3-cobro .b3i{color:var(--b-ink)}
+html.b3d body .sxg-ficha .b3-amarillo{position:relative;display:flex!important;align-items:center;justify-content:center;gap:10px;min-height:56px;
+  background:var(--b-yel)!important;color:#3A2A00!important;border:0!important;border-radius:var(--b-r)!important;box-shadow:0 4px 0 var(--b-yel-d),var(--b-hi)!important;font:900 17px var(--b-font)!important}
+html.b3d body .sxg-ficha .b3-amarillo::before,html.b3d body .sxg-ficha .b3-amarillo::after{content:"";position:absolute;top:50%;width:40px;height:16px;margin-top:-8px;background:var(--b-stud) 0 50%/20px 16px repeat-x}
+html.b3d body .sxg-ficha .b3-amarillo::before{left:12px}html.b3d body .sxg-ficha .b3-amarillo::after{right:12px}
+html.b3d body .sxg-ficha .b3-amarillo .b3i{width:22px;height:22px}
+html.b3d body .sxg-ficha .b3-vacio{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 16px 16px!important;text-align:center}
+html.b3d body .sxg-ficha .b3-vacio-ill{width:190px;height:96px}
+html.b3d body .sxg-ficha .b3-vacio p{margin:0;font:600 15px var(--b-font);color:var(--b-ink2)}
+@media (min-width:900px){html.b3d body .sxg-ficha .sxg-svcs{display:grid;grid-template-columns:1fr;gap:0}}
+
+/* =========================== COMPRAS =========================== */
+html.b3d body .b3-compra .sx-page-head{position:relative;display:flex!important;align-items:center;gap:14px;min-height:72px;padding-right:130px}
+html.b3d body .b3-compra .b3-head-ic{position:relative;flex:none;display:grid;place-items:center;width:58px;height:58px;margin-top:8px;border-radius:14px;background:var(--b-red);color:#fff;box-shadow:0 4px 0 var(--b-red-d),var(--b-hi)}
+html.b3d body .b3-compra .b3-head-ic::before{content:"";position:absolute;left:8px;right:8px;top:-8px;height:10px;background:var(--b-red);
+  -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 6px,transparent 6.5px) 0 0/50% 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 6px,transparent 6.5px) 0 0/50% 100% repeat-x}
+html.b3d body .b3-compra .b3-head-ic .b3i{width:30px;height:30px}
+html.b3d body .b3-compra .b3-head-tx h1{margin:0!important}
+html.b3d body .b3-compra .sxg-mis-pedidos{position:absolute;right:0;top:0;z-index:1;min-height:40px;padding:0 14px!important;border:1px solid var(--b-line)!important;border-radius:999px!important;background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;color:var(--b-red)!important;font-weight:800!important}
+html.b3d body .b3-compra .sx-page-head .b3-deco{top:auto;bottom:-10px;right:0;width:108px;height:60px}
+/* pasos: una sola barra de piezas; la activa es una pieza azul con studs */
+html.b3d body .b3-compra .sx-steps{gap:6px!important;padding:6px!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r)!important;background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;margin-top:8px!important}
+html.b3d body .b3-compra .sx-steps button{border:0!important;box-shadow:none!important;background:transparent!important;min-height:48px;font-weight:800!important}
+html.b3d body .b3-compra .sx-steps li.on button{position:relative;background:var(--b-blue)!important;color:#fff!important;box-shadow:0 3px 0 var(--b-blue-d),var(--b-hi)!important;border-radius:var(--b-r-sm)!important}
+html.b3d body .b3-compra .sx-steps li.on button::before{content:"";position:absolute;left:14px;right:14px;top:-6px;height:7px;background:var(--b-blue);
+  -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/18px 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/18px 100% repeat-x}
+html.b3d body .b3-compra .sx-steps li.on b{background:#fff!important;color:var(--b-blue-d)!important}
+html.b3d body .b3-compra .sx-steps li.done b{background:var(--b-green)!important;color:#fff!important}
+/* tarjeta del paso */
+html.b3d body .b3-compra .sx-step-card{position:relative}
+html.b3d body .b3-compra .sx-step-card>h2,html.b3d body .b3-compra .sx-step-card>.sx-help:first-of-type{padding-right:92px}
+html.b3d body .b3-compra .b3-buscar{position:relative}
+html.b3d body .b3-compra .b3-buscar .lupa{position:absolute;left:14px;bottom:13px;width:20px;height:20px;color:var(--b-ink2);pointer-events:none}
+html.b3d body .b3-compra .b3-buscar input{padding-left:44px!important;border-radius:999px!important}
+html.b3d body .b3-compra .b3-desc{display:flex!important;align-items:center;gap:12px;padding:10px 14px!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r-sm)!important;background:var(--b-blue-s)!important;color:var(--b-ink)!important}
+html.b3d body .b3-compra .b3-desc-ic{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--b-yel);color:#3A2A00;box-shadow:0 3px 0 var(--b-yel-d),var(--b-hi)}
+/* filas de producto */
+html.b3d body .b3-compra .sx-prod{grid-template-columns:56px minmax(0,1fr) auto!important;gap:14px!important;padding:14px!important;border-radius:var(--b-r)!important}
+html.b3d body .b3-compra .b3-ladrillo{position:relative;display:grid!important;place-items:center;width:52px!important;height:52px!important;margin-top:8px;border-radius:13px!important;
+  font:900 24px var(--b-font)!important;color:#fff!important;box-shadow:0 4px 0 rgba(0,0,0,.28),var(--b-hi)!important}
+html.b3d body .b3-compra .b3-ladrillo::before{content:"";position:absolute;left:8px;right:8px;top:-7px;height:9px;background:inherit;
+  -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/33.3% 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/33.3% 100% repeat-x}
+html.b3d body .b3-compra .b3-red{background:var(--b-red)!important}html.b3d body .b3-compra .b3-blue{background:var(--b-blue)!important}
+html.b3d body .b3-compra .b3-purple{background:var(--b-vio)!important}html.b3d body .b3-compra .b3-sky{background:var(--b-cyan)!important}
+html.b3d body .b3-compra .b3-amber{background:var(--b-ora)!important}html.b3d body .b3-compra .b3-green{background:var(--b-green)!important}
+html.b3d body .b3-compra .b3-slate{background:#3D5A80!important}
+html.b3d body .b3-compra .sx-prod.out .b3-ladrillo{opacity:.4}
+html.b3d body .b3-compra .sx-prod-main h3{font:800 17px/1.2 var(--b-font)!important}
+html.b3d body .b3-compra .sx-stock{display:inline-flex!important;align-items:center;gap:5px;margin-top:4px;padding:3px 10px 3px 6px;border-radius:999px;font-weight:800!important;background:var(--b-green-s);color:var(--b-green-d)!important}
+html.b3d body .b3-compra .sx-stock .b3i{width:16px;height:16px;color:var(--b-green)}
+html.b3d body .b3-compra .sx-stock.low{background:var(--b-yel-s);color:#8A6300!important}html.b3d body .b3-compra .sx-stock.low .b3i{color:var(--b-yel-d)}
+html.b3d body .b3-compra .sx-stock.out{background:var(--b-red-s);color:var(--b-red-d)!important;padding-left:10px}
+html.b3d body .b3-compra .sx-stock.unknown{background:#EEF2F8;color:var(--b-ink2)!important;padding-left:10px}
+html.b3d body .b3-compra .sx-prod-side strong{font:900 19px var(--b-font)!important}
+html.b3d body .b3-compra .sx-prod [data-act="agregar"]{min-height:44px;min-width:104px;color:var(--b-blue-d)!important;border:2px solid var(--b-blue)!important;box-shadow:0 3px 0 var(--b-blue-d)!important;font-weight:800!important;background:#fff!important}
+html.b3d body .b3-compra .sx-prod [data-act="agregar"]:disabled{color:var(--b-ink2)!important;border-color:var(--b-line2)!important;box-shadow:0 3px 0 var(--b-line2)!important;background:#EEF2F8!important}
+@media (min-width:421px){
+  html.b3d body .b3-compra .sx-prod-side{flex-direction:row!important;align-items:center!important;gap:14px!important}
+  html.b3d body .b3-compra .sx-prod-side strong{padding-left:14px;border-left:2px solid var(--b-line)}
+}
+@media (max-width:420px){html.b3d body .b3-compra .sx-prod{grid-template-columns:52px minmax(0,1fr)!important}}
+/* barra inferior */
+html.b3d body .b3-bar-ic{display:inline-grid;place-items:center;width:34px;height:34px;margin-right:8px;border-radius:9px;background:var(--b-blue);color:#fff;box-shadow:0 3px 0 var(--b-blue-d);vertical-align:middle}
+html.b3d body .b3-bar-ic .b3i{width:20px;height:20px}
+@media (max-width:380px){html.b3d body .b3-bar-ic{display:none}}
+@media (prefers-reduced-motion:reduce){html.b3d body .b3-compra *,html.b3d body .sxg-ficha *{transition:none!important;animation:none!important}}
+/* ajustes de cabecera y pasos en móvil */
+html.b3d body .b3-compra .sx-page-head{display:grid!important;grid-template-columns:58px minmax(0,1fr);align-items:center!important;column-gap:14px}
+html.b3d body .b3-compra .sx-page-head .b3-head-tx{grid-column:2}
+html.b3d body .b3-compra .sx-steps{display:grid!important;grid-template-columns:1.35fr 1fr 1fr}
+html.b3d body .b3-compra .sx-steps button{width:100%;padding:0 8px!important;gap:7px!important;justify-content:center}
+html.b3d body .b3-compra .sx-steps span{overflow:visible!important;text-overflow:clip!important;white-space:nowrap}
+@media (max-width:480px){
+  html.b3d body .b3-compra .sx-step-card>.b3-deco{display:none}
+  html.b3d body .b3-compra .sx-step-card>h2,html.b3d body .b3-compra .sx-step-card>.sx-help:first-of-type{padding-right:0}
+  html.b3d body .b3-compra .sx-page-head{padding-right:0;padding-top:44px}
+  html.b3d body .b3-compra .sx-page-head .b3-deco{display:none}
+  html.b3d body .b3-compra .sx-steps button{font-size:14px!important}
+}
+@media (max-width:360px){html.b3d body .b3-compra .sx-steps li:not(.on) span{display:none}}
+html.b3d body .b3-compra .sx-page-head .b3-deco{right:150px}@media (max-width:480px){html.b3d body .b3-compra .sx-page-head .b3-deco{display:none}}
