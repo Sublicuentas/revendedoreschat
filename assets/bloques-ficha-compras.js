@@ -16,6 +16,15 @@
     chev: '<path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
     check: '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
     cart: '<path d="M3 4h2.3l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.3a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="19.5" r="1.6" fill="currentColor"/><circle cx="17" cy="19.5" r="1.6" fill="currentColor"/>',
+    users: '<circle cx="9" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6.1M18 14.6c1.6.6 2.7 2.2 3 4.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    renew: '<path d="M20 8a8.5 8.5 0 0 0-15.3-1.5M4 16a8.5 8.5 0 0 0 15.3 1.5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><path d="M20 3.5V8h-4.5M4 20.5V16h4.5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>',
+    cal: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    alerta: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7.5v5.5M12 16.5h.01" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+    nada: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6 18 18 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    capas: '<path d="m12 3 9 5-9 5-9-5Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><path d="m3 12.5 9 5 9-5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/>',
+    monedas: '<ellipse cx="12" cy="6.5" rx="7.5" ry="3" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M4.5 6.5v5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-5M4.5 11.5v5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-5" fill="none" stroke="currentColor" stroke-width="2.1"/>',
+    reloj: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    flecha: '<path d="M4 12h15m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
     search: '<circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
     pct: '<circle cx="7.5" cy="7.5" r="2.6" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="16.5" cy="16.5" r="2.6" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   };
@@ -56,6 +65,37 @@
     }
   }
 
+  /* ---------- R211 · lista de Clientes ---------- */
+  const FIL = { todos: ['users', 'blue'], vigentes: ['check', 'green'], renovaciones: ['renew', 'sky'], vencidos: ['alerta', 'red'], sinservicio: ['nada', 'slate'] };
+  const PILL = { ok: 'check', info: 'reloj', warn: 'alerta', off: 'nada' };
+  function clientes(root) {
+    const pg = root.querySelector('.sxg-clientes'); if (!pg) return;
+    pg.classList.add('b3-clientes');
+    const t = pg.querySelector('.sxg-titulo');
+    if (t && !hecho(t, 'd')) { t.insertAdjacentHTML('afterbegin', `<span class="b3-head-ic b3-tit-ic" aria-hidden="true">${SVG(I.users)}</span>`); t.insertAdjacentHTML('beforeend', DECO); }
+    pg.querySelectorAll('.sxg-chips .sxg-chip').forEach((b) => {
+      if (b.querySelector('.b3-fil-ic')) return;
+      const [ic] = FIL[b.dataset.v] || ['users'];
+      b.classList.add('b3-fil'); const tx = document.createElement('span'); tx.className = 'b3-fil-tx'; while (b.firstChild) tx.appendChild(b.firstChild); b.appendChild(tx); b.insertAdjacentHTML('afterbegin', `<span class="b3-fil-ic" aria-hidden="true">${SVG(ic === 'check' ? '<path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' : I[ic])}</span>`);
+    });
+    const hint = pg.querySelector('.sxg-chips-hint'); if (hint && !hecho(hint, 'i')) { hint.classList.add('b3-hint'); hint.innerHTML = `<span>${hint.textContent.replace(/\s*→\s*$/, '')}</span>${SVG(I.flecha)}`; }
+    const bus = pg.querySelector('.sxg-buscar'); if (bus) bus.classList.add('b3-buscar-blq');
+    const cta = pg.querySelector('.sxg-cuenta'); if (cta && !cta.querySelector('svg')) { cta.classList.add('b3-cuenta'); cta.insertAdjacentHTML('afterbegin', SVG(I.users)); }
+    pg.querySelectorAll('.sxg-lista .sxg-cli:not(.sxg-cli-esq)').forEach((b) => {
+      if (hecho(b, 'c')) return;
+      b.classList.add('b3-cli');
+      const sm = b.querySelectorAll('.sxg-cli-tx > small');
+      if (sm[0]) { sm[0].classList.add('b3-ln'); sm[0].insertAdjacentHTML('afterbegin', SVG(I.capas)); }
+      if (sm[1]) {
+        const txt = sm[1].textContent, i = txt.search(/ · L[\d,.]+/);
+        const fecha = i >= 0 ? txt.slice(0, i) : txt, monto = i >= 0 ? txt.slice(i + 3) : '';
+        sm[1].classList.add('b3-ln'); sm[1].innerHTML = `${SVG(I.cal)}<span>${fecha.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])}</span>`;
+        if (monto) sm[1].insertAdjacentHTML('afterend', `<small class="b3-ln b3-monto">${SVG(I.monedas)}<span>${monto.replace(/[&<>]/g, '')}</span></small>`);
+      }
+      const p = b.querySelector('.sxg-pill'); if (p && !p.querySelector('svg')) { const k = ['ok', 'info', 'warn', 'off'].find((c) => p.classList.contains(c)); if (k) p.insertAdjacentHTML('afterbegin', SVG(k === 'ok' ? '<path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' : I[PILL[k]])); }
+    });
+  }
+
   function compras(root) {
     const c = root.querySelector('#sxCompra'); if (!c) return;
     c.classList.add('b3-compra');
@@ -84,7 +124,7 @@
   }
   function decorar() {
     const root = document.getElementById('content') || document.body;
-    try { if (typeof current !== 'undefined' && current === 'clientes') ficha(root); } catch (_) {}
+    try { if (typeof current !== 'undefined' && current === 'clientes') { ficha(root); clientes(root); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'compras') { compras(root); barra(); } } catch (_) {}
   }
   let pend = false;
