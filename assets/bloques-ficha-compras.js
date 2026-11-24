@@ -96,6 +96,35 @@
     });
   }
 
+  /* ---------- R212 · Más opciones ---------- */
+  const DECO_ESQ = `<svg class="b3-esq" viewBox="0 0 120 70" aria-hidden="true" focusable="false">${pieza(8, 30, 56, '#DE1F25', '#A9141A')}${pieza(56, 14, 56, '#FFFFFF', '#C9D4E4')}</svg>`;
+  const I2 = {
+    gorro: '<path d="m2.5 9.5 9.5-5 9.5 5-9.5 5Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><path d="M6.5 11.6V16c1.4 1.6 3.4 2.5 5.5 2.5s4.1-.9 5.5-2.5v-4.4M21.5 9.5v5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+    bajar: '<rect x="5" y="3" width="14" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M12 7.5v7m-3-3 3 3 3-3M9 17.5h6" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>',
+    salir: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M3.5 12h11m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+  function mas(root) {
+    const pg = root.querySelector('.sxg-mas'); if (!pg) return;
+    pg.classList.add('b3-mas');
+    const t = pg.querySelector('.sxg-titulo'); if (t && !hecho(t, 'd')) { t.insertAdjacentHTML('afterbegin', DECO_ESQ.replace('b3-esq', 'b3-esq izq')); t.insertAdjacentHTML('beforeend', DECO_ESQ.replace('b3-esq', 'b3-esq der')); }
+    pg.querySelectorAll('.sxg-mas-item').forEach((b) => {
+      if (hecho(b, 'm')) return;
+      b.classList.add('b3-mas-it');
+      const ic = b.querySelector('.sxg-mas-ic'); if (ic) { ic.classList.add('b3-mas-ic'); if (b.dataset.go === 'aula') ic.innerHTML = SVG(I2.gorro); }
+      const tono = (ic && [...ic.classList].find((c) => /^sxg-(green|red|blue|sky|amber|orange|purple|slate)$/.test(c))) || '';
+      if (tono) b.dataset.tono = tono.slice(4);
+    });
+    const acc = pg.querySelector('.sxg-mas-acc');
+    if (acc && !hecho(acc, 'a')) {
+      acc.classList.add('b3-mas-acc');
+      acc.querySelectorAll('[data-m]').forEach((x) => {
+        const ic = x.dataset.m === 'sync' ? I.renew : I2.bajar;
+        x.classList.add('b3-acc-btn'); x.innerHTML = `${SVG(ic)}<span>${x.textContent.replace(/^[^\p{L}]+/u, '').trim()}</span>`;
+      });
+    }
+    const sal = pg.querySelector('.sxg-salir'); if (sal && !hecho(sal, 'i')) { sal.classList.add('b3-salir'); sal.insertAdjacentHTML('afterbegin', SVG(I2.salir)); }
+  }
+
   function compras(root) {
     const c = root.querySelector('#sxCompra'); if (!c) return;
     c.classList.add('b3-compra');
@@ -126,6 +155,7 @@
     const root = document.getElementById('content') || document.body;
     try { if (typeof current !== 'undefined' && current === 'clientes') { ficha(root); clientes(root); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'compras') { compras(root); barra(); } } catch (_) {}
+    try { if (typeof current !== 'undefined' && current === 'mas') mas(root); } catch (_) {}
   }
   let pend = false;
   const mo = new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorar(); }); });
