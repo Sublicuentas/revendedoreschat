@@ -207,7 +207,7 @@ for (const w of (process.env.ANCHOS || '360,390,768,1280').split(',').map(Number
   const pills = await page.$$eval('.b3-ren-pill', (x) => x.map((p) => p.textContent.trim())); assert.ok(pills.length >= 1 && pills.every((t) => /Corte hace/.test(t)), pills.join());
   await page.click('.b3-ren-kpi[data-v="todos"]'); await page.waitForTimeout(150);
   // búsqueda por teléfono y por servicio
-  await page.fill('#sxRenBuscar', '3344'); await page.waitForTimeout(150); assert.deepEqual(await page.$$eval('.b3-ren-tx > b', (x) => x.map((b) => b.textContent)), ['Carlos Mejía']);
+  await page.fill('#sxRenBuscar', '3344'); await page.waitForTimeout(150); assert.deepEqual(await page.$$eval('.b3-ren-nom', (x) => x.map((b) => b.textContent)), ['Carlos Mejía']);
   await page.fill('#sxRenBuscar', 'canva'); await page.waitForTimeout(150); assert.match(await page.textContent('#sxRenLista'), /Canva Pro/);
   await page.fill('#sxRenBuscar', ''); await page.waitForTimeout(150);
   await page.evaluate(() => { document.body.scrollTop = 0; window.scrollTo(0, 0); });
@@ -217,9 +217,7 @@ for (const w of (process.env.ANCHOS || '360,390,768,1280').split(',').map(Number
   await card.locator('[data-ren="renovar"]').click(); await page.waitForSelector('#compOverlay.show');
   assert.match(await page.textContent('#compSub'), /Carlos Mejía/); await page.evaluate(() => closeComprobante());
   await card.locator('[data-ren="cobro"]').click(); await page.waitForSelector('#cobroOverlay.show'); await page.evaluate(() => closeCobro());
-  // menú ⋯ → Ver ficha
-  await card.locator('.b3-ren-menu > summary').click(); assert.ok(await card.locator('[data-ren="ficha"]').isVisible());
-  if (w === 390) await page.screenshot({ path: path.join(OUT, 'renovaciones-390-menu.png') });
+  // R217 · el nombre abre la ficha (el menú ⋯ se quitó para igualar el render)
   await card.locator('[data-ren="ficha"]').click(); await page.waitForSelector('.sxg-ficha'); assert.match(await page.textContent('.sxg-ficha'), /Carlos Mejía/);
   // vistas
   await page.evaluate(() => go('renovar')); await page.waitForSelector('.b3-ren-kpi');
