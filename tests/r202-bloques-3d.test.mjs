@@ -7,7 +7,7 @@ test('index.html: tema activo y bloques-3d.css/js cargados AL FINAL', () => {
   const css = [...h.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
   assert.match(css.at(-1), /^assets\/bloques-3d\.css\?v=/);
   const js = [...h.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map((m) => m[1]);
-  assert.match(js.at(-1), /^assets\/bloques-3d\.js\?v=/);
+  assert.ok(js.findIndex((x) => /^assets\/bloques-3d\.js\?v=/.test(x)) >= js.length - 2, 'bloques-3d.js entre los últimos (R203: sublipoints.js va después)');
 });
 test('colores del sistema y sin marcas ajenas', () => {
   const c = leer('assets/bloques-3d.css'), j = leer('assets/bloques-3d.js');

@@ -94,13 +94,16 @@ async function api(route, E) {
   const ok = (json, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
   E.calls.push(`${method} ${p}`);
   if (p === '/health') return ok({ ok: true });
+  if (p === '/rev/sublipoints') return ok({ ok: true, inicio: '2026-11-23T20:00:00.000Z', mes: '2026-11', puntos: 32, nivel: 'Leyenda', siguiente: { nivel: 'Inmortal', min: 50, faltan: 18 }, ventasNuevas: 8, renovaciones: 16, meses: [{ mes: '2026-11', puntos: 32, nivel: 'Leyenda' }, { mes: '2026-10', puntos: 12, nivel: 'Diamante' }], movimientos: [] });
+  if (p === '/rev/admin/sublipoints') return ok({ ok: true, mes: '2026-11', inicio: '2026-11-23T20:00:00.000Z', ranking: [{ socio: 'Jimena', socio_norm: 'jimena', puntos: 32, nivel: 'Leyenda', ventasNuevas: 8, renovaciones: 16 }, { socio: 'Heber', socio_norm: 'heber', puntos: 6, nivel: 'Sin nivel', ventasNuevas: 2, renovaciones: 2 }] });
+  if (/^\/rev\/admin\/comprobantes\/[^/]+\/pago$/.test(p)) return ok({ ok: true, estadoPago: 'confirmado', sublipoints: { ok: true, puntos: 1 } });
   if (p === '/rev/admin/revendedores') return ok([
     { id: 'relojes', nombre: 'Relojes', nombre_norm: 'relojes', usuario: 'relojes', clientes: 354, vencidos: 2, porVencer: 78, activo: true },
     { id: 'sublicuentas', nombre: 'Sublicuentas', nombre_norm: 'sublicuentas', usuario: 'sublicuentas', clientes: 194, vencidos: 2, porVencer: 49, activo: true },
     { id: 'jimena', nombre: 'Jimena', nombre_norm: 'jimena', usuario: 'jimena', clientes: 15, vencidos: 0, porVencer: 2, activo: true },
     { id: 'socio4', nombre: 'Socio de prueba', nombre_norm: 'socio de prueba', usuario: 'prueba', clientes: 0, vencidos: 0, porVencer: 0, activo: false } ]);
   if (p.startsWith('/rev/admin/comprobantes-telegram')) return ok({ total: 0, porEstado: {}, items: [], desde: new Date().toISOString() });
-  if (p === '/rev/admin/comprobantes') return ok([{ id: 'k1', socio: 'Jimena', socio_norm: 'jimena', cliente: 'Cliente de prueba', servicio: 'HBO Max', ts: Date.now() - 7200000, monto: 100, renovado: true, nuevaFecha: '30/12/2026' }]);
+  if (p === '/rev/admin/comprobantes') return ok([{ id: 'k1', socio: 'Jimena', socio_norm: 'jimena', cliente: 'Cliente de prueba', servicio: 'HBO Max', ts: Date.now() - 7200000, monto: 100, renovado: true, nuevaFecha: '30/12/2026', estadoPago: 'sin_confirmar', renovadosCantidad: 1 }, { id: 'k2', socio: 'Heber', socio_norm: 'heber', cliente: 'Otro cliente', servicio: 'Disney Premium', ts: Date.now() - 9200000, monto: 90, renovado: true, nuevaFecha: '28/12/2026', estadoPago: 'confirmado', pagoConfirmadoPor: 'Sublicuentas', renovadosCantidad: 1 }]);
   if (p === '/rev/admin/compras') return ok([{ id: 'p1', socio: 'Jimena', socio_norm: 'jimena', cliente: 'Cliente de prueba', servicio: 'Canva Pro · 1 mes', ts: Date.now() - 3600000, monto: 70, destino: 'sublicuentas' }]);
   if (p === '/rev/me') return ok({ nombre: 'Jimena', nombre_norm: 'jimena', usuario: 'jimena', capabilities: null });
   if (p === '/rev/clientes') return ok(clientesSocio);
@@ -190,6 +193,7 @@ for (const w of ANCHOS) {
     await page.screenshot({ path: path.join(OUT, `${w}-${v}.png`), fullPage: process.env.FULL === '1' });
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     if (ov > 1) errores.push(`${w}px ${v}: desborde horizontal ${ov}px`);
+    if (['inicio', 'recompensas'].includes(v) && !(await page.locator(`[data-sp=${v}]`).count())) errores.push(`${w}px ${v}: falta el bloque SubliPoints`);
   }
   if (w < 768) { await page.evaluate(() => go('inicio')); await page.locator('.nav-btn').last().click().catch(() => {}); await page.waitForTimeout(400); await page.screenshot({ path: path.join(OUT, `${w}-mas.png`) }); }
   errores.push(...err.map((e) => `${w}px JS: ${e}`)); await ctx.close();
@@ -200,6 +204,7 @@ for (const w of ANCHOS) {
     await A.page.screenshot({ path: path.join(OUT, `${w}-admin-${m}.png`), fullPage: process.env.FULL === '1' });
     const ov = await A.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     if (ov > 1) errores.push(`${w}px admin ${m}: desborde ${ov}px`);
+    if (m === 'comprobantes') { if (!(await A.page.locator('.sp-confirmar').count())) errores.push(`${w}px: falta «Confirmar pago»`); if (!(await A.page.locator('#spRanking .sp-rank li').count())) errores.push(`${w}px: falta ranking SubliPoints`); }
   }
   errores.push(...A.errores.map((e) => `${w}px admin JS: ${e}`)); await A.ctx.close();
 }
