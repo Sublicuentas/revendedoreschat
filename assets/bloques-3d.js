@@ -46,7 +46,7 @@
   }
 
   const ICONO_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
-  const ICONO_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+  const ICONO_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="x" d="M16.5 9l5 6M21.5 9l-5 6"/></svg>';
   function pintarControles() {
     const on = encendido();
     document.querySelectorAll('.b3d-snd').forEach((b) => { b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Sonido encendido. Tocar para apagar' : 'Sonido apagado. Tocar para encender'); b.title = on ? 'Sonido: encendido' : 'Sonido: apagado'; b.innerHTML = on ? ICONO_ON : ICONO_OFF; });

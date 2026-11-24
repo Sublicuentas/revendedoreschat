@@ -60,14 +60,14 @@ html.b3d body .sxg-ficha .b3-vacio p{margin:0;font:600 15px var(--b-font);color:
 @media (min-width:900px){html.b3d body .sxg-ficha .sxg-svcs{display:grid;grid-template-columns:1fr;gap:0}}
 
 /* =========================== COMPRAS =========================== */
-html.b3d body .b3-compra .sx-page-head{position:relative;display:flex!important;align-items:center;gap:14px;min-height:72px;padding-right:130px}
-html.b3d body .b3-compra .b3-head-ic{position:relative;flex:none;display:grid;place-items:center;width:58px;height:58px;margin-top:8px;border-radius:14px;background:var(--b-red);color:#fff;box-shadow:0 4px 0 var(--b-red-d),var(--b-hi)}
-html.b3d body .b3-compra .b3-head-ic::before{content:"";position:absolute;left:8px;right:8px;top:-8px;height:10px;background:var(--b-red);
+html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head{position:relative;display:flex!important;align-items:center;gap:14px;min-height:72px;padding-right:130px}
+html.b3d body .b3-head-ic{position:relative;flex:none;display:grid;place-items:center;width:58px;height:58px;margin-top:8px;border-radius:14px;background:var(--b-red);color:#fff;box-shadow:0 4px 0 var(--b-red-d),var(--b-hi)}
+html.b3d body .b3-head-ic::before{content:"";position:absolute;left:8px;right:8px;top:-8px;height:10px;background:var(--b-red);
   -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 6px,transparent 6.5px) 0 0/50% 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 6px,transparent 6.5px) 0 0/50% 100% repeat-x}
-html.b3d body .b3-compra .b3-head-ic .b3i{width:30px;height:30px}
+html.b3d body .b3-head-ic .b3i{width:30px;height:30px}
 html.b3d body .b3-compra .b3-head-tx h1{margin:0!important}
 html.b3d body .b3-compra .sxg-mis-pedidos{position:absolute;right:0;top:0;z-index:1;min-height:40px;padding:0 14px!important;border:1px solid var(--b-line)!important;border-radius:999px!important;background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;color:var(--b-red)!important;font-weight:800!important}
-html.b3d body .b3-compra .sx-page-head .b3-deco{top:auto;bottom:-10px;right:0;width:108px;height:60px}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head .b3-deco{top:auto;bottom:-10px;right:0;width:108px;height:60px}
 /* pasos: una sola barra de piezas; la activa es una pieza azul con studs */
 html.b3d body .b3-compra .sx-steps{gap:6px!important;padding:6px!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r)!important;background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;margin-top:8px!important}
 html.b3d body .b3-compra .sx-steps button{border:0!important;box-shadow:none!important;background:transparent!important;min-height:48px;font-weight:800!important}
@@ -79,28 +79,28 @@ html.b3d body .b3-compra .sx-steps li.done b{background:var(--b-green)!important
 /* tarjeta del paso */
 html.b3d body .b3-compra .sx-step-card{position:relative}
 html.b3d body .b3-compra .sx-step-card>h2,html.b3d body .b3-compra .sx-step-card>.sx-help:first-of-type{padding-right:92px}
-html.b3d body .b3-compra .b3-buscar{position:relative}
-html.b3d body .b3-compra .b3-buscar .lupa{position:absolute;left:14px;bottom:13px;width:20px;height:20px;color:var(--b-ink2);pointer-events:none}
-html.b3d body .b3-compra .b3-buscar input{padding-left:44px!important;border-radius:999px!important}
-html.b3d body .b3-compra .b3-desc{display:flex!important;align-items:center;gap:12px;padding:10px 14px!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r-sm)!important;background:var(--b-blue-s)!important;color:var(--b-ink)!important}
-html.b3d body .b3-compra .b3-desc-ic{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--b-yel);color:#3A2A00;box-shadow:0 3px 0 var(--b-yel-d),var(--b-hi)}
+html.b3d body .b3-buscar{position:relative}
+html.b3d body .b3-buscar .lupa{position:absolute;left:14px;bottom:13px;width:20px;height:20px;color:var(--b-ink2);pointer-events:none}
+html.b3d body .b3-buscar input{padding-left:44px!important;border-radius:999px!important}
+html.b3d body .b3-desc{display:flex!important;align-items:center;gap:12px;padding:10px 14px!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r-sm)!important;background:var(--b-blue-s)!important;color:var(--b-ink)!important}
+html.b3d body .b3-desc-ic{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--b-yel);color:#3A2A00;box-shadow:0 3px 0 var(--b-yel-d),var(--b-hi)}
 /* filas de producto */
 html.b3d body .b3-compra .sx-prod{grid-template-columns:56px minmax(0,1fr) auto!important;gap:14px!important;padding:14px!important;border-radius:var(--b-r)!important}
-html.b3d body .b3-compra .b3-ladrillo{position:relative;display:grid!important;place-items:center;width:52px!important;height:52px!important;margin-top:8px;border-radius:13px!important;
+html.b3d body .b3-ladrillo{position:relative;display:grid!important;place-items:center;width:52px!important;height:52px!important;margin-top:8px;border-radius:13px!important;
   font:900 24px var(--b-font)!important;color:#fff!important;box-shadow:0 4px 0 rgba(0,0,0,.28),var(--b-hi)!important}
-html.b3d body .b3-compra .b3-ladrillo::before{content:"";position:absolute;left:8px;right:8px;top:-7px;height:9px;background:inherit;
+html.b3d body .b3-ladrillo::before{content:"";position:absolute;left:8px;right:8px;top:-7px;height:9px;background:inherit;
   -webkit-mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/33.3% 100% repeat-x;mask:radial-gradient(circle at 50% 100%,#000 0 5px,transparent 5.5px) 0 0/33.3% 100% repeat-x}
-html.b3d body .b3-compra .b3-red{background:var(--b-red)!important}html.b3d body .b3-compra .b3-blue{background:var(--b-blue)!important}
-html.b3d body .b3-compra .b3-purple{background:var(--b-vio)!important}html.b3d body .b3-compra .b3-sky{background:var(--b-cyan)!important}
-html.b3d body .b3-compra .b3-amber{background:var(--b-ora)!important}html.b3d body .b3-compra .b3-green{background:var(--b-green)!important}
-html.b3d body .b3-compra .b3-slate{background:#3D5A80!important}
-html.b3d body .b3-compra .sx-prod.out .b3-ladrillo{opacity:.4}
+html.b3d body .b3-red{background:var(--b-red)!important}html.b3d body .b3-blue{background:var(--b-blue)!important}
+html.b3d body .b3-purple{background:var(--b-vio)!important}html.b3d body .b3-sky{background:var(--b-cyan)!important}
+html.b3d body .b3-amber{background:var(--b-ora)!important}html.b3d body .b3-green{background:var(--b-green)!important}
+html.b3d body .b3-slate{background:#3D5A80!important}
+html.b3d body :is(.sx-prod,.sx-cat-item).out .b3-ladrillo{opacity:.4}
 html.b3d body .b3-compra .sx-prod-main h3{font:800 17px/1.2 var(--b-font)!important}
-html.b3d body .b3-compra .sx-stock{display:inline-flex!important;align-items:center;gap:5px;margin-top:4px;padding:3px 10px 3px 6px;border-radius:999px;font-weight:800!important;background:var(--b-green-s);color:var(--b-green-d)!important}
-html.b3d body .b3-compra .sx-stock .b3i{width:16px;height:16px;color:var(--b-green)}
-html.b3d body .b3-compra .sx-stock.low{background:var(--b-yel-s);color:#8A6300!important}html.b3d body .b3-compra .sx-stock.low .b3i{color:var(--b-yel-d)}
-html.b3d body .b3-compra .sx-stock.out{background:var(--b-red-s);color:var(--b-red-d)!important;padding-left:10px}
-html.b3d body .b3-compra .sx-stock.unknown{background:#EEF2F8;color:var(--b-ink2)!important;padding-left:10px}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-stock{display:inline-flex!important;align-items:center;gap:5px;margin-top:4px;padding:3px 10px 3px 6px;border-radius:999px;font-weight:800!important;background:var(--b-green-s);color:var(--b-green-d)!important}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-stock .b3i{width:16px;height:16px;color:var(--b-green)}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-stock.low{background:var(--b-yel-s);color:#8A6300!important}html.b3d body :is(.b3-compra,.b3-cat) .sx-stock.low .b3i{color:var(--b-yel-d)}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-stock.out{background:var(--b-red-s);color:var(--b-red-d)!important;padding-left:10px}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-stock.unknown{background:#EEF2F8;color:var(--b-ink2)!important;padding-left:10px}
 html.b3d body .b3-compra .sx-prod-side strong{font:900 19px var(--b-font)!important}
 html.b3d body .b3-compra .sx-prod [data-act="agregar"]{min-height:44px;min-width:104px;color:var(--b-blue-d)!important;border:2px solid var(--b-blue)!important;box-shadow:0 3px 0 var(--b-blue-d)!important;font-weight:800!important;background:#fff!important}
 html.b3d body .b3-compra .sx-prod [data-act="agregar"]:disabled{color:var(--b-ink2)!important;border-color:var(--b-line2)!important;box-shadow:0 3px 0 var(--b-line2)!important;background:#EEF2F8!important}
@@ -115,17 +115,17 @@ html.b3d body .b3-bar-ic .b3i{width:20px;height:20px}
 @media (max-width:380px){html.b3d body .b3-bar-ic{display:none}}
 @media (prefers-reduced-motion:reduce){html.b3d body .b3-compra *,html.b3d body .sxg-ficha *{transition:none!important;animation:none!important}}
 /* ajustes de cabecera y pasos en móvil */
-html.b3d body .b3-compra .sx-page-head{display:grid!important;grid-template-columns:58px minmax(0,1fr);align-items:center!important;column-gap:14px}
-html.b3d body .b3-compra .sx-page-head .b3-head-tx{grid-column:2}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head{display:grid!important;grid-template-columns:58px minmax(0,1fr);align-items:center!important;column-gap:14px}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head .b3-head-tx{grid-column:2}
 html.b3d body .b3-compra .sx-steps{display:grid!important;grid-template-columns:1.35fr 1fr 1fr}
 html.b3d body .b3-compra .sx-steps button{width:100%;padding:0 8px!important;gap:7px!important;justify-content:center}
 html.b3d body .b3-compra .sx-steps span{overflow:visible!important;text-overflow:clip!important;white-space:nowrap}
 @media (max-width:480px){
   html.b3d body .b3-compra .sx-step-card>.b3-deco{display:none}
   html.b3d body .b3-compra .sx-step-card>h2,html.b3d body .b3-compra .sx-step-card>.sx-help:first-of-type{padding-right:0}
-  html.b3d body .b3-compra .sx-page-head{padding-right:0;padding-top:44px}
-  html.b3d body .b3-compra .sx-page-head .b3-deco{display:none}
+  html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head{padding-right:0;padding-top:44px}
+  html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head .b3-deco{display:none}
   html.b3d body .b3-compra .sx-steps button{font-size:14px!important}
 }
 @media (max-width:360px){html.b3d body .b3-compra .sx-steps li:not(.on) span{display:none}}
-html.b3d body .b3-compra .sx-page-head .b3-deco{right:150px}@media (max-width:480px){html.b3d body .b3-compra .sx-page-head .b3-deco{display:none}}
+html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head .b3-deco{right:150px}@media (max-width:480px){html.b3d body :is(.b3-compra,.b3-cat) .sx-page-head .b3-deco{display:none}}
