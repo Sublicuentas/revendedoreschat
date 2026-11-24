@@ -1151,27 +1151,38 @@ const SX_REN_IC = {
   ficha: '<circle cx="12" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M4.5 20c.8-3.8 3.7-6 7.5-6s6.7 2.2 7.5 6" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
 };
 const sxRenSvg = (k, cls = '') => `<svg class="b3i ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${SX_REN_IC[k] || ''}</svg>`;
-function sxRenEstadoTxt(est) { const n = est ? est.n : 9999; if (n < 0) { const d = Math.abs(n); return `Corte hace ${d} día${d === 1 ? '' : 's'}`; } if (n === 0) return 'Pago hoy'; return n === 1 ? 'Vence mañana' : `En ${n} días`; }
+function sxRenEstadoTxt(est) { const n = est ? est.n : 9999; if (n < 0) return `Corte hace ${Math.abs(n)}d`; if (n === 0) return 'Pago hoy'; return n === 1 ? 'Vence mañana' : `En ${n}d`; }
 function sxRenUrg(est) { const n = est ? est.n : 9999; return n < 0 ? 'vencido' : n === 0 ? 'hoy' : n <= 7 ? 'pronto' : 'ok'; }
+/* R217 · días hasta el vencimiento contados con la fecha de Honduras (UTC−6), sin importar la zona del teléfono */
+function sxRenHoyHN() { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Tegucigalpa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
+function sxRenDiasHN(f, hoy) { if (!(f instanceof Date) || isNaN(f)) return null; return Math.round((Date.UTC(f.getFullYear(), f.getMonth(), f.getDate()) - hoy) / 86400000); }
+const SX_REN_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function sxRenFechaLarga(f) { return f instanceof Date && !isNaN(f) ? `${f.getDate()} de ${SX_REN_MES[f.getMonth()]} de ${f.getFullYear()}` : 'Sin fecha'; }
+/* studs de bloque dibujados (cilindro con tapa), color del contenedor por --t / --td */
+function sxRenStuds(n, cls = '') { const w = 22, g = 14, W = n * w + (n - 1) * g; let r = ''; for (let i = 0; i < n; i++) { const x = i * (w + g); r += `<rect x="${x}" y="4" width="${w}" height="9" rx="3" class="sd"/><ellipse cx="${x + w / 2}" cy="4.5" rx="${w / 2}" ry="4" class="st"/><ellipse cx="${x + w / 2 - 3}" cy="3.6" rx="4.5" ry="1.4" class="sh"/>`; } return `<svg class="b3-st ${cls}" viewBox="0 0 ${W} 13" width="${W}" height="13" aria-hidden="true" focusable="false">${r}</svg>`; }
+const SX_REN_PIEZA = '<svg class="b3-ren-pz" viewBox="0 0 46 40" aria-hidden="true" focusable="false"><rect x="0" y="12" width="46" height="28" class="pzd"/><rect x="0" y="12" width="46" height="23" class="pz"/><rect x="11" y="5" width="20" height="9" rx="3" class="pzd"/><ellipse cx="21" cy="5.5" rx="10" ry="3.6" class="pz"/></svg>';
+const SX_REN_TONOS = ['blue', 'vio', 'red', 'green', 'yel'];
+function sxRenTonoAv(nm) { let h = 0; for (const ch of String(nm || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return SX_REN_TONOS[h % SX_REN_TONOS.length]; }
+function sxRenSvcChip(s) { const tono = typeof sxgColorSvc === 'function' ? sxgColorSvc(s.nombre) : 'slate'; const ini = (String(s.nombre || '?').trim()[0] || '?').toUpperCase();
+  return `<span class="b3-ren-svc"><i class="b3-ren-svc-ic t-${tono}" aria-hidden="true">${sxEsc(ini)}</i>${sxEsc(s.nombre)}${s.precio ? ' · ' + money(s.precio) : ''}</span>`; }
 function sxRenTarjetaHtml(g, i) {
-  const tel = g.cliente.telefono || '', urg = sxRenUrg(g.est), varias = g.servicios.length > 1;
-  return `<li class="sx-card sx-renew b3-ren b3-ren-${urg}"><div class="b3-ren-top">
-      <span class="sx-avatar b3-ren-av" aria-hidden="true">${sxEsc((nombreCli(g.cliente)[0] || '?').toUpperCase())}</span>
-      <div class="b3-ren-tx"><b>${sxEsc(nombreCli(g.cliente))}</b>
-        <small class="b3-ren-tel">${sxRenSvg('tel')}${sxEsc(tel || 'Sin teléfono')}</small>
-        <div class="sx-tags b3-ren-svcs">${g.servicios.map((s) => `<span>${sxEsc(s.nombre)}${s.precio ? ' · ' + money(s.precio) : ''}</span>`).join('')}</div></div>
-      <div class="b3-ren-est"><span class="sx-pill b3-ren-pill ${urg}">${urg === 'vencido' || urg === 'hoy' ? sxRenSvg('alerta') : sxRenSvg('cal')}${sxEsc(sxRenEstadoTxt(g.est))}</span>
-        <small>${sxRenSvg('cal')}${g.fecha ? 'Vence: ' + sxEsc(fmtFecha(g.fecha)) : 'Sin fecha'}</small></div></div>
+  const tel = g.cliente.telefono || '', urg = sxRenUrg(g.est), varias = g.servicios.length > 1, nom = nombreCli(g.cliente);
+  return `<li class="sx-card sx-renew b3-ren b3-ren-${urg}">${SX_REN_PIEZA.replace('b3-ren-pz', 'b3-ren-pz izq')}${SX_REN_PIEZA.replace('b3-ren-pz', 'b3-ren-pz der')}
+    <span class="sx-avatar b3-ren-av t-${sxRenTonoAv(nom)}" aria-hidden="true">${sxRenStuds(2)}<span>${sxEsc((nom[0] || '?').toUpperCase())}</span></span>
+    <div class="b3-ren-tx">
+      <div class="b3-ren-l1"><button type="button" class="b3-ren-nom" data-ren="ficha" data-id="${sxAttr(g.cliente.id)}" title="Ver ficha de ${sxAttr(nom)}">${sxEsc(nom)}</button>
+        <span class="sx-pill b3-ren-pill ${urg}">${urg === 'vencido' || urg === 'hoy' ? sxRenSvg('alerta') : sxRenSvg('cal')}${sxEsc(sxRenEstadoTxt(g.est))}</span></div>
+      <div class="b3-ren-l2"><span class="b3-ren-fecha">${sxRenSvg('cal')}${g.fecha ? 'Vence ' + sxEsc(sxRenFechaLarga(g.fecha)) : 'Sin fecha'}</span>
+        <span class="b3-ren-sep" aria-hidden="true">•</span>${tel ? `<a class="b3-ren-tel" href="tel:${sxAttr(String(tel).replace(/[^\d+]/g, ''))}" aria-label="Llamar a ${sxAttr(nom)}">${sxRenSvg('tel')}${sxEsc(tel)}</a>` : `<span class="b3-ren-tel">${sxRenSvg('tel')}Sin teléfono</span>`}</div>
+      <div class="sx-tags b3-ren-svcs">${g.servicios.map(sxRenSvcChip).join('')}</div>
+    </div>
     <div class="sx-row-actions b3-ren-acc"><button type="button" class="sx-btn pri sm b3-ren-renovar" data-ren="renovar" data-i="${i}">${sxRenSvg('renovar')}${varias ? 'Elegir qué renovar' : 'Renovar'}</button>
-      <button type="button" class="sx-btn sec sm b3-ren-cobro" data-ren="cobro" data-i="${i}">${sxRenSvg('chat')}${sxEsc(etiquetaMensajeRenovacion())}</button>
-      <details class="b3-ren-menu"><summary aria-label="Más opciones de ${sxAttr(nombreCli(g.cliente))}">${sxRenSvg('mas')}</summary><div role="menu">
-        <button type="button" role="menuitem" data-ren="ficha" data-id="${sxAttr(g.cliente.id)}">${sxRenSvg('ficha')}Ver ficha del cliente</button>
-        ${tel ? `<a role="menuitem" href="tel:${sxAttr(String(tel).replace(/[^\d+]/g, ''))}">${sxRenSvg('tel')}Llamar</a>` : ''}</div></details></div></li>`;
+      <button type="button" class="sx-btn sec sm b3-ren-cobro" data-ren="cobro" data-i="${i}">${sxRenSvg('chat')}${sxEsc(etiquetaMensajeRenovacion())}</button></div></li>`;
 }
 function sxRenCalendarioHtml(groups) {
   if (!groups.length) return '';
   const dias = new Map();
-  groups.forEach((g, i) => { const k = g.fecha ? fmtFecha(g.fecha) : 'Sin fecha'; if (!dias.has(k)) dias.set(k, { est: g.est, items: [] }); dias.get(k).items.push([g, i]); });
+  groups.forEach((g, i) => { const k = g.fecha ? sxRenFechaLarga(g.fecha) : 'Sin fecha'; if (!dias.has(k)) dias.set(k, { est: g.est, items: [] }); dias.get(k).items.push([g, i]); });
   return `<ol class="b3-ren-cal">${[...dias.entries()].map(([dia, d]) => { const tot = d.items.reduce((a, [g]) => a + g.servicios.reduce((x, s) => x + (Number(s.precio) || 0), 0), 0);
     return `<li class="b3-ren-dia b3-ren-${sxRenUrg(d.est)}"><div class="b3-ren-dia-h"><b>${sxRenSvg('cal')}${sxEsc(dia)}</b><span>${sxEsc(sxRenEstadoTxt(d.est))} · ${d.items.length} cliente${d.items.length === 1 ? '' : 's'}${tot ? ' · ' + money(tot) : ''}</span></div>
       <ul class="sx-renews">${d.items.map(([g, i]) => sxRenTarjetaHtml(g, i)).join('')}</ul></li>`; }).join('')}</ol>`;
@@ -1186,7 +1197,8 @@ function sxRenResumenHtml(todos) {
     <p class="sx-help">Montos según el precio guardado de cada servicio. Para cobrar, use «Listado» o «Calendario».</p></section>`;
 }
 function sxRenPintar(soloLista = false) {
-  const todos = flat().filter((s) => s.est.n < 9999);
+  const hoyHN = sxRenHoyHN();
+  const todos = flat().filter((s) => s.est.n < 9999).map((s) => { const n = sxRenDiasHN(s.fecha, hoyHN); return n === null ? s : { ...s, est: { ...s.est, n } }; });
   let fs = todos;
   const cnt = { todos: todos.length, vencidos: todos.filter((s) => s.est.n < 0).length, hoy: todos.filter((s) => s.est.n === 0).length, porvencer: todos.filter((s) => s.est.n >= 0 && s.est.n <= 7).length };
   if (renF === 'vencidos') fs = fs.filter((s) => s.est.n < 0); else if (renF === 'hoy') fs = fs.filter((s) => s.est.n === 0); else if (renF === 'porvencer') fs = fs.filter((s) => s.est.n >= 0 && s.est.n <= 7);
@@ -1199,14 +1211,15 @@ function sxRenPintar(soloLista = false) {
     : sxRenVista === 'calendario' ? sxRenCalendarioHtml(renewGroups)
     : `<ul class="sx-renews">${renewGroups.map((g, i) => sxRenTarjetaHtml(g, i)).join('')}</ul>`;
   if (soloLista && document.getElementById('sxRenLista')) { document.getElementById('sxRenLista').innerHTML = listaHtml; return; }
-  const KPI = [['todos', 'Todas', cnt.todos, 'cal', 'blue'], ['vencidos', 'Vencidos', cnt.vencidos, 'alerta', 'red'], ['hoy', 'Hoy', cnt.hoy, 'hoy', 'orange'], ['porvencer', 'Próximos 7 días', cnt.porvencer, 'semana', 'purple']];
+  const KPI = [['todos', 'Todas', cnt.todos, 'cal', 'blue'], ['vencidos', 'Vencidos', cnt.vencidos, 'alerta', 'red'], ['hoy', 'Hoy', cnt.hoy, 'hoy', 'yel'], ['porvencer', 'Próximos 7 días', cnt.porvencer, 'semana', 'vio']];
   content.innerHTML = `<div class="sx-page b3-renov">
-    <header class="sx-page-head b3-ren-hero"><span class="b3-ren-hero-ic" aria-hidden="true">${sxRenSvg('cal')}</span><div><h1>Renovaciones</h1><p>Controle vencimientos, renueve y mantenga activos sus servicios.</p></div>
-      <img src="${ROBOT_IMG}" alt="" width="96" height="96" class="b3-ren-robot" decoding="async"></header>
-    <div class="sx-filter b3-ren-kpis" role="group" aria-label="Filtrar renovaciones">${KPI.map(([k, l, n, ic, tono]) => `<button type="button" class="sx-chip b3-ren-kpi ${tono} ${renF === k ? 'on' : ''}" aria-pressed="${renF === k}" data-ren="filtro" data-v="${k}"><span class="b3-ren-kpi-ic" aria-hidden="true">${sxRenSvg(ic)}</span><span class="b3-ren-kpi-tx"><small>${l}</small><b>${n.toLocaleString('es-HN')}</b></span></button>`).join('')}</div>
-    <div class="sx-tools"><label class="sx-field sx-search b3-ren-buscar"><span class="sr">Buscar</span>${sxRenSvg('lupa', 'lupa')}<input id="sxRenBuscar" type="search" value="${sxAttr(sxRenBuscar)}" placeholder="Buscar cliente, servicio o teléfono"></label></div>
-    <div class="b3-ren-vistas" role="tablist" aria-label="Vista">${[['listado', 'Listado', 'lista'], ['calendario', 'Calendario', 'cal'], ['resumen', 'Resumen', 'barras']].map(([k, l, ic]) => `<button type="button" role="tab" class="b3-ren-vista ${sxRenVista === k ? 'on' : ''}" aria-selected="${sxRenVista === k}" data-ren="vista" data-v="${k}">${sxRenSvg(ic)}${l}</button>`).join('')}</div>
-    <p class="sx-help b3-ren-nota">Al renovar elige el período y ve la nueva fecha antes de confirmar.</p>
+    <header class="sx-page-head b3-ren-hero">${sxRenStuds(3, 'h-roja')}${sxRenStuds(5, 'h-gris')}
+      <span class="b3-ren-hero-ic" aria-hidden="true">${sxRenStuds(2)}${sxRenSvg('cal')}<i class="b3-ren-hero-ok">${sxRenSvg('renovar')}</i></span>
+      <div class="b3-ren-hero-tx"><h1>Renovaciones</h1><p>Al renovar elige el período y ve la nueva fecha antes de confirmar.</p></div>
+      <span class="b3-ren-hero-bot" aria-hidden="true"><img src="${ROBOT_IMG}" alt="" width="104" height="104" class="b3-ren-robot" decoding="async"><i class="b3-ren-hero-base">${sxRenStuds(3)}</i></span></header>
+    <div class="sx-filter b3-ren-kpis" role="group" aria-label="Filtrar renovaciones">${KPI.map(([k, l, n, ic, tono]) => `<button type="button" class="sx-chip b3-ren-kpi ${tono} ${renF === k ? 'on' : ''}" aria-pressed="${renF === k}" data-ren="filtro" data-v="${k}">${sxRenStuds(2)}<span class="b3-ren-kpi-ic" aria-hidden="true">${sxRenSvg(ic)}</span><span class="b3-ren-kpi-tx"><small>${l}</small><b>${n.toLocaleString('es-HN')}</b></span></button>`).join('')}</div>
+    <div class="sx-tools"><label class="sx-field sx-search b3-ren-buscar"><span class="sr">Buscar</span><span class="b3-ren-lupa" aria-hidden="true">${sxRenSvg('lupa')}</span><input id="sxRenBuscar" type="search" value="${sxAttr(sxRenBuscar)}" placeholder="${innerWidth < 380 ? 'Cliente, servicio o teléfono' : 'Buscar cliente, servicio o teléfono'}" autocomplete="off"></label></div>
+    <div class="b3-ren-vistas" role="tablist" aria-label="Vista">${[['listado', 'Listado', 'lista'], ['calendario', 'Calendario', 'cal'], ['resumen', 'Resumen', 'barras']].map(([k, l, ic]) => `<button type="button" role="tab" class="b3-ren-vista ${sxRenVista === k ? 'on' : ''}" aria-selected="${sxRenVista === k}" data-ren="vista" data-v="${k}">${sxRenStuds(3)}${sxRenSvg(ic)}<span>${l}</span></button>`).join('')}</div>
     <div id="sxRenLista">${listaHtml}</div></div>`;
   content.querySelector('#sxRenBuscar')?.addEventListener('input', (ev) => { sxRenBuscar = ev.target.value; sxRenPintar(true); });
 }
