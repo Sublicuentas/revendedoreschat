@@ -104,6 +104,7 @@ async function api(route, E) {
     recargas: [{ id: 'r1', ref: 'AB12CD', fecha: '2026-11-23T19:00:00Z', negocio: 'sublicuentas', negocioNombre: 'Sublicuentas', monto: 500, banco: 'BAC Honduras', referencia: '123456', estado: 'aprobada', montoAcreditado: 500 }, { id: 'r2', ref: 'EF34GH', fecha: '2026-11-23T21:00:00Z', negocio: 'relojes', negocioNombre: 'Relojes', monto: 300, banco: 'Banco Atlántida', referencia: '998877', estado: 'pendiente' }],
     pendientes: 1, bancos: ['BAC Honduras', 'Banco Atlántida', 'Otro'], negocios: { sublicuentas: 'Sublicuentas', relojes: 'Relojes' }, limites: { min: 10, max: 50000 } });
   if (p === '/rev/billetera/recargas') return ok({ ok: true, recarga: { id: 'r3', ref: 'NEW001', estado: 'pendiente' } });
+  if (p === '/rev/admin/impersonate') return ok({ token: 'tok', nombre: 'Jimena', nombre_norm: 'jimena', usuario: 'jimena' });
   if (p === '/rev/admin/sublipoints') return ok({ ok: true, mes: '2026-11', inicio: '2026-11-23T20:00:00.000Z', ranking: [{ socio: 'Jimena', socio_norm: 'jimena', puntos: 32, nivel: 'Leyenda', ventasNuevas: 8, renovaciones: 16 }, { socio: 'Heber', socio_norm: 'heber', puntos: 6, nivel: 'Sin nivel', ventasNuevas: 2, renovaciones: 2 }] });
   if (/^\/rev\/admin\/comprobantes\/[^/]+\/pago$/.test(p)) return ok({ ok: true, estadoPago: 'confirmado', sublipoints: { ok: true, puntos: 1 } });
   if (p === '/rev/admin/revendedores') return ok([
@@ -225,6 +226,12 @@ for (const w of ANCHOS) {
     if (ov > 1) errores.push(`${w}px admin ${m}: desborde ${ov}px`);
     if (m === 'comprobantes') { if (!(await A.page.locator('.sp-confirmar').count())) errores.push(`${w}px: falta «Confirmar pago»`); if (!(await A.page.locator('#spRanking .sp-rank li').count())) errores.push(`${w}px: falta ranking SubliPoints`); }
   }
+  // R205b · Panel Dios › «Ver socio»: Recompensas, SubliPoints y Billetera deben cargar con el token del socio.
+  await A.page.evaluate(() => verComo('jimena', 'jimena', 'Jimena')); await A.page.waitForTimeout(600);
+  await A.page.evaluate(() => go('recompensas')); await A.page.waitForTimeout(700);
+  if (!(await A.page.locator('[data-sp-page=ok]').count())) errores.push(`${w}px: Recompensas no carga en «Ver socio»`);
+  await A.page.evaluate(() => go('billetera')); await A.page.waitForTimeout(600);
+  if (!(await A.page.locator('[data-bl-page=ok]').count())) errores.push(`${w}px: Billetera no carga en «Ver socio»`);
   errores.push(...A.errores.map((e) => `${w}px admin JS: ${e}`)); await A.ctx.close();
 }
 
