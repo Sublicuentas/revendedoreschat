@@ -236,3 +236,34 @@ html.b3d body .b3-acc-btn .b3i{width:22px;height:22px;color:var(--b-red)}
 html.b3d body .b3-salir{display:flex!important;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px!important;margin:12px 0 8px!important;border:0!important;background:transparent!important;color:var(--b-red)!important;font:900 18px var(--b-font)!important}
 html.b3d body .b3-salir .b3i{width:24px;height:24px}
 html.b3d body .b3-salir:focus-visible{outline:3px solid var(--b-red);outline-offset:2px;border-radius:12px}
+
+/* ======================= R213 · INICIO DEL SOCIO: Mensaje del día + saludo compacto ======================= */
+html.b3d body .sxg-msgdia{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-height:150px;max-height:none;margin:6px 0 12px;padding:20px 14px 18px 20px;
+  border:1px solid var(--b-line);border-radius:22px;background:#fff;box-shadow:0 4px 0 var(--b-line2),0 10px 22px rgba(16,36,68,.07);overflow:hidden}
+/* franja de bloque roja arriba (cara + studs), sin degradados */
+html.b3d body .sxg-msgdia::before{content:"";position:absolute;left:0;right:0;top:0;height:10px;background:var(--b-red);border-bottom:2px solid var(--b-red-d)}
+html.b3d body .sxg-msgdia::after{content:"";position:absolute;left:18px;top:10px;width:96px;height:9px;background:var(--b-red);
+  -webkit-mask:radial-gradient(circle at 50% 0,#000 0 5px,transparent 5.5px) 0 0/24px 100% repeat-x;mask:radial-gradient(circle at 50% 0,#000 0 5px,transparent 5.5px) 0 0/24px 100% repeat-x}
+html.b3d body .sxg-msgdia-tx{min-width:0;padding-top:6px}
+html.b3d body .sxg-msgdia-tag{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 12px 0 9px;border-radius:999px;background:var(--b-red);color:#fff;font:800 12.5px var(--b-font);letter-spacing:.06em;text-transform:uppercase;box-shadow:0 2px 0 var(--b-red-d)}
+html.b3d body .sxg-msgdia-tag svg{width:15px!important;height:15px!important;stroke:#fff!important;color:#fff}
+html.b3d body .sxg-msgdia-frase{margin:10px 0 0;font:800 clamp(17px,4.6vw,21px)/1.32 var(--b-font);color:var(--b-ink);overflow-wrap:anywhere;user-select:text}
+html.b3d body .sxg-msgdia-frase.cargando{color:var(--b-ink2);font-weight:600}
+html.b3d body .sxg-msgdia-robot{width:96px;height:96px;object-fit:contain;align-self:end;filter:drop-shadow(0 5px 0 rgba(16,36,68,.10))}
+@media (max-width:359px){html.b3d body .sxg-msgdia{grid-template-columns:minmax(0,1fr) 64px;padding-left:16px}html.b3d body .sxg-msgdia-robot{width:64px;height:64px}}
+@media (min-width:768px){
+  html.b3d body .sxg-msgdia{grid-template-columns:minmax(0,1fr) 128px;min-height:150px;padding:22px 26px 20px 28px}
+  html.b3d body .sxg-msgdia-frase{max-width:62ch;font-size:22px}
+  html.b3d body .sxg-msgdia-robot{width:124px;height:124px}
+}
+/* saludo: franja compacta, ya no la tarjeta roja grande */
+html.b3d body .sxg-saludo{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:0 2px}
+html.b3d body .sxg-saludo-av{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--b-red-s);color:var(--b-red);box-shadow:0 0 0 1px #F5C6C7 inset}
+html.b3d body .sxg-saludo-av svg{width:24px!important;height:24px!important;stroke:var(--b-red)!important}
+html.b3d body .sxg-saludo h1{margin:0!important;font:900 22px/1.2 var(--b-font)!important;color:var(--b-ink)!important;-webkit-text-fill-color:currentColor}
+html.b3d body .sxg-saludo h1 span{color:var(--b-red)!important;-webkit-text-fill-color:currentColor}
+html.b3d body .sxg-saludo p{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0 0;font:600 13.5px var(--b-font);color:var(--b-ink2)}
+html.b3d body .sxg-saludo p svg{width:16px!important;height:16px!important;stroke:var(--b-ink2)!important;margin-right:2px}
+@media (prefers-reduced-motion:reduce){html.b3d body .sxg-msgdia *{transition:none!important;animation:none!important}}
+html.b3d body .sxg-inicio>.sxg-msgdia,html.b3d body .sxg-inicio>.sxg-saludo{grid-column:1/-1}
+html.b3d body .sxg-saludo-f{display:inline-flex;align-items:center;gap:4px}

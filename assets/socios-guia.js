@@ -299,6 +299,46 @@ function sxgMetaHtml(per, compacto) {
   }
   return compacto ? cuerpo : cuerpo;
 }
+/* ---------------- R213 · Mensaje del día (banner compacto del Inicio del socio) ----------------
+   El servidor decide el texto del día de Honduras (/rev/mensaje-dia): igual para todos los socios y
+   dispositivos. Aquí solo se guarda en caché POR FECHA y se pinta con textContent (sin HTML). */
+const SXG_MD_KEY = 'sxg_mensaje_dia';
+let sxgMD = null, sxgMDPidiendo = false;
+function sxgHoyISO() { const p = sxgPartes(); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; }
+function sxgMDLeer() {
+  const hoy = sxgHoyISO();
+  if (sxgMD && sxgMD.fecha === hoy) return sxgMD;
+  try { const c = JSON.parse(localStorage.getItem(SXG_MD_KEY) || 'null'); if (c && c.fecha === hoy && c.texto) { sxgMD = c; return c; } } catch (_) {}
+  return null;
+}
+async function sxgMDCargar() {
+  if (sxgMDPidiendo || sxgMDLeer()) return;
+  sxgMDPidiendo = true;
+  try {
+    const r = await API.call('/rev/mensaje-dia?d=' + sxgHoyISO(), { cache: 'no-store', timeoutMs: 12000 });
+    if (r && r.texto && r.fecha) { sxgMD = { fecha: r.fecha, texto: String(r.texto) }; try { localStorage.setItem(SXG_MD_KEY, JSON.stringify(sxgMD)); } catch (_) {} }
+  } catch (_) { sxgMD = sxgMD || { fecha: sxgHoyISO(), texto: '', error: true }; }
+  finally { sxgMDPidiendo = false; }
+  sxgMDPintar();
+}
+function sxgMDPintar() {
+  const el = document.getElementById('sxgMsgDia'); if (!el) return;
+  const m = sxgMDLeer() || (sxgMD && sxgMD.fecha === sxgHoyISO() ? sxgMD : null);
+  el.classList.toggle('cargando', !m || (!m.texto && !m.error));
+  el.textContent = m && m.texto ? m.texto : m && m.error ? 'Hoy es un buen día para atender bien a sus clientes.' : 'Cargando el mensaje de hoy…';
+}
+function sxgMensajeDiaHtml() {
+  const m = sxgMDLeer();
+  if (!m) setTimeout(sxgMDCargar, 0);
+  return `<section class="sxg-msgdia" aria-labelledby="sxgMsgT">
+      <div class="sxg-msgdia-tx"><span class="sxg-msgdia-tag" id="sxgMsgT">${sxgIc('cal')}Mensaje del día</span>
+        <p class="sxg-msgdia-frase ${m ? '' : 'cargando'}" id="sxgMsgDia" aria-live="polite">${m ? sxEsc(m.texto) : 'Cargando el mensaje de hoy…'}</p></div>
+      <img src="${ROBOT_IMG}" alt="" width="104" height="104" class="sxg-msgdia-robot" decoding="async">
+    </section>`;
+}
+// Al cambiar el día en Honduras se pide el mensaje nuevo (sin recargar la página).
+setInterval(() => { if (sxgMD && sxgMD.fecha !== sxgHoyISO()) { sxgMD = null; if (document.getElementById('sxgMsgDia')) { sxgMDPintar(); sxgMDCargar(); } } }, 60000);
+
 function sxgVInicio() {
   document.body.classList.remove('sx-con-barra');
   sxgCabecera();
@@ -314,11 +354,11 @@ function sxgVInicio() {
   const delMes = sxgAvisosDe(per);
   const avLista = (delMes.length ? delMes : [...(avisos || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0))).slice(0, 3);
   content.innerHTML = `<div class="sx-page sxg-inicio">
-    <section class="sxg-hola" aria-label="Saludo">
-      <div class="sxg-hola-tx"><h1 id="sxgHola">${sxgSaludoHtml()}</h1>
-        <p>${sxgIc('cal')}<span id="sxgFecha">${sxEsc(sxgFechaLarga())}</span></p>
-        <p>${sxgIc('clock')}<span id="sxgReloj">${sxEsc(sxgHora())}</span></p></div>
-      <img src="${ROBOT_IMG}" alt="" width="112" height="112" class="sxg-robot">
+    ${sxgMensajeDiaHtml()}
+    <section class="sxg-saludo" aria-label="Saludo">
+      <span class="sxg-saludo-av" aria-hidden="true">${sxgIc('user')}</span>
+      <div><h1 id="sxgHola">${sxgSaludoHtml()}</h1>
+        <p><span class="sxg-saludo-f">${sxgIc('cal')}<span id="sxgFecha">${sxEsc(sxgFechaLarga())}</span></span><span aria-hidden="true"> · </span><span id="sxgReloj">${sxEsc(sxgHora())}</span></p></div>
     </section>
     ${faltaInfo.length ? `<button type="button" class="sxg-alerta" data-sxg-go="pedido:${sxAttr(faltaInfo[0].id)}"><b>Pedido #${sxEsc(faltaInfo[0].ref)}: falta información</b><small>${sxEsc(faltaInfo[0].detalleEstado || 'Revise qué dato pide el equipo.')}${faltaInfo.length > 1 ? ` · y ${faltaInfo.length - 1} más` : ''}</small><span>Completar</span></button>` : ''}
     <div class="sxg-kpis">
