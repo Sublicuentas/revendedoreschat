@@ -120,6 +120,7 @@ async function api(route, E) {
   if (p === '/rev/precios') { const c = catalogo(); c[0].items[0].p += E.precioExtra; return ok(c); }
   if (p === '/rev/inventario') return ok({ items: [{ id: 'canva', estado: E.stock.canva <= 0 ? 'agotado' : 'bajo', stock: E.stock.canva }] });
   if (p === '/rev/metricas') return ok({ operadoMes: 1450, comprasMes: 6, renovacionesMes: 9, pedidosPendientes: 1 });
+  if (p === '/rev/mensaje-dia') { const MD = require(path.join(BOT_DIR, 'lib_mensaje_dia.js')); const f = MD.fechaHN(); return ok({ ok: true, fecha: f, texto: (E.mensajeDia && E.mensajeDia[f]) || MD.respaldo(f), fuente: 'respaldo' }); } // R213 · misma regla del servidor
   if (p === '/rev/avisos') return ok([{ id: 'a1', texto: 'Nuevo: Oleada TV ya se entrega con instalación guiada.', autor: 'Sublicuentas', ts: Date.now() - 3600000 }]);
   if (p === '/rev/gamificacion') return ok({ perfil: { nombreMostrar: 'Jimena', ventas: 12, nivel: 'Leyenda' }, ranking: [], insignias: [], recompensas: [], solicitudes: [] });
   if (p === '/rev/metodos-pago') return ok({ ok: true, metodos: [{ id: 'bac', nombre: 'BAC Credomatic', titular: 'NOMBRE DE PRUEBA', cuenta: '000000000', nota: '' }, { id: 'tigo', nombre: 'Tigo Money', titular: 'NOMBRE DE PRUEBA', cuenta: '00000000', nota: '+6.5% comisión' }] });
@@ -245,11 +246,11 @@ for (const w of [390, 1440]) {
 {
   const { ctx, page } = await abrir({ width: 390, height: 844 });
   await ctx.addInitScript(() => { window.__ac = 0; const A = window.AudioContext; if (A) window.AudioContext = class extends A { constructor(...x) { super(...x); window.__ac++; } }; });
-  const t = await page.evaluate(() => ({ b3d: document.documentElement.classList.contains('b3d'), hero: getComputedStyle(document.querySelector('.sxg-hola')).backgroundColor, bg: getComputedStyle(document.body).backgroundColor, h1: getComputedStyle(document.querySelector('#sxgHola')).color }));
+  const t = await page.evaluate(() => ({ b3d: document.documentElement.classList.contains('b3d'), hero: getComputedStyle(document.querySelector('.sxg-msgdia-tag')).backgroundColor, bg: getComputedStyle(document.body).backgroundColor, h1: getComputedStyle(document.querySelector('#sxgHola')).color }));
   if (!t.b3d) errores.push('falta la clase b3d');
-  if (t.hero !== 'rgb(222, 31, 37)') errores.push('héroe no es rojo de bloques: ' + t.hero);
+  if (t.hero !== 'rgb(222, 31, 37)') errores.push('etiqueta del mensaje del día no es roja: ' + t.hero); // R213: la tarjeta roja grande se cambió por el Mensaje del día
   if (t.bg !== 'rgb(245, 247, 252)') errores.push('fondo no es #F5F7FC: ' + t.bg);
-  if (t.h1 !== 'rgb(255, 255, 255)') errores.push('saludo no es blanco: ' + t.h1);
+  if (t.h1 !== 'rgb(16, 36, 68)') errores.push('saludo no es azul marino: ' + t.h1); // R213: saludo en franja compacta
   const b = page.locator('.b3d-snd');
   if ((await b.getAttribute('aria-pressed')) !== 'false') errores.push('el sonido no inicia APAGADO');
   if ((await b.getAttribute('aria-label')) !== 'Activar sonido') errores.push('falta aria-label del sonido'); // R210: «Activar sonido» / «Silenciar sonido»
