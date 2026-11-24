@@ -237,8 +237,8 @@ html.b3d body #login .field{background:#fff!important;border:2px solid var(--b-l
 html.b3d body #login .field input{border:0!important;box-shadow:none!important}
 
 /* ---------- Control de sonido (bloques-3d.js) ---------- */
-html.b3d .b3d-snd svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-html.b3d .b3d-snd[aria-pressed=true]{background:var(--b-green)!important;color:#fff!important;border-color:var(--b-green-d)!important;box-shadow:var(--b-hi),0 2px 0 var(--b-green-d)!important}
+html.b3d .b3d-snd svg{width:26px;height:26px}
+/* R210 · el estado activo ya no pinta el fondo verde (dejaba el ícono blanco sobre blanco): ver bloques-catalogo.css */
 html.b3d .b3d-snd-card{display:flex;align-items:center;justify-content:space-between;gap:14px}
 html.b3d .b3d-snd-card b{display:block;font-size:16px;color:var(--b-ink)}
 html.b3d .b3d-snd-card small{display:block;color:var(--b-ink2);font-size:14px;margin-top:2px}

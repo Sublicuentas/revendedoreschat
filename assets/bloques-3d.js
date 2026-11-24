@@ -45,11 +45,14 @@
     } catch (_) { /* el audio nunca debe romper el panel */ }
   }
 
-  const ICONO_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
-  const ICONO_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="x" d="M16.5 9l5 6M21.5 9l-5 6"/></svg>';
+  // R210 · colores fijos en el propio SVG: el ícono se ve aunque otra hoja cambie el color o el fondo del botón
+  // (antes, al activar, el fondo y el trazo quedaban ambos blancos y el botón se veía vacío).
+  const P = 'fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"';
+  const ICONO_ON = `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path ${P} stroke="#102444" fill="#102444" d="M4 9v6h4l5 4V5L8 9H4z"/><path ${P} stroke="#17A052" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>`;
+  const ICONO_OFF = `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path ${P} stroke="#102444" fill="#102444" d="M4 9v6h4l5 4V5L8 9H4z"/><path ${P} class="x" stroke="#DE1F25" d="M16.5 9l5 6M21.5 9l-5 6"/></svg>`;
   function pintarControles() {
     const on = encendido();
-    document.querySelectorAll('.b3d-snd').forEach((b) => { b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Sonido encendido. Tocar para apagar' : 'Sonido apagado. Tocar para encender'); b.title = on ? 'Sonido: encendido' : 'Sonido: apagado'; b.innerHTML = on ? ICONO_ON : ICONO_OFF; });
+    document.querySelectorAll('.b3d-snd').forEach((b) => { b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Silenciar sonido' : 'Activar sonido'); b.title = on ? 'Sonido activado · tocar para silenciar' : 'Sonido silenciado · tocar para activar'; b.dataset.estado = on ? 'on' : 'off'; b.innerHTML = on ? ICONO_ON : ICONO_OFF; });
     document.querySelectorAll('.b3d-switch').forEach((s) => s.setAttribute('aria-checked', String(on)));
     document.querySelectorAll('[data-b3d-estado]').forEach((e) => { e.textContent = on ? 'Encendido' : 'Apagado'; });
   }

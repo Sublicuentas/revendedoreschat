@@ -84,12 +84,12 @@ html.b3d body .b3-pol .pol-item.open .pol-body{padding-bottom:14px!important}
 html.b3d body .b3-cat .sxo-recomp{display:inline-flex;align-items:center;min-height:44px}
 @media (prefers-reduced-motion:reduce){html.b3d body .b3-cat *{transition:none!important}}
 
-/* ---------- R209 · botón de sonido de la cabecera: más visible ---------- */
-html.b3d body .b3d-snd{width:46px!important;height:46px!important;border:2px solid var(--b-line2)!important;border-radius:14px!important;background:#fff!important;color:var(--b-ink)!important;box-shadow:0 3px 0 var(--b-line2)!important;display:inline-grid!important;place-items:center;opacity:1!important;visibility:visible!important}
-html.b3d body .b3d-snd svg{width:26px!important;height:26px!important;stroke-width:2.6!important}
-html.b3d body .b3d-snd[aria-pressed=false] svg .x{stroke:var(--b-red)}
-html.b3d body .b3d-snd[aria-pressed=true]{background:var(--b-green)!important;border-color:var(--b-green-d)!important;color:#fff!important;box-shadow:0 3px 0 var(--b-green-d),var(--b-hi)!important}
-html.b3d body .b3d-snd:focus-visible{outline:3px solid var(--b-blue);outline-offset:2px}
+/* ---------- R210 · botón de sonido: misma caja en ambos estados, fondo blanco fijo, ícono con colores propios ---------- */
+html.b3d body .b3d-snd,html.b3d body #topbarActions .b3d-snd,html.b3d body .topbar .b3d-snd{width:46px!important;height:46px!important;min-width:46px!important;padding:0!important;border:2px solid var(--b-line2)!important;border-radius:14px!important;
+  background:#fff!important;color:var(--b-ink)!important;box-shadow:0 3px 0 var(--b-line2)!important;display:inline-grid!important;place-items:center;opacity:1!important;visibility:visible!important}
+html.b3d body .b3d-snd[aria-pressed=true],html.b3d body #topbarActions .b3d-snd[aria-pressed=true]{background:#fff!important;border-color:var(--b-green)!important;box-shadow:0 3px 0 var(--b-green-d)!important;color:var(--b-ink)!important}
+html.b3d body .b3d-snd svg{width:26px!important;height:26px!important;display:block!important;opacity:1!important;visibility:visible!important}
+html.b3d body .b3d-snd:focus-visible{outline:3px solid var(--b-blue)!important;outline-offset:2px}
 /* la cabecera ocupaba menos que la pantalla en celular (quedaba una franja a la derecha) */
 @media (max-width:899px){html.b3d body #app .topbar{width:auto!important;max-width:none!important}}
 /* ajustes móvil: botón principal en una línea, «Copiar precio» compacto */
