@@ -481,7 +481,7 @@ await caso('Orden visual (R185): cinco accesos, "Más" con todos los destinos, m
   const E = nuevoEstado();
   const { page, ctx, errores } = await abrir({ width: 1440, height: 900 }, E);
   const lateral = await page.$$eval('#nav .nav-btn', (bs) => bs.map((b) => b.textContent.trim()));
-  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Catálogo', 'Renovaciones', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']); // R185
+  assert.deepEqual(lateral, ['Inicio', 'Clientes', 'Compras', 'Mi billetera', 'Catálogo', 'Renovaciones', 'Buzón', 'Subli Aula', 'Recompensas', 'Mi perfil']); // R185 · R205: Mi billetera después de Compras
   await page.waitForSelector('.sxg-alerta'); assert.match(await page.textContent('.sxg-alerta'), /falta información/);
   await page.evaluate(() => go('precios')); await page.waitForSelector('.sx-cat-grid');
   await page.click('[data-cat-act="agregar"][data-pid="cat_hbo_platino"]');

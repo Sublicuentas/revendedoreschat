@@ -99,6 +99,11 @@ async function api(route, E) {
     items: [['dia_appletv','Diamante','Apple TV','Cuenta completa · duración por definir','bloqueado','Este mes le corresponde un premio Leyenda'],['dia_elevenreader','Diamante','Eleven Reader Ultra','Cuenta completa · duración por definir','bloqueado','Este mes le corresponde un premio Leyenda'],['dia_canva_edu','Diamante','Canva Edu Pro','Acceso · 2 meses','bloqueado','Este mes le corresponde un premio Leyenda'],['ley_duolingo','Leyenda','Duolingo Plus','Acceso · 3 meses','disponible','Puede elegirla este mes'],['ley_openenglish','Leyenda','Open English','Acceso · 3 meses','agotado','Sin disponibilidad por ahora'],['ley_prime','Leyenda','Prime Video','Cuenta completa · duración por definir','disponible','Puede elegirla este mes'],['inm_gemini','Inmortal','Gemini Pro','Acceso · 3 meses','bloqueado','Se desbloquea con Inmortal (50 puntos este mes)'],['inm_hbo','Inmortal','HBO Max','Acceso · 1 mes · plan por configurar','bloqueado','Se desbloquea con Inmortal (50 puntos este mes)'],['inm_giftcard_100','Inmortal','Gift Card Sublicuentas','L100 de saldo promocional · todos los productos menos Netflix','bloqueado','Se desbloquea con Inmortal (50 puntos este mes)']].map(([id, nivel, nombre, detalle, estado, motivo]) => ({ id, nivel, nombre, detalle, estado, motivo, tipo: 'producto' })),
     solicitudMes: null, solicitudes: [{ id: 'old1', programa: 'anterior', nivel: 'Diamante', recompensa: 'HBO Max · 1 mes', estado: 'entregada', estadoTexto: 'Entregada', mes: '' }] });
   if (p === '/rev/recompensas-sp/solicitar') return ok({ ok: true, solicitud: { id: 'sp_jimena_2026-11', recompensa: 'Duolingo Plus', estado: 'pendiente_aprobacion' } });
+  if (p === '/rev/billetera') return ok({ ok: true, saldos: { sublicuentas: { negocio: 'sublicuentas', nombre: 'Sublicuentas', real: 500, promocional: 100, reservado: 0, disponible: 500 }, relojes: { negocio: 'relojes', nombre: 'Relojes', real: 0, promocional: 0, reservado: 0, disponible: 0 } },
+    movimientos: [{ id: 'm1', fecha: '2026-11-23T20:00:00Z', negocio: 'sublicuentas', subcuenta: 'real', tipo: 'recarga', monto: 500, signo: 1, ref: 'AB12CD', detalle: 'Recarga BAC Honduras · ref 123456', saldoPosterior: 500 }, { id: 'm2', fecha: '2026-11-22T20:00:00Z', negocio: 'sublicuentas', subcuenta: 'promocional', tipo: 'premio', monto: 100, signo: 1, ref: 'XY99', detalle: 'Gift Card Sublicuentas', saldoPosterior: 100 }],
+    recargas: [{ id: 'r1', ref: 'AB12CD', fecha: '2026-11-23T19:00:00Z', negocio: 'sublicuentas', negocioNombre: 'Sublicuentas', monto: 500, banco: 'BAC Honduras', referencia: '123456', estado: 'aprobada', montoAcreditado: 500 }, { id: 'r2', ref: 'EF34GH', fecha: '2026-11-23T21:00:00Z', negocio: 'relojes', negocioNombre: 'Relojes', monto: 300, banco: 'Banco Atlántida', referencia: '998877', estado: 'pendiente' }],
+    pendientes: 1, bancos: ['BAC Honduras', 'Banco Atlántida', 'Otro'], negocios: { sublicuentas: 'Sublicuentas', relojes: 'Relojes' }, limites: { min: 10, max: 50000 } });
+  if (p === '/rev/billetera/recargas') return ok({ ok: true, recarga: { id: 'r3', ref: 'NEW001', estado: 'pendiente' } });
   if (p === '/rev/admin/sublipoints') return ok({ ok: true, mes: '2026-11', inicio: '2026-11-23T20:00:00.000Z', ranking: [{ socio: 'Jimena', socio_norm: 'jimena', puntos: 32, nivel: 'Leyenda', ventasNuevas: 8, renovaciones: 16 }, { socio: 'Heber', socio_norm: 'heber', puntos: 6, nivel: 'Sin nivel', ventasNuevas: 2, renovaciones: 2 }] });
   if (/^\/rev\/admin\/comprobantes\/[^/]+\/pago$/.test(p)) return ok({ ok: true, estadoPago: 'confirmado', sublipoints: { ok: true, puntos: 1 } });
   if (p === '/rev/admin/revendedores') return ok([
@@ -185,7 +190,7 @@ async function abrir(viewport = { width: 390, height: 844 }, E = nuevoEstado(), 
 }
 const shot = (page, n) => page.screenshot({ path: path.join(OUT, n), fullPage: false });
 
-const VISTAS = (process.env.VISTAS || 'inicio,clientes,compras,precios,renovar,buzon,aula,recompensas,perfil').split(',');
+const VISTAS = (process.env.VISTAS || 'inicio,clientes,compras,precios,renovar,buzon,aula,recompensas,perfil,billetera').split(',');
 const ANCHOS = (process.env.ANCHOS || '390,1440').split(',').map(Number);
 const errores = [];
 for (const w of ANCHOS) {
@@ -200,6 +205,14 @@ for (const w of ANCHOS) {
     const ov = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     if (ov > 1) errores.push(`${w}px ${v}: desborde horizontal ${ov}px`);
     if (['inicio', 'recompensas'].includes(v) && !(await page.locator(`[data-sp=${v}]`).count())) errores.push(`${w}px ${v}: falta el bloque SubliPoints`);
+    if (v === 'inicio' && !(await page.locator('[data-bl=inicio]').count())) errores.push(`${w}px: falta acceso a billetera en Inicio`);
+    if (v === 'billetera') {
+      if (!(await page.locator('[data-bl-page=ok] .bl-saldo').count())) errores.push(`${w}px: billetera sin saldos`);
+      await page.locator('[data-bl=recargar]').click(); await page.waitForTimeout(250);
+      await page.locator('[data-bl=enviar]').click(); if (!/Sublicuentas o para Relojes/.test(await page.locator('#blErr').textContent())) errores.push(`${w}px: la recarga no valida el negocio`);
+      await page.screenshot({ path: path.join(OUT, `${w}-billetera-recargar.png`) });
+      if (w >= 900 && !(await page.locator('#nav .nav-btn[data-v=billetera]').count())) errores.push(`${w}px: falta Mi billetera en el menú`);
+    }
   }
   if (w < 768) { await page.evaluate(() => go('inicio')); await page.locator('.nav-btn').last().click().catch(() => {}); await page.waitForTimeout(400); await page.screenshot({ path: path.join(OUT, `${w}-mas.png`) }); }
   errores.push(...err.map((e) => `${w}px JS: ${e}`)); await ctx.close();
