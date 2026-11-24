@@ -1,0 +1,273 @@
+/* =====================================================================================================
+   R202 · PANEL DE SOCIOS · SISTEMA VISUAL DE BLOQUES 3D (23/11/2026)
+   Una sola capa de PRESENTACIÓN que se carga al final y unifica las 5 hojas anteriores
+   (app.css, panel-web, socios-2026, socios-orden, socios-guia). No cambia datos, rutas, permisos ni cálculos.
+   Se activa con <html class="b3d">. Para volver al aspecto anterior basta con quitar esa clase o este archivo.
+   Material: bloques de plástico con cara plana, base inferior marcada (sombra dura) y studs solo en
+   cabeceras, héroes y botones principales. Sin difuminados de color: colores planos + sombras nítidas.
+   Logo y Sublirobot: se usan los archivos actuales, sin redibujar.
+   ===================================================================================================== */
+html.b3d{
+  --b-red:#DE1F25;--b-red-d:#A9141A;--b-red-s:#FDECEC;
+  --b-blue:#148DE1;--b-blue-d:#0C68AA;--b-blue-s:#E7F3FC;
+  --b-yel:#F8BA15;--b-yel-d:#C68F00;--b-yel-s:#FFF6DB;
+  --b-green:#17A052;--b-green-d:#0E7639;--b-green-s:#E6F6EC;
+  --b-vio:#783ED2;--b-vio-d:#5629A0;--b-vio-s:#F1EAFC;
+  --b-ora:#F28A1B;--b-ora-d:#BF6408;--b-ora-s:#FEF1E3;
+  --b-cyan:#13A9CF;--b-cyan-d:#0C7F9C;--b-cyan-s:#E4F6FB;
+  --b-ink:#102444;--b-ink2:#4A5B75;--b-bg:#F5F7FC;--b-line:#DBE3EF;--b-line2:#C9D4E4;--b-card:#FFFFFF;
+  --b-font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --b-r:18px;--b-r-sm:12px;--b-r-lg:24px;
+  /* base del bloque: sombra dura (canto) + sombra suave corta */
+  --b-base:0 3px 0 var(--b-line2),0 8px 18px rgba(16,36,68,.07);
+  --b-base-sm:0 2px 0 var(--b-line2),0 4px 10px rgba(16,36,68,.05);
+  --b-hi:inset 0 2px 0 rgba(255,255,255,.32);
+  /* studs nítidos (círculos de borde duro, sin difuminado) */
+  --b-stud:radial-gradient(circle at 50% 50%,rgba(255,255,255,.30) 0 5.5px,rgba(0,0,0,.16) 5.5px 7px,transparent 7.5px);
+  --b-stud-lg:radial-gradient(circle at 50% 50%,rgba(255,255,255,.26) 0 7.5px,rgba(0,0,0,.18) 7.5px 9px,transparent 9.5px);
+  --b-stud-w:radial-gradient(circle at 50% 50%,#FFFFFF 0 5.5px,var(--b-line2) 5.5px 7px,transparent 7.5px);
+  --g-red:var(--b-red);--g-red-d:var(--b-red-d);--g-red-soft:var(--b-red-s);--g-ink:var(--b-ink);--g-line:var(--b-line);
+  --sx-red:var(--b-red);--sx-red-d:var(--b-red-d);--sx-red-soft:var(--b-red-s);--sx-ink:var(--b-ink);--sx-line:var(--b-line);
+  --web-red:var(--b-red);--web-red-dark:var(--b-red-d);--web-ink:var(--b-ink);--web-line:var(--b-line);
+  --accent:var(--b-red);--accent-d:var(--b-red-d);--txt:var(--b-ink)
+}
+html.b3d body,html.b3d body.sxg{background:var(--b-bg)!important;color:var(--b-ink)!important;font-family:var(--b-font)!important}
+html.b3d #app,html.b3d #app *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(i),
+html.b3d #nav,html.b3d #nav *,html.b3d .cobro-sheet,html.b3d .cobro-sheet *,html.b3d .quick-sheet,html.b3d .quick-sheet *{font-family:var(--b-font)!important}
+html.b3d :focus-visible{outline:3px solid var(--b-blue)!important;outline-offset:2px!important}
+
+/* ---------- Bloques: estructura de tarjetas ---------- */
+html.b3d body .sx-card,html.b3d body .sxg-card,html.b3d body #app .card,html.b3d body .web-panel-card,html.b3d body .web-ai-box,
+html.b3d body .web-course,html.b3d body .sxg-cli,html.b3d body .sx-renew,html.b3d body .sx-cat-item,html.b3d body .sx-prod,
+html.b3d body .rev-card,html.b3d body .usr-card,html.b3d body .adm-comp-card,html.b3d body .adm-purchase-card,html.b3d body .sxo-grupo,
+html.b3d body .ai-panel,html.b3d body .aula-item,html.b3d body .ask-item,html.b3d body .sx-summary,html.b3d body .sxg-ped,html.b3d body .sxg-mas-item,
+html.b3d body .web-reward-progress,html.b3d body .reward-progress,html.b3d body .sxg-alerta{
+  background:var(--b-card)!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r)!important;box-shadow:var(--b-base)!important;color:var(--b-ink)!important
+}
+html.b3d body .sx-prod,html.b3d body .ask-item,html.b3d body .sxg-cli,html.b3d body .sxg-ped{box-shadow:var(--b-base-sm)!important}
+html.b3d body .sxg-alerta{border-left:6px solid var(--b-red)!important}
+html.b3d body .sx-page-head h1,html.b3d body .sxg-titulo h1,html.b3d body .sxg-titulo,html.b3d body #app .sx-page:not(.sxg-inicio)>h1{color:var(--b-ink)!important;font-weight:800!important;letter-spacing:-.015em}
+@media (min-width:900px){html.b3d body .sx-page-head h1,html.b3d body .sxg-titulo h1{font-size:30px!important}}
+html.b3d body .sx-help,html.b3d body .sxg-cuenta,html.b3d body .sx-page-head small{color:var(--b-ink2)!important}
+
+/* ---------- Botones ---------- */
+html.b3d body .sx-btn.pri,html.b3d body .act.primary,html.b3d body .web-primary,html.b3d body .login-btn,html.b3d body .sxg-btn.pri,
+html.b3d body .copyall,html.b3d body #app button.primary{
+  background:var(--b-red)!important;color:#fff!important;border:0!important;border-radius:var(--b-r-sm)!important;
+  box-shadow:var(--b-hi),0 4px 0 var(--b-red-d),0 8px 16px rgba(222,31,37,.18)!important;font-weight:800!important;
+  transition:transform .12s ease,box-shadow .12s ease!important
+}
+html.b3d body .sx-btn.pri:not(:disabled):active,html.b3d body .act.primary:active,html.b3d body .web-primary:active,html.b3d body .login-btn:active,html.b3d body .copyall:active{
+  transform:translateY(3px)!important;box-shadow:var(--b-hi),0 1px 0 var(--b-red-d)!important
+}
+html.b3d body .sx-btn.pri:disabled,html.b3d body .act.primary:disabled{background:#F2A3A6!important;box-shadow:0 3px 0 #D98A8D!important;cursor:not-allowed}
+html.b3d body .sx-btn.sec,html.b3d body .act.ghost,html.b3d body .web-secondary,html.b3d body .sxg-btn.sec,html.b3d body .adm-tg-acc button,html.b3d body .usr-btns button{
+  background:#fff!important;color:var(--b-ink)!important;border:1px solid var(--b-line2)!important;border-radius:var(--b-r-sm)!important;
+  box-shadow:0 3px 0 var(--b-line2)!important;font-weight:700!important
+}
+html.b3d body .sx-btn.sec:not(:disabled):active,html.b3d body .act.ghost:active,html.b3d body .web-secondary:active{transform:translateY(2px)!important;box-shadow:0 1px 0 var(--b-line2)!important}
+html.b3d body .sx-link,html.b3d body .sxg-link{color:var(--b-red)!important;font-weight:800!important}
+
+/* ---------- Campos ---------- */
+html.b3d body #app input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),html.b3d body #app select,html.b3d body #app textarea,
+html.b3d body .cobro-sheet input,html.b3d body .cobro-sheet textarea,html.b3d body #login input{
+  background:#fff!important;border:2px solid var(--b-line)!important;border-radius:var(--b-r-sm)!important;color:var(--b-ink)!important;box-shadow:inset 0 2px 0 rgba(16,36,68,.03)!important
+}
+html.b3d body #app input:focus,html.b3d body #app select:focus,html.b3d body #app textarea:focus,html.b3d body .cobro-sheet textarea:focus{border-color:var(--b-blue)!important;outline:0!important;box-shadow:0 0 0 3px rgba(20,141,225,.18)!important}
+html.b3d body .sx-search,html.b3d body .sxg-buscar,html.b3d body #app .search{border-radius:var(--b-r-sm)!important}
+html.b3d body #app .search{background:#fff!important;border:2px solid var(--b-line)!important;box-shadow:none!important}
+html.b3d body #app .search input{border:0!important;box-shadow:none!important}
+
+/* ---------- Pestañas, chips y segmentos ---------- */
+html.b3d body .sx-chip,html.b3d body .sxg-chip,html.b3d body .sx-tab,html.b3d body .sxg-tab,html.b3d body .adm-seg button,html.b3d body .chip-row button,html.b3d body .mini-seg button,html.b3d body .sx-step{
+  background:#fff!important;color:var(--b-ink)!important;border:1px solid var(--b-line2)!important;border-radius:999px!important;
+  box-shadow:0 2px 0 var(--b-line2)!important;font-weight:700!important
+}
+html.b3d body .sx-tab,html.b3d body .adm-seg button,html.b3d body .sx-step{border-radius:var(--b-r-sm)!important}
+html.b3d body .sx-chip.on,html.b3d body .sxg-chip.on,html.b3d body .sx-tab.on,html.b3d body .sxg-tab.on,html.b3d body .adm-seg button.on,html.b3d body .chip-row button.on,
+html.b3d body .sx-chip[aria-pressed=true],html.b3d body .sxg-chip[aria-pressed=true],html.b3d body .sx-step.on{
+  background:var(--b-blue)!important;color:#fff!important;border-color:var(--b-blue-d)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-blue-d)!important
+}
+html.b3d body .sx-step.on *{color:#fff!important}
+html.b3d body .adm-seg{gap:10px!important;background:transparent!important}
+
+/* ---------- Estados (badges) ---------- */
+html.b3d body .sx-pill,html.b3d body .sxg-pill,html.b3d body .adm-tag,html.b3d body .sx-stock,html.b3d body .level-chip,html.b3d body .rev-off-tag{
+  border-radius:999px!important;font-weight:800!important;border:1px solid transparent!important
+}
+html.b3d body .sx-pill.ok,html.b3d body .sxg-pill.ok,html.b3d body .adm-tag.good,html.b3d body .adm-tag.tg-ok{background:var(--b-green-s)!important;color:var(--b-green-d)!important;border-color:#BFE6CD!important}
+html.b3d body .sx-pill.warn,html.b3d body .sxg-pill.warn,html.b3d body .adm-tag.tg-pend,html.b3d body .sx-stock.low{background:var(--b-yel-s)!important;color:#8A5A00!important;border-color:#F4DC93!important}
+html.b3d body .sx-pill.info,html.b3d body .sxg-pill.info,html.b3d body .adm-tag.money{background:var(--b-blue-s)!important;color:var(--b-blue-d)!important;border-color:#BFDDF5!important}
+html.b3d body .sx-pill.bad,html.b3d body .sxg-pill.bad,html.b3d body .adm-tag.tg-err,html.b3d body .sx-stock.out{background:var(--b-red-s)!important;color:var(--b-red-d)!important;border-color:#F5C2C4!important}
+
+/* ---------- Iconos en bloque (tile de color con dibujo blanco) ---------- */
+html.b3d body .sxg-kpi-ic,html.b3d body .sxg-card-ic,html.b3d body .sx-prod-ic,html.b3d body #nav .nav-ico[class*=web-nav-]{
+  border-radius:12px!important;color:#fff!important;box-shadow:var(--b-hi),0 3px 0 rgba(0,0,0,.22)!important;border:0!important
+}
+html.b3d body .sx-prod-ic{background:var(--b-blue-s)!important;color:var(--b-blue-d)!important;box-shadow:0 2px 0 #C3DDF2!important}
+html.b3d body .sxg-blue .sxg-kpi-ic,html.b3d body #nav .web-nav-blue{background:var(--b-blue)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-blue-d)!important}
+html.b3d body .sxg-purple .sxg-kpi-ic,html.b3d body #nav .web-nav-purple{background:var(--b-vio)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-vio-d)!important}
+html.b3d body .sxg-green .sxg-kpi-ic,html.b3d body #nav .web-nav-green{background:var(--b-green)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-green-d)!important}
+html.b3d body .sxg-amber .sxg-kpi-ic,html.b3d body #nav .web-nav-amber{background:var(--b-yel)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-yel-d)!important}
+html.b3d body #nav .web-nav-orange{background:var(--b-ora)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-ora-d)!important}
+html.b3d body #nav .web-nav-cyan{background:var(--b-cyan)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-cyan-d)!important}
+html.b3d body .sxg-red.sxg-card-ic,html.b3d body #nav .web-nav-red{background:var(--b-red)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-red-d)!important}
+html.b3d body #nav .nav-ico[class*=web-nav-] svg,html.b3d body .sxg-kpi-ic svg,html.b3d body .sxg-card-ic svg{color:#fff!important;stroke:#fff!important}
+
+/* ---------- Encabezado superior (bloque blanco) ---------- */
+html.b3d body .topbar{background:#fff!important;border:1px solid var(--b-line)!important;box-shadow:var(--b-base-sm)!important}
+@media (min-width:900px){html.b3d body .topbar{border-radius:var(--b-r)!important}}
+html.b3d body .icon-btn{background:#fff!important;border:1px solid var(--b-line)!important;border-radius:12px!important;box-shadow:0 2px 0 var(--b-line2)!important;color:var(--b-ink)!important}
+html.b3d body .icon-btn:active{transform:translateY(2px)}
+html.b3d body .icon-btn.sx-bell,html.b3d body .sxg-avatar{box-shadow:0 2px 0 var(--b-line2)!important}
+
+/* ---------- Barra lateral (solo Panel de Socios, escritorio) ---------- */
+@media (min-width:900px){
+  html.b3d body #nav:not(.sxg-nav){background:#fff!important;border:1px solid var(--b-line)!important;box-shadow:var(--b-base)!important;overflow:hidden}
+  html.b3d body #nav .web-side-brand{position:relative;padding-top:26px!important}
+  html.b3d body #nav .web-side-brand::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;background:var(--b-red) var(--b-stud) 6px 50%/22px 14px repeat-x;border-bottom:2px solid var(--b-red-d)}
+  html.b3d body #nav .web-side-brand b{color:var(--b-red)!important;font-weight:900!important}
+  html.b3d body #nav .web-side-brand span{color:var(--b-ink)!important;font-weight:800!important}
+  html.b3d body #nav .web-side-menu .nav-btn{border-radius:14px!important;color:var(--b-ink)!important;font-weight:700!important;border:1px solid transparent!important;background:transparent!important;box-shadow:none!important}
+  html.b3d body #nav .web-side-menu .nav-btn:hover{background:var(--b-bg)!important;border-color:var(--b-line)!important}
+  html.b3d body #nav .web-side-menu .nav-btn.on{background:var(--b-red-s)!important;color:var(--b-red-d)!important;border-color:#F5C2C4!important;box-shadow:0 2px 0 #F5C2C4!important}
+  html.b3d body #nav .web-side-menu .nav-ico{width:40px!important;height:40px!important;min-width:40px}
+  html.b3d body #nav .web-side-foot{color:var(--b-green-d)!important}
+}
+
+/* ---------- Navegación inferior (celular) ---------- */
+@media (max-width:899.98px){
+  html.b3d body #nav.sxg-nav,html.b3d body #nav.nav{background:#fff!important;border-top:2px solid var(--b-line)!important;box-shadow:0 -4px 14px rgba(16,36,68,.07)!important}
+  html.b3d body #nav.sxg-nav .nav-btn,html.b3d body #nav.nav .nav-btn{color:var(--b-ink2)!important;font-weight:700!important;min-height:56px!important}
+  html.b3d body #nav.sxg-nav .nav-btn.on,html.b3d body #nav.nav .nav-btn.on{
+    background:var(--b-red)!important;color:#fff!important;border-radius:14px!important;
+    box-shadow:var(--b-hi),0 4px 0 var(--b-red-d),0 6px 12px rgba(222,31,37,.2)!important
+  }
+}
+
+/* ---------- Héroe con studs (Inicio y Panel Dios) ---------- */
+html.b3d body .sxg-hola,html.b3d body #app .hero{
+  position:relative!important;overflow:hidden!important;background:var(--b-red)!important;color:#fff!important;border:0!important;
+  border-radius:var(--b-r-lg)!important;box-shadow:var(--b-hi),0 6px 0 var(--b-red-d),0 14px 26px rgba(222,31,37,.18)!important;padding-top:34px!important;padding-bottom:30px!important
+}
+html.b3d body .sxg-hola::before,html.b3d body #app .hero::before{
+  content:""!important;position:absolute!important;left:12px!important;right:12px!important;top:8px!important;width:auto!important;height:18px!important;opacity:1!important;
+  background:var(--b-stud-lg) 0 50%/36px 18px repeat-x!important;border-radius:0!important;pointer-events:none
+}
+html.b3d body .sxg-hola::after,html.b3d body #app .hero::after{
+  content:""!important;position:absolute!important;left:12px!important;right:12px!important;bottom:6px!important;top:auto!important;width:auto!important;height:18px!important;opacity:.6!important;
+  background:var(--b-stud-lg) 0 50%/36px 18px repeat-x!important;border-radius:0!important;pointer-events:none
+}
+html.b3d body #app .sxg-hola h1,html.b3d body #app .sxg-hola h1 span,html.b3d body #app .sxg-hola *{color:#fff!important;-webkit-text-fill-color:#fff}
+html.b3d body .sxg-hola svg{stroke:#fff!important}
+html.b3d body .sxg-hola .sxg-robot,html.b3d body .sxg-hola img{position:relative;z-index:1;filter:drop-shadow(0 6px 0 rgba(0,0,0,.12))}
+html.b3d body #app .hero .hl{color:#fff!important;opacity:.95;font-weight:900!important;letter-spacing:.12em}
+html.b3d body #app .hero .hv{color:#fff!important;font-weight:900!important}
+html.b3d body #app .hero .hs{color:#fff!important;font-weight:700!important;opacity:1}
+
+/* ---------- Tarjetas de métrica (bloque con banda de color y studs) ---------- */
+html.b3d body .sxg-kpi,html.b3d body .adm-mini{
+  position:relative!important;overflow:hidden!important;background:#fff!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r)!important;
+  box-shadow:var(--b-base)!important;padding-top:24px!important
+}
+html.b3d body .sxg-kpi::before,html.b3d body .adm-mini::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:12px;background:var(--b-tone,var(--b-red)) var(--b-stud) 6px 50%/22px 12px repeat-x;border-bottom:2px solid var(--b-tone-d,var(--b-red-d))
+}
+html.b3d body .sxg-kpi::after{display:none!important}
+html.b3d body .sxg-kpi{border-bottom:4px solid var(--b-tone,var(--b-red))!important}
+html.b3d body .sxg-kpi.sxg-blue{--b-tone:var(--b-blue);--b-tone-d:var(--b-blue-d)}
+html.b3d body .sxg-kpi.sxg-purple{--b-tone:var(--b-vio);--b-tone-d:var(--b-vio-d)}
+html.b3d body .sxg-kpi.sxg-green{--b-tone:var(--b-green);--b-tone-d:var(--b-green-d)}
+html.b3d body .sxg-kpi.sxg-amber{--b-tone:var(--b-yel);--b-tone-d:var(--b-yel-d)}
+html.b3d body .adm-mini:nth-child(4n+1){--b-tone:var(--b-blue);--b-tone-d:var(--b-blue-d)}
+html.b3d body .adm-mini:nth-child(4n+2){--b-tone:var(--b-red);--b-tone-d:var(--b-red-d)}
+html.b3d body .adm-mini:nth-child(4n+3){--b-tone:var(--b-green);--b-tone-d:var(--b-green-d)}
+html.b3d body .adm-mini:nth-child(4n+4){--b-tone:var(--b-yel);--b-tone-d:var(--b-yel-d)}
+html.b3d body .adm-mini b,html.b3d body .sxg-kpi b{color:var(--b-ink)!important;font-weight:900!important}
+html.b3d body .adm-mini span,html.b3d body .sxg-kpi small{color:var(--b-ink2)!important;font-weight:700!important}
+
+/* ---------- Encabezados de sección con studs (héroes de Aula y Recompensas) ---------- */
+html.b3d body .web-page-hero,html.b3d body .web-reward-hero,html.b3d body .operations-hero,html.b3d body .reward-hero{
+  position:relative!important;overflow:hidden!important;background:#fff!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r-lg)!important;
+  box-shadow:var(--b-base)!important;padding-top:30px!important
+}
+html.b3d body .web-page-hero::before,html.b3d body .web-reward-hero::before,html.b3d body .operations-hero::before,html.b3d body .reward-hero::before{
+  content:""!important;position:absolute!important;left:0!important;right:0!important;top:0!important;width:auto!important;height:14px!important;opacity:1!important;transform:none!important;
+  background:var(--b-vio) var(--b-stud) 6px 50%/22px 14px repeat-x!important;border-bottom:2px solid var(--b-vio-d)!important;border-radius:0!important
+}
+html.b3d body .web-reward-hero::before,html.b3d body .reward-hero::before{background-color:var(--b-yel)!important;border-bottom-color:var(--b-yel-d)!important}
+html.b3d body .web-page-hero *,html.b3d body .web-reward-hero *,html.b3d body .operations-hero *,html.b3d body .reward-hero *{color:var(--b-ink)}
+html.b3d body .web-progress,html.b3d body .goalbar,html.b3d body .level-track{background:#E9EEF6!important;border-radius:999px!important;box-shadow:inset 0 2px 0 rgba(16,36,68,.06)!important}
+html.b3d body .web-progress i,html.b3d body .web-progress>*,html.b3d body .goalbar>*,html.b3d body .level-track>*{background:var(--b-green)!important;border-radius:999px!important;box-shadow:inset 0 2px 0 rgba(255,255,255,.3)!important}
+
+/* ---------- Panel Dios: tarjetas de socio y usuario ---------- */
+html.b3d body .rev-card .rav,html.b3d body .usr-card .rav,html.b3d body .sx-avatar,html.b3d body .sxg-ini{
+  background:var(--b-ink)!important;color:#fff!important;border-radius:12px!important;box-shadow:var(--b-hi),0 3px 0 #06122A!important;font-weight:900!important
+}
+html.b3d body .rev-card .go{background:var(--b-red-s)!important;color:var(--b-red)!important;border-radius:10px!important}
+html.b3d body .rev-card .rs .x{color:var(--b-red-d)!important}
+html.b3d body .rev-card .rs .w{color:#9A6500!important}
+html.b3d body .usr-btns .wa{background:var(--b-green)!important;color:#fff!important;border-color:var(--b-green-d)!important;box-shadow:0 3px 0 var(--b-green-d)!important}
+
+/* ---------- Ventanas (modales y hojas) ---------- */
+html.b3d body .cobro-sheet,html.b3d body .quick-sheet,html.b3d body .sx-modal,html.b3d body .sxg-modal,html.b3d body [role=dialog]>.sx-card{
+  position:relative;border-radius:var(--b-r-lg) var(--b-r-lg) 0 0!important;border:1px solid var(--b-line)!important;box-shadow:0 -6px 24px rgba(16,36,68,.12)!important;padding-top:28px!important;overflow:hidden
+}
+html.b3d body .cobro-sheet::before,html.b3d body .quick-sheet::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:12px;background:var(--b-red) var(--b-stud) 6px 50%/22px 12px repeat-x;border-bottom:2px solid var(--b-red-d)
+}
+@media (min-width:900px){html.b3d body .cobro-sheet,html.b3d body .quick-sheet{border-radius:var(--b-r-lg)!important}}
+html.b3d body .quick-sheet-grid button{background:#fff!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r-sm)!important;box-shadow:0 3px 0 var(--b-line2)!important;color:var(--b-ink)!important;font-weight:800!important}
+
+/* ---------- Avisos, vacíos, carga ---------- */
+html.b3d body .sx-empty,html.b3d body #app .empty,html.b3d body .web-empty{color:var(--b-ink2)!important}
+html.b3d body .sx-empty b,html.b3d body #app .empty b,html.b3d body .web-empty b{color:var(--b-ink)!important}
+html.b3d body .spin{border-color:var(--b-line)!important;border-top-color:var(--b-red)!important}
+html.b3d body .net-status{border-radius:var(--b-r-sm)!important;font-weight:800!important}
+
+/* ---------- Acceso (login) ---------- */
+html.b3d body #login{background:var(--b-bg)!important}
+html.b3d body #login .login-card{position:relative;overflow:hidden;background:#fff!important;border:1px solid var(--b-line)!important;border-radius:var(--b-r-lg)!important;box-shadow:var(--b-base)!important;padding-top:34px!important}
+html.b3d body #login .login-card::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;background:var(--b-red) var(--b-stud) 6px 50%/22px 14px repeat-x;border-bottom:2px solid var(--b-red-d)}
+html.b3d body #login .login-card h2{color:var(--b-ink)!important;font-weight:900!important}
+html.b3d body #login .field{background:#fff!important;border:2px solid var(--b-line)!important;border-radius:var(--b-r-sm)!important}
+html.b3d body #login .field input{border:0!important;box-shadow:none!important}
+
+/* ---------- Control de sonido (bloques-3d.js) ---------- */
+html.b3d .b3d-snd svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+html.b3d .b3d-snd[aria-pressed=true]{background:var(--b-green)!important;color:#fff!important;border-color:var(--b-green-d)!important;box-shadow:var(--b-hi),0 2px 0 var(--b-green-d)!important}
+html.b3d .b3d-snd-card{display:flex;align-items:center;justify-content:space-between;gap:14px}
+html.b3d .b3d-snd-card b{display:block;font-size:16px;color:var(--b-ink)}
+html.b3d .b3d-snd-card small{display:block;color:var(--b-ink2);font-size:14px;margin-top:2px}
+html.b3d .b3d-switch{position:relative;flex:0 0 auto;width:58px;height:34px;border-radius:999px;border:0;background:#C9D4E4;box-shadow:inset 0 2px 0 rgba(16,36,68,.12);cursor:pointer;min-height:34px}
+html.b3d .b3d-switch::after{content:"";position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 2px 0 rgba(16,36,68,.2);transition:left .15s ease}
+html.b3d .b3d-switch[aria-checked=true]{background:var(--b-green)}
+html.b3d .b3d-switch[aria-checked=true]::after{left:28px}
+
+/* ---------- Microinteracción: presionar un bloque ---------- */
+html.b3d body .sxg-kpi:active,html.b3d body .sx-cat-item:active,html.b3d body .sxg-cli:active,html.b3d body .rev-card:active{transform:translateY(2px)!important}
+
+/* ---------- Movimiento reducido: sin rebotes ni transiciones ---------- */
+@media (prefers-reduced-motion:reduce){
+  html.b3d *,html.b3d *::before,html.b3d *::after{transition:none!important;animation:none!important}
+  html.b3d body .sxg-kpi:hover,html.b3d body .sx-btn:hover{transform:none!important}
+}
+
+/* ---------- Pasos de compra (Productos → Cliente → Pago) ---------- */
+html.b3d body .sx-steps button{border:1px solid var(--b-line2)!important;border-radius:var(--b-r-sm)!important;box-shadow:0 3px 0 var(--b-line2)!important;background:#fff!important;font-weight:700!important}
+html.b3d body .sx-steps li.on button{border:2px solid var(--b-blue)!important;box-shadow:0 3px 0 var(--b-blue-d)!important;color:var(--b-ink)!important}
+html.b3d body .sx-steps li.on b{background:var(--b-blue)!important;color:#fff!important;box-shadow:var(--b-hi)}
+/* ---------- Menú «Más» (celular): iconos en bloque ---------- */
+html.b3d body .sxg-mas-item>span:first-child,html.b3d body .sxg-mas-item .sxg-mas-ic{border-radius:12px!important;box-shadow:var(--b-hi),0 3px 0 rgba(16,36,68,.18)!important}
+html.b3d body .sxg-mas-ic{color:#fff!important}
+html.b3d body .sxg-mas-ic svg{stroke:#fff!important;color:#fff!important}
+html.b3d body .sxg-mas-ic.sxg-blue{background:var(--b-blue)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-blue-d)!important}
+html.b3d body .sxg-mas-ic.sxg-purple{background:var(--b-vio)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-vio-d)!important}
+html.b3d body .sxg-mas-ic.sxg-green{background:var(--b-green)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-green-d)!important}
+html.b3d body .sxg-mas-ic.sxg-amber{background:var(--b-yel)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-yel-d)!important}
+html.b3d body .sxg-mas-ic.sxg-red{background:var(--b-red)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-red-d)!important}
+html.b3d body .sxg-mas-ic.sxg-orange{background:var(--b-ora)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-ora-d)!important}
+html.b3d body .sxg-mas-ic.sxg-slate{background:#5B6B84!important;box-shadow:var(--b-hi),0 3px 0 #3E4B60!important}
+html.b3d body .sxg-mas-ic.sxg-cyan,html.b3d body .sxg-mas-ic.sxg-sky{background:var(--b-cyan)!important;box-shadow:var(--b-hi),0 3px 0 var(--b-cyan-d)!important}
+@media (max-width:480px){html.b3d body .sx-steps button{padding:0 7px!important;gap:6px!important;font-size:13.5px!important}}
+html.b3d body #app .search input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),html.b3d body #app .sxg-buscar input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]){border:0!important;box-shadow:none!important;background:transparent!important}
