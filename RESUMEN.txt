@@ -1,0 +1,50 @@
+ENTREGA 115 · Panel de Socios (Sublicuentas/revendedoreschat) · Sistema visual de BLOQUES 3D (R202)
+
+SUBIR con «Add files via upload», respetando carpetas:
+  index.html                 activa el tema (<html class="b3d">) y carga la capa nueva AL FINAL
+  service-worker.js          caché nueva (r202) para que nadie vea el tema viejo y el nuevo mezclados
+  assets/bloques-3d.css      NUEVO · toda la presentación de bloques 3D (una sola capa encima de las 5 anteriores)
+  assets/bloques-3d.js       NUEVO · sonido original opcional + botón en la cabecera + tarjeta en Mi perfil
+  tests/r202-bloques-3d.test.mjs, tests/bloques-3d-vistas.e2e.mjs   pruebas nuevas
+  (QA-capturas/ es solo evidencia, NO se sube)
+
+QUÉ CAUSABA EL DESFASE VISUAL
+  5 hojas de estilo una encima de otra (app.css, panel-web-20260925.css, socios-2026.css, socios-orden.css,
+  socios-guia.css). Inicio/Compras/Buzón usaban la nueva; el Panel Dios (core.js · renderAdmin), Aula y
+  Recompensas en celular seguían con app.css. Ahora bloques-3d.css viste a TODAS por igual.
+
+QUÉ CAMBIA (solo presentación)
+  - Colores del documento: rojo #DE1F25, azul #148DE1, amarillo #F8BA15, verde #17A052, violeta #783ED2,
+    tinta #102444, fondo #F5F7FC, borde #DBE3EF. Letra Inter. Sin difuminados: colores planos + canto inferior.
+  - Héroe rojo con studs (Inicio y Panel Dios), métricas con banda de color y studs, iconos en bloque de color
+    con dibujo blanco (menú lateral, «Más», métricas), botones que se «hunden» al tocarlos, pestañas y filtros
+    activos en azul, estados (vigente/por vencer/vencido) con colores fijos, ventanas con banda de studs, login.
+  - Studs solo en cabeceras, héroes y métricas (no en cada renglón).
+  - Logo y Sublirobot: los mismos archivos de siempre, sin redibujar. No se usa ninguna marca ajena.
+  - Sonido: APAGADO por defecto. Botón 🔈 en la cabecera (todas las pantallas, incluido Inicio) y
+    «Sonidos del panel» en Mi perfil. Se guarda por usuario y dispositivo. Efectos propios generados en el
+    navegador (sin archivos, sin melodías de juegos): toque 75 ms, navegación 110 ms, éxito 230 ms,
+    error 210 ms, logro 460 ms (compra registrada). Solo suena después de un toque real; nunca al cargar.
+  - Movimiento reducido del teléfono: sin animaciones.
+
+QUÉ NO CAMBIA
+  Datos, precios, descuentos del carrito, pasos Productos→Cliente→Pago, renovaciones, comprobantes, Telegram,
+  permisos, sesiones, API y Sublichat HQ. bloques-3d.js no hace ninguna petición propia.
+
+PRUEBAS
+  - Las 17 pruebas de aceptación del panel (compras, totales, stock, borrador, Telegram, pedidos, buzón,
+    permisos, responsive): 17/17 OK con el tema nuevo (igual que antes).
+  - Vistas de socio (9) + Panel Dios (4) + login en 360, 375, 390, 430, 768, 1024, 1280 y 1440 px:
+    sin desborde horizontal y sin errores de JavaScript.
+  - Tema y sonido: héroe rojo, fondo #F5F7FC, saludo legible; sonido inicia apagado, no crea audio sin
+    encenderlo, enciende, persiste al recargar, se apaga desde Mi perfil; duraciones dentro del documento.
+  - Pruebas estáticas r202: 6/6 (con las anteriores).
+  Datos de las pruebas: ficticios (simulador local). No se probó en un iPhone ni Android físico.
+
+PENDIENTE / LIMITACIONES
+  - En celular, el Panel Dios muestra la barra inferior del socio (ya pasaba antes del cambio).
+  - Las capturas son del simulador; revisar en su teléfono después de subir.
+
+ROLLBACK
+  Volver a subir index.html y service-worker.js del commit 935db56 (o quitar class="b3d" del <html>).
+  Los dos archivos nuevos se pueden dejar: sin esa clase no aplican nada.
