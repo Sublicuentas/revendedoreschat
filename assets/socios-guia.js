@@ -130,6 +130,35 @@ async function sxgCargarAvisos(per) {
   sxgAv.cargando[per] = false;
   if (current === 'buzon') vSugerencias();
 }
+/* R207 · Cuerpo del aviso ordenado: una ventaja por línea con su emoji, precio resaltado.
+   Solo cambia cómo se ve; el texto guardado no se toca. Arregla también avisos viejos que llegaron
+   pegados en un solo párrafo («✅ … 🔑 … 📱 …»). */
+const SXG_EMO = '(?:\\p{Extended_Pictographic}|[\\u{1F1E6}-\\u{1F1FF}]|[0-9#*]\\uFE0F?\\u20E3)';
+function sxgAvOrdenar(t) {
+  let re; try { re = new RegExp('\\s+(?=' + SXG_EMO + ')', 'gu'); } catch (_) { return String(t || ''); }
+  return String(t || '').replace(/\r\n?/g, '\n').split('\n').map((l) => {
+    const p = l.split(re).map((x) => x.trim()).filter(Boolean);
+    return p.length >= 3 || (p.length === 2 && /^\P{L}/u.test(l.trim())) ? p.join('\n') : l;
+  }).join('\n');
+}
+function sxgAvCuerpo(a) {
+  const lineas = sxgAvOrdenar(a.texto).split('\n').map((l) => l.trim());
+  if (lineas.length && lineas[0] === sxgAvTitulo(a)) lineas.shift();
+  let emoRe; try { emoRe = new RegExp('^(' + SXG_EMO + '(?:\\uFE0F|\\u200D' + SXG_EMO + ')*)\\s*(.*)$', 'u'); } catch (_) { emoRe = null; }
+  let html = '', lista = '';
+  const cerrar = () => { if (lista) { html += `<ul class="sxg-av-items">${lista}</ul>`; lista = ''; } };
+  for (const l of lineas) {
+    if (!l) { cerrar(); continue; }
+    const m = emoRe && l.match(emoRe);
+    if (m && !m[2]) continue; // emoji suelto decorativo (👇)
+    if (m && m[2]) { lista += `<li><span class="sxg-av-emo" aria-hidden="true">${sxEsc(m[1])}</span><span>${sxEsc(m[2])}</span></li>`; continue; }
+    cerrar();
+    if (/·\s*L\s?\d/.test(l) || /^L\d/.test(l)) html += `<p class="sxg-av-precio">${sxEsc(l)}</p>`;
+    else html += `<p>${sxEsc(l)}</p>`;
+  }
+  cerrar();
+  return html ? `<div class="sxg-av-texto">${html}</div>` : ''; // aviso de una sola línea: ya se lee completo en el título
+}
 function sxgAvTitulo(a) { const t = String(a.texto || '').trim(); const l = t.split(/\n/)[0]; return l.length > 90 ? l.slice(0, 88) + '…' : (l || 'Aviso'); }
 function sxgAniosDisponibles() {
   const hoy = sxgPartes().y; let min = hoy - 2;
@@ -464,7 +493,7 @@ vSugerencias = function () {
   const card = [...content.querySelectorAll('.sx-page > section.sx-card')].find((s) => /Avisos del equipo/.test(s.textContent));
   const html = `<section class="sxg-card sxg-av-pg" aria-labelledby="sxgAvPgT"><div class="sxg-card-head"><b id="sxgAvPgT">Avisos del equipo</b><button type="button" class="sxg-link sm" data-bz="avisos-recargar">Actualizar</button></div>
     ${sxgSelPeriodo('sxgAvPer', per, 'av')}
-    ${cargando ? `<div class="sxg-av-esq">${sxgEsq(3)}</div>` : lista.length ? `<ul class="sxg-av-full">${lista.map((a) => { const id = String(a.id || a.ts); const ab = sxgAv.abierto === id; return `<li class="${ab ? 'ab' : ''}"><button type="button" data-sxg="av-abrir" data-id="${sxAttr(id)}" aria-expanded="${ab}"><i aria-hidden="true"></i><span><b>${sxEsc(sxgAvTitulo(a))}</b><small>${sxEsc(a.autor || 'Sublicuentas')} · ${sxEsc(sxgFechaCorta(a.ts))}</small></span>${sxgIc('chev', 'sxg-chev')}</button>${ab ? `<p class="sxg-av-texto">${sxEsc(a.texto || '')}</p>` : ''}</li>`; }).join('')}</ul>` : '<p class="sxg-vacio">No hay avisos para este periodo.</p>'}
+    ${cargando ? `<div class="sxg-av-esq">${sxgEsq(3)}</div>` : lista.length ? `<ul class="sxg-av-full">${lista.map((a) => { const id = String(a.id || a.ts); const ab = sxgAv.abierto === id; return `<li class="${ab ? 'ab' : ''}"><button type="button" data-sxg="av-abrir" data-id="${sxAttr(id)}" aria-expanded="${ab}"><i aria-hidden="true"></i><span><b>${sxEsc(sxgAvTitulo(a))}</b><small>${sxEsc(a.autor || 'Sublicuentas')} · ${sxEsc(sxgFechaCorta(a.ts))}</small></span>${sxgIc('chev', 'sxg-chev')}</button>${ab ? sxgAvCuerpo(a) : ''}</li>`; }).join('')}</ul>` : '<p class="sxg-vacio">No hay avisos para este periodo.</p>'}
     <p class="sxg-nota">Los avisos se muestran como los publicó el equipo; no se borran ni se reescriben.</p></section>`;
   if (card) card.outerHTML = html; else content.querySelector('.sx-page')?.insertAdjacentHTML('beforeend', html);
 };

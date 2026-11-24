@@ -211,8 +211,11 @@ html.b3d body .usr-btns .wa{background:var(--b-green)!important;color:#fff!impor
 
 /* ---------- Ventanas (modales y hojas) ---------- */
 html.b3d body .cobro-sheet,html.b3d body .quick-sheet,html.b3d body .sx-modal,html.b3d body .sxg-modal,html.b3d body [role=dialog]>.sx-card{
-  position:relative;border-radius:var(--b-r-lg) var(--b-r-lg) 0 0!important;border:1px solid var(--b-line)!important;box-shadow:0 -6px 24px rgba(16,36,68,.12)!important;padding-top:28px!important;overflow:hidden
+  position:relative;border-radius:var(--b-r-lg) var(--b-r-lg) 0 0!important;border:1px solid var(--b-line)!important;box-shadow:0 -6px 24px rgba(16,36,68,.12)!important;padding-top:28px!important;
+  /* R207 · antes overflow:hidden: la hoja «Subir comprobante» (Renovar) no deslizaba en la web */
+  overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain
 }
+html.b3d body .cobro-sheet,html.b3d body .quick-sheet{max-height:calc(100dvh - 18px)}
 html.b3d body .cobro-sheet::before,html.b3d body .quick-sheet::before{
   content:"";position:absolute;left:0;right:0;top:0;height:12px;background:var(--b-red) var(--b-stud) 6px 50%/22px 12px repeat-x;border-bottom:2px solid var(--b-red-d)
 }
