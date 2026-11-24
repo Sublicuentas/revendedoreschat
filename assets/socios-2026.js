@@ -520,7 +520,7 @@ function sxPaso3Html() {
 
 /* R206 · forma de pago. Ambas terminan en el mismo pedido y la misma entrega MANUAL. */
 function sxMetodoHtml(m, e) {
-  const op = [['transferencia', 'Transferencia con comprobante', 'Precio normal. El equipo revisa su comprobante.'], ['billetera', 'Saldo de billetera', m.hayComision ? 'No disponible: hay productos por comisión.' : 'Se cobra al instante. Hasta 5% de descuento en productos elegibles.']];
+  const op = [['transferencia', 'Transferencia con comprobante', 'Precio normal. El equipo revisa su comprobante.'], ['billetera', 'Saldo de billetera', m.hayComision ? 'No disponible: hay productos por comisión.' : 'Se cobra al instante. 5% de descuento en todo menos Netflix.']];
   return `<fieldset class="sx-field sx-metodo ${e['pago:metodo'] ? 'err' : ''}" id="sx_pago_metodo" tabindex="-1"><legend>¿Cómo paga este pedido?</legend>
     <div class="sx-metodos" role="radiogroup" aria-label="Forma de pago">${op.map(([v, t, h]) => { const on = (SX.metodo || 'transferencia') === v, off = v === 'billetera' && m.hayComision; return `<button type="button" role="radio" class="sx-metodo-op ${on ? 'on' : ''}" aria-checked="${on}" data-act="metodo" data-v="${v}" ${off ? 'disabled' : ''}><b>${t}</b><small>${h}</small></button>`; }).join('')}</div>
     ${e['pago:metodo'] && !sxEsBilletera() ? `<small class="sx-err">${sxEsc(e['pago:metodo'])}</small>` : ''}</fieldset>`;
