@@ -125,6 +125,45 @@
     const sal = pg.querySelector('.sxg-salir'); if (sal && !hecho(sal, 'i')) { sal.classList.add('b3-salir'); sal.insertAdjacentHTML('afterbegin', SVG(I2.salir)); }
   }
 
+  /* ---------- R216 · Buzón (Mis consultas / Avisos del equipo) ---------- */
+  const I3 = {
+    sobre: '<rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m4 7.5 8 6 8-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+    megafono: '<path d="M4 10v4a1 1 0 0 0 1 1h2l8 4.5V4.5L7 9H5a1 1 0 0 0-1 1Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><path d="M8 15v3.5a1.5 1.5 0 0 0 3 0V16.2M18.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+    lapiz: '<path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="m13.5 7 3 3" stroke="currentColor" stroke-width="2.2"/>',
+    avion: '<path d="M21 4 3 11l6.5 2.5L12 20l3-5.5L21 4Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><path d="m9.5 13.5 5.5-4" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+    okc: '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+  const BANDEJA = `<svg class="b3-bz-ill" viewBox="0 0 160 110" aria-hidden="true" focusable="false">
+    <g transform="rotate(-10 62 40)"><rect x="34" y="14" width="56" height="40" rx="4" fill="#fff" stroke="#9FB0C8" stroke-width="2.5"/><path d="m36 17 26 18 26-18" fill="none" stroke="#9FB0C8" stroke-width="2.5"/><path d="M34 50h56" stroke="#DE1F25" stroke-width="3" stroke-dasharray="6 4"/></g>
+    <g transform="rotate(8 98 40)"><rect x="70" y="16" width="56" height="40" rx="4" fill="#fff" stroke="#9FB0C8" stroke-width="2.5"/><path d="m72 19 26 18 26-18" fill="none" stroke="#9FB0C8" stroke-width="2.5"/><path d="M70 52h56" stroke="#148DE1" stroke-width="3" stroke-dasharray="6 4"/></g>
+    <path d="M18 56 h124 v32 a8 8 0 0 1 -8 8 H26 a8 8 0 0 1 -8 -8Z" fill="#A9141A"/><path d="M18 52 h124 v32 a8 8 0 0 1 -8 8 H26 a8 8 0 0 1 -8 -8Z" fill="#DE1F25"/>
+    <rect x="30" y="64" width="100" height="9" rx="4.5" fill="#A9141A" opacity=".5"/>
+    ${[34, 60, 86, 112].map((x) => `<rect x="${x}" y="45" width="14" height="9" rx="3" fill="#A9141A"/><rect x="${x}" y="44" width="14" height="7" rx="3" fill="#DE1F25"/>`).join('')}
+    <path d="M128 14l6-9M136 24l10-4M140 10l6-6" stroke="#F8BA15" stroke-width="4" stroke-linecap="round"/></svg>`;
+  function buzon(root) {
+    const pg = root.querySelector('#content > .sx-page'); if (!pg || !pg.querySelector('.sx-tabs')) return;
+    pg.classList.add('b3-buzon');
+    const head = pg.querySelector(':scope > .sx-page-head');
+    if (head && !hecho(head, 'h')) {
+      head.classList.add('b3-bz-hero');
+      const tx = head.querySelector('h1')?.parentElement;
+      if (tx && tx !== head) { tx.insertAdjacentHTML('beforebegin', `<span class="b3-bz-hero-ic" aria-hidden="true">${SVG(I3.sobre)}</span>`); if (!tx.querySelector('p')) tx.insertAdjacentHTML('beforeend', '<p>Consultas y avisos del equipo en un solo lugar.</p>'); }
+      try { head.insertAdjacentHTML('beforeend', `<img src="${ROBOT_IMG}" alt="" width="88" height="88" class="b3-bz-robot" decoding="async">`); } catch (_) {}
+    }
+    pg.querySelectorAll('.sx-tabs .sx-tab').forEach((t) => { if (!t.querySelector('.b3i')) { t.classList.add('b3-bz-tab'); t.insertAdjacentHTML('afterbegin', SVG(t.dataset.v === 'avisos' ? I3.megafono : I3.sobre)); } });
+    const nueva = pg.querySelector('[data-bz="nueva"]'); if (nueva && !nueva.querySelector('.b3i')) { nueva.classList.add('b3-bz-nueva'); nueva.insertAdjacentHTML('afterbegin', SVG(I3.lapiz)); }
+    pg.querySelectorAll('[data-bz="recargar"],[data-bz="avisos-recargar"]').forEach((b) => { if (!b.querySelector('.b3i')) { b.classList.add('b3-bz-act'); b.insertAdjacentHTML('afterbegin', SVG(I.renew)); } });
+    const vac = [...pg.querySelectorAll('.sx-empty')].find((e) => /Sin consultas/.test(e.textContent));
+    if (vac && !hecho(vac, 'v')) { vac.classList.add('b3-bz-vacio'); vac.insertAdjacentHTML('afterbegin', BANDEJA); const t = document.createElement('div'); t.className = 'b3-bz-vacio-tx'; [...vac.childNodes].filter((n) => n.nodeType === 1 && n.tagName !== 'svg').forEach((n) => t.appendChild(n)); vac.appendChild(t); }
+    const tg = pg.querySelector('.sxo-tg-mini');
+    if (tg && !hecho(tg, 't')) {
+      tg.classList.add('b3-bz-tg'); tg.insertAdjacentHTML('afterbegin', `<span class="b3-bz-tg-ic" aria-hidden="true">${SVG(I3.avion)}</span>`);
+      const b = tg.querySelector('b'); if (b && tg.classList.contains('ok')) b.insertAdjacentHTML('beforeend', SVG(I3.okc, 'ok'));
+      const tx = document.createElement('span'); tx.className = 'b3-bz-tg-tx'; [...tg.querySelectorAll(':scope > b, :scope > small')].forEach((n) => tx.appendChild(n)); tg.appendChild(tx);
+    }
+    const av = pg.querySelector('.sxg-av-pg'); if (av && !hecho(av, 'a')) { av.classList.add('b3-bz-av'); av.querySelector('.sxg-card-head b')?.insertAdjacentHTML('afterbegin', `<span class="b3-bz-av-ic" aria-hidden="true">${SVG(I3.megafono)}</span>`); }
+  }
+
   function compras(root) {
     const c = root.querySelector('#sxCompra'); if (!c) return;
     c.classList.add('b3-compra');
@@ -156,6 +195,7 @@
     try { if (typeof current !== 'undefined' && current === 'clientes') { ficha(root); clientes(root); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'compras') { compras(root); barra(); } } catch (_) {}
     try { if (typeof current !== 'undefined' && current === 'mas') mas(root); } catch (_) {}
+    try { if (typeof current !== 'undefined' && current === 'buzon') buzon(root); } catch (_) {}
   }
   let pend = false;
   const mo = new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorar(); }); });
