@@ -1132,26 +1132,89 @@ function sxOnClickClientes(ev) {
 let sxRenBuscar = '';
 function sxVRenovarNuevo() { document.body.classList.remove('sx-con-barra'); sxRenPintar(); }
 function sxRenderRenNuevo() { if (current === 'renovar') sxRenPintar(true); }
+/* R214 · Renovaciones en bloques 3D: héroe compacto, 4 contadores que filtran, buscador, vistas Listado /
+   Calendario / Resumen. Misma lógica de antes: flat() + estado() + groupRenewServices(); Renovar y Mensaje de
+   cobro abren los mismos flujos (openRenewGroup / openCobroRenewGroup). Solo cambia la presentación. */
+let sxRenVista = 'listado';
+const SX_REN_IC = {
+  cal: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  alerta: '<path d="M12 3.5 21.5 20h-19Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 9.5v5M12 17.5h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  hoy: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="15.5" cy="15.5" r="3.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M15.5 14v1.6l1 .8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  semana: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 14h2M11 14h2M14.5 14h2M7.5 17h2M11 17h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  lista: '<path d="M9 6.5h11M9 12h11M9 17.5h11" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><circle cx="4.5" cy="6.5" r="1.4" fill="currentColor"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor"/><circle cx="4.5" cy="17.5" r="1.4" fill="currentColor"/>',
+  barras: '<path d="M5 20v-6M10 20V9M15 20v-8M20 20V5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  renovar: '<path d="M20 8a8.5 8.5 0 0 0-15.3-1.5M4 16a8.5 8.5 0 0 0 15.3 1.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M20 3.5V8h-4.5M4 20.5V16h4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  chat: '<path d="M12 3.5a8.5 8.5 0 0 0-7.4 12.7L3.5 20.5l4.4-1.1A8.5 8.5 0 1 0 12 3.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 8.8c.3 2.6 2.5 5 5.4 5.7l1.1-1.3-1.8-.9-.8.8c-1-.5-1.9-1.4-2.4-2.4l.8-.8-.9-1.8Z" fill="currentColor"/>',
+  tel: '<path d="M6.5 3.5h3l1.5 4-2 1.3a10 10 0 0 0 6.2 6.2l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  lupa: '<circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.3"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>',
+  mas: '<circle cx="5.5" cy="12" r="1.9" fill="currentColor"/><circle cx="12" cy="12" r="1.9" fill="currentColor"/><circle cx="18.5" cy="12" r="1.9" fill="currentColor"/>',
+  ficha: '<circle cx="12" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M4.5 20c.8-3.8 3.7-6 7.5-6s6.7 2.2 7.5 6" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+};
+const sxRenSvg = (k, cls = '') => `<svg class="b3i ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${SX_REN_IC[k] || ''}</svg>`;
+function sxRenEstadoTxt(est) { const n = est ? est.n : 9999; if (n < 0) { const d = Math.abs(n); return `Corte hace ${d} día${d === 1 ? '' : 's'}`; } if (n === 0) return 'Pago hoy'; return n === 1 ? 'Vence mañana' : `En ${n} días`; }
+function sxRenUrg(est) { const n = est ? est.n : 9999; return n < 0 ? 'vencido' : n === 0 ? 'hoy' : n <= 7 ? 'pronto' : 'ok'; }
+function sxRenTarjetaHtml(g, i) {
+  const tel = g.cliente.telefono || '', urg = sxRenUrg(g.est), varias = g.servicios.length > 1;
+  return `<li class="sx-card sx-renew b3-ren b3-ren-${urg}"><div class="b3-ren-top">
+      <span class="sx-avatar b3-ren-av" aria-hidden="true">${sxEsc((nombreCli(g.cliente)[0] || '?').toUpperCase())}</span>
+      <div class="b3-ren-tx"><b>${sxEsc(nombreCli(g.cliente))}</b>
+        <small class="b3-ren-tel">${sxRenSvg('tel')}${sxEsc(tel || 'Sin teléfono')}</small>
+        <div class="sx-tags b3-ren-svcs">${g.servicios.map((s) => `<span>${sxEsc(s.nombre)}${s.precio ? ' · ' + money(s.precio) : ''}</span>`).join('')}</div></div>
+      <div class="b3-ren-est"><span class="sx-pill b3-ren-pill ${urg}">${urg === 'vencido' || urg === 'hoy' ? sxRenSvg('alerta') : sxRenSvg('cal')}${sxEsc(sxRenEstadoTxt(g.est))}</span>
+        <small>${sxRenSvg('cal')}${g.fecha ? 'Vence: ' + sxEsc(fmtFecha(g.fecha)) : 'Sin fecha'}</small></div></div>
+    <div class="sx-row-actions b3-ren-acc"><button type="button" class="sx-btn pri sm b3-ren-renovar" data-ren="renovar" data-i="${i}">${sxRenSvg('renovar')}${varias ? 'Elegir qué renovar' : 'Renovar'}</button>
+      <button type="button" class="sx-btn sec sm b3-ren-cobro" data-ren="cobro" data-i="${i}">${sxRenSvg('chat')}${sxEsc(etiquetaMensajeRenovacion())}</button>
+      <details class="b3-ren-menu"><summary aria-label="Más opciones de ${sxAttr(nombreCli(g.cliente))}">${sxRenSvg('mas')}</summary><div role="menu">
+        <button type="button" role="menuitem" data-ren="ficha" data-id="${sxAttr(g.cliente.id)}">${sxRenSvg('ficha')}Ver ficha del cliente</button>
+        ${tel ? `<a role="menuitem" href="tel:${sxAttr(String(tel).replace(/[^\d+]/g, ''))}">${sxRenSvg('tel')}Llamar</a>` : ''}</div></details></div></li>`;
+}
+function sxRenCalendarioHtml(groups) {
+  if (!groups.length) return '';
+  const dias = new Map();
+  groups.forEach((g, i) => { const k = g.fecha ? fmtFecha(g.fecha) : 'Sin fecha'; if (!dias.has(k)) dias.set(k, { est: g.est, items: [] }); dias.get(k).items.push([g, i]); });
+  return `<ol class="b3-ren-cal">${[...dias.entries()].map(([dia, d]) => { const tot = d.items.reduce((a, [g]) => a + g.servicios.reduce((x, s) => x + (Number(s.precio) || 0), 0), 0);
+    return `<li class="b3-ren-dia b3-ren-${sxRenUrg(d.est)}"><div class="b3-ren-dia-h"><b>${sxRenSvg('cal')}${sxEsc(dia)}</b><span>${sxEsc(sxRenEstadoTxt(d.est))} · ${d.items.length} cliente${d.items.length === 1 ? '' : 's'}${tot ? ' · ' + money(tot) : ''}</span></div>
+      <ul class="sx-renews">${d.items.map(([g, i]) => sxRenTarjetaHtml(g, i)).join('')}</ul></li>`; }).join('')}</ol>`;
+}
+function sxRenResumenHtml(todos) {
+  const suma = (a) => a.reduce((t, s) => t + (Number(s.precio) || 0), 0);
+  const grupos = [['vencido', 'Vencidos', todos.filter((s) => s.est.n < 0)], ['hoy', 'Hoy', todos.filter((s) => s.est.n === 0)], ['pronto', 'Próximos 7 días', todos.filter((s) => s.est.n > 0 && s.est.n <= 7)], ['ok', 'Después de 7 días', todos.filter((s) => s.est.n > 7)]];
+  const porSvc = new Map(); todos.filter((s) => s.est.n <= 7).forEach((s) => { const k = s.nombre || 'Servicio'; const x = porSvc.get(k) || { n: 0, l: 0 }; x.n++; x.l += Number(s.precio) || 0; porSvc.set(k, x); });
+  return `<section class="sx-card b3-ren-res"><h2>${sxRenSvg('barras')}Resumen de cobros</h2>
+    <dl class="b3-ren-res-g">${grupos.map(([k, t, a]) => `<div class="b3-ren-${k}"><dt>${t}</dt><dd><b>${money(suma(a))}</b><small>${a.length} servicio${a.length === 1 ? '' : 's'}</small></dd></div>`).join('')}</dl>
+    ${porSvc.size ? `<h3>Por cobrar en 7 días, por servicio</h3><ul class="b3-ren-res-s">${[...porSvc.entries()].sort((a, b) => b[1].l - a[1].l).map(([k, x]) => `<li><span>${sxEsc(k)}</span><b>${x.n} · ${money(x.l)}</b></li>`).join('')}</ul>` : ''}
+    <p class="sx-help">Montos según el precio guardado de cada servicio. Para cobrar, use «Listado» o «Calendario».</p></section>`;
+}
 function sxRenPintar(soloLista = false) {
-  let fs = flat().filter((s) => s.est.n < 9999);
-  const cnt = { vencidos: fs.filter((s) => s.est.n < 0).length, hoy: fs.filter((s) => s.est.n === 0).length, porvencer: fs.filter((s) => s.est.n >= 0 && s.est.n <= 7).length };
+  const todos = flat().filter((s) => s.est.n < 9999);
+  let fs = todos;
+  const cnt = { todos: todos.length, vencidos: todos.filter((s) => s.est.n < 0).length, hoy: todos.filter((s) => s.est.n === 0).length, porvencer: todos.filter((s) => s.est.n >= 0 && s.est.n <= 7).length };
   if (renF === 'vencidos') fs = fs.filter((s) => s.est.n < 0); else if (renF === 'hoy') fs = fs.filter((s) => s.est.n === 0); else if (renF === 'porvencer') fs = fs.filter((s) => s.est.n >= 0 && s.est.n <= 7);
   const q = sxNorm(sxRenBuscar), dig = sxRenBuscar.replace(/\D/g, '');
   if (q) fs = fs.filter((s) => sxNorm(nombreCli(s.cliente)).includes(q) || sxNorm(s.nombre).includes(q) || (dig.length >= 3 && String(s.cliente.telefono || '').replace(/\D/g, '').includes(dig)));
   renewGroups = groupRenewServices(fs);
-  const listaHtml = renewGroups.length ? `<ul class="sx-renews">${renewGroups.map((g, i) => `<li class="sx-card sx-renew"><div class="sx-renew-head"><span class="sx-avatar" aria-hidden="true">${sxEsc((nombreCli(g.cliente)[0] || '?').toUpperCase())}</span><div><b>${sxEsc(nombreCli(g.cliente))}</b><small>${g.fecha ? 'Vence ' + sxEsc(fmtFecha(g.fecha)) : 'Sin fecha'} · ${sxEsc(g.cliente.telefono || 'Sin teléfono')}</small></div><span class="sx-pill ${g.est.n < 0 || g.est.n === 0 ? 'warn' : g.est.n <= 7 ? 'info' : 'ok'}">${sxEsc(g.est.t)}</span></div>
-      <div class="sx-tags">${g.servicios.map((s) => `<span>${sxEsc(s.nombre)}${s.precio ? ' · ' + money(s.precio) : ''}</span>`).join('')}</div>
-      <div class="sx-row-actions"><button type="button" class="sx-btn pri sm" data-ren="renovar" data-i="${i}">${g.servicios.length > 1 ? 'Elegir qué renovar' : 'Renovar'}</button><button type="button" class="sx-btn sec sm" data-ren="cobro" data-i="${i}">${sxEsc(etiquetaMensajeRenovacion())}</button></div></li>`).join('')}</ul>` : `<div class="sx-card sx-empty"><b>Todo en orden</b><p>No hay renovaciones en este filtro.</p></div>`;
+  const vacio = `<div class="sx-card sx-empty"><b>Todo en orden</b><p>No hay renovaciones en este filtro.</p></div>`;
+  const listaHtml = sxRenVista === 'resumen' ? sxRenResumenHtml(fs)
+    : !renewGroups.length ? vacio
+    : sxRenVista === 'calendario' ? sxRenCalendarioHtml(renewGroups)
+    : `<ul class="sx-renews">${renewGroups.map((g, i) => sxRenTarjetaHtml(g, i)).join('')}</ul>`;
   if (soloLista && document.getElementById('sxRenLista')) { document.getElementById('sxRenLista').innerHTML = listaHtml; return; }
-  content.innerHTML = `<div class="sx-page"><header class="sx-page-head"><div><small>Control de vencimientos</small><h1>Renovaciones</h1><p class="sx-help">Al renovar elige el período y ve la nueva fecha antes de confirmar.</p></div></header>
-    <div class="sx-tools"><label class="sx-field sx-search"><span>Buscar</span><input id="sxRenBuscar" type="search" value="${sxAttr(sxRenBuscar)}" placeholder="Cliente, servicio o teléfono"></label></div>
-    <div class="sx-filter" role="group" aria-label="Filtrar renovaciones">${[['todos', 'Todos'], ['vencidos', `Vencidos · ${cnt.vencidos}`], ['hoy', `Hoy · ${cnt.hoy}`], ['porvencer', `Próximos 7 días · ${cnt.porvencer}`]].map(([k, l]) => `<button type="button" class="sx-chip ${renF === k ? 'on' : ''}" aria-pressed="${renF === k}" data-ren="filtro" data-v="${k}">${l}</button>`).join('')}</div>
+  const KPI = [['todos', 'Todas', cnt.todos, 'cal', 'blue'], ['vencidos', 'Vencidos', cnt.vencidos, 'alerta', 'red'], ['hoy', 'Hoy', cnt.hoy, 'hoy', 'orange'], ['porvencer', 'Próximos 7 días', cnt.porvencer, 'semana', 'purple']];
+  content.innerHTML = `<div class="sx-page b3-renov">
+    <header class="sx-page-head b3-ren-hero"><span class="b3-ren-hero-ic" aria-hidden="true">${sxRenSvg('cal')}</span><div><h1>Renovaciones</h1><p>Controle vencimientos, renueve y mantenga activos sus servicios.</p></div>
+      <img src="${ROBOT_IMG}" alt="" width="96" height="96" class="b3-ren-robot" decoding="async"></header>
+    <div class="sx-filter b3-ren-kpis" role="group" aria-label="Filtrar renovaciones">${KPI.map(([k, l, n, ic, tono]) => `<button type="button" class="sx-chip b3-ren-kpi ${tono} ${renF === k ? 'on' : ''}" aria-pressed="${renF === k}" data-ren="filtro" data-v="${k}"><span class="b3-ren-kpi-ic" aria-hidden="true">${sxRenSvg(ic)}</span><span class="b3-ren-kpi-tx"><small>${l}</small><b>${n.toLocaleString('es-HN')}</b></span></button>`).join('')}</div>
+    <div class="sx-tools"><label class="sx-field sx-search b3-ren-buscar"><span class="sr">Buscar</span>${sxRenSvg('lupa', 'lupa')}<input id="sxRenBuscar" type="search" value="${sxAttr(sxRenBuscar)}" placeholder="Buscar cliente, servicio o teléfono"></label></div>
+    <div class="b3-ren-vistas" role="tablist" aria-label="Vista">${[['listado', 'Listado', 'lista'], ['calendario', 'Calendario', 'cal'], ['resumen', 'Resumen', 'barras']].map(([k, l, ic]) => `<button type="button" role="tab" class="b3-ren-vista ${sxRenVista === k ? 'on' : ''}" aria-selected="${sxRenVista === k}" data-ren="vista" data-v="${k}">${sxRenSvg(ic)}${l}</button>`).join('')}</div>
+    <p class="sx-help b3-ren-nota">Al renovar elige el período y ve la nueva fecha antes de confirmar.</p>
     <div id="sxRenLista">${listaHtml}</div></div>`;
   content.querySelector('#sxRenBuscar')?.addEventListener('input', (ev) => { sxRenBuscar = ev.target.value; sxRenPintar(true); });
 }
 function sxOnClickRen(ev) {
   const b = ev.target.closest('[data-ren]'); if (!b || current !== 'renovar') return;
   if (b.dataset.ren === 'filtro') { renF = b.dataset.v; sxRenPintar(); return; }
+  if (b.dataset.ren === 'vista') { sxRenVista = ['listado', 'calendario', 'resumen'].includes(b.dataset.v) ? b.dataset.v : 'listado'; sxRenPintar(); return; }
+  if (b.dataset.ren === 'ficha') { try { sxoCliAbierto = String(b.dataset.id); } catch (_) {} go('clientes'); return; }
   if (b.dataset.ren === 'renovar') openRenewGroup(Number(b.dataset.i));
   if (b.dataset.ren === 'cobro') openCobroRenewGroup(Number(b.dataset.i));
 }
