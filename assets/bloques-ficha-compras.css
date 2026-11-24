@@ -837,3 +837,29 @@ html.b3d body .rw-page .rw-nivel{min-width:0}
 @media (min-width:1180px){html.b3d body .rw-niveles{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (min-width:1180px){html.b3d body .rw-nivel-tx{flex:1 1 0}html.b3d body .rw-page .rw-nivel .rw-nivel-h{flex-wrap:wrap;padding-right:56px!important}html.b3d body .rw-nivel-h .rw-su{flex-basis:auto;margin-left:76px}}
 @media (min-width:1180px){html.b3d body .rw-page .rw-nivel-tx small{font-size:14px!important}html.b3d body .rw-page .rw-nivel-tx b{font-size:24px!important}html.b3d body .rw-insig{width:54px;height:50px}}
+
+/* ======================= R220 · CAMPANILLA 3D DE AVISOS ======================= */
+html.b3d body #topbarActions .partner-inbox-btn.b3-campana{position:relative!important;display:inline-grid!important;place-items:center;width:46px!important;height:46px!important;min-width:46px!important;padding:0!important;
+  border:2px solid var(--b-green)!important;border-radius:14px!important;background:#fff!important;color:var(--b-ink)!important;box-shadow:0 3px 0 var(--b-green-d),0 6px 12px rgba(16,36,68,.08)!important;overflow:visible!important;cursor:pointer;transition:transform .08s,box-shadow .08s}
+html.b3d body #topbarActions .partner-inbox-btn.b3-campana .b3-campana-ic{width:26px;height:26px;display:block;color:#10285A}
+html.b3d body #topbarActions .partner-inbox-btn.b3-campana .nav-badge{display:none!important}
+html.b3d body #topbarActions .partner-inbox-btn.b3-campana:active{transform:translateY(2px);box-shadow:0 1px 0 var(--b-green-d)!important}
+html.b3d body #topbarActions .partner-inbox-btn.b3-campana:focus-visible{outline:3px solid var(--b-blue)!important;outline-offset:2px}
+html.b3d body .b3-campana-dot{position:absolute;top:5px;right:5px;width:13px;height:13px;border-radius:50%;background:#E8202A;border:2px solid #fff;box-shadow:0 2px 0 #A9141A;display:none;pointer-events:none}
+html.b3d body .b3-campana.con-aviso .b3-campana-dot{display:block}
+html.b3d body .b3-campana.b3-pop .b3-campana-dot{animation:b3pop .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes b3pop{0%{transform:scale(.2)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){html.b3d body .b3-campana.b3-pop .b3-campana-dot{animation:none}}
+/* avisos sin leer en Buzón → Avisos del equipo */
+html.b3d body .sxg-av-full>li.b3-av-nuevo{position:relative}
+html.b3d body .sxg-av-full>li.b3-av-nuevo>button[data-sxg="av-abrir"]{background:#FFF8F8}
+html.b3d body .b3-av-et{display:inline-flex;align-items:center;gap:5px;margin:0 0 3px;padding:2px 8px;border-radius:8px;background:var(--b-red-s);color:#B3151B;border:1px solid #F6C9CA;font:800 12px var(--b-font)}
+html.b3d body .b3-av-et::before{content:"";width:7px;height:7px;border-radius:50%;background:#E8202A}
+html.b3d body .b3-av-marcar{display:inline-flex;align-items:center;min-height:44px;margin:0 12px 10px 52px;padding:0 14px;border:1px solid var(--b-line);border-radius:12px;background:#fff;color:var(--b-ink);box-shadow:0 3px 0 var(--b-line2);font:800 14px var(--b-font);cursor:pointer}
+html.b3d body .b3-av-marcar:focus-visible{outline:3px solid var(--b-blue);outline-offset:2px}
+html.b3d body .sxg-av-full .b3-av-et{display:inline-flex!important;flex-direction:row!important;align-self:flex-start;width:auto}
+html.b3d body .sxg-av-full>li:not(.b3-av-nuevo)>button>i{background:var(--b-line2)!important}
+html.b3d body .sxg-av-full>li.b3-av-nuevo>button>i{background:#E8202A!important;box-shadow:0 0 0 3px #FCE3E4}
+html.b3d body .sxg-av-full>li>button.b3-av-marcar,html.b3d body .b3-bz-av .sxg-av-full>li>button.b3-av-marcar{display:inline-flex!important;width:auto!important;min-height:44px!important;margin:-2px 0 10px auto!important;padding:0 14px!important;float:none;border:1px solid var(--b-line)!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 0 var(--b-line2)!important;font:800 14px var(--b-font)!important;color:var(--b-ink)!important;justify-content:center}
+html.b3d body .sxg-av-full>li.b3-av-nuevo{display:flex;flex-direction:column}
+html.b3d body .sxg-av-full>li.b3-av-nuevo>button[data-sxg="av-abrir"]{background:#FFF8F8!important;border-color:#F6C9CA!important}
